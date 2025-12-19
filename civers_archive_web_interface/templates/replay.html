@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block meta_description %}
+Replay archived snapshot from {{ snapshot.timestamp[:10] }}{% if archived_url %} for {{ archived_url.original_url }}{% endif %}
+{% endblock %}
+
+{% block content %}
+<div x-data='replayPage("{{ snapshot_id }}", "{{ current_view }}", {{ available_views | tojson }})'
+     class="min-h-screen bg-gray-50">
+
+  <!-- Breadcrumb Navigation -->
+  <div class="border-b bg-white">
+    <div class="container py-4">
+      <nav class="breadcrumb-nav" aria-label="Breadcrumb navigation">
+        <ol class="flex items-center space-x-2 text-sm text-gray-500">
+          <!-- Home Link -->
+          <li>
+            <a href="/"
+               class="text-blue-600 hover:text-blue-800 focus:text-blue-800 focus:outline-none focus:underline transition-colors duration-200"
+               aria-label="Home">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+              </svg>
+              <span class="sr-only">Home</span>
+            </a>
+          </li>
+
+          {% if archived_url %}
+          <!-- Archive Link -->
+          <li class="flex items-center">
+            <svg class="w-4 h-4 text-gray-400 mx-2" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+            </svg>
+            <a href="/archive/{{ archived_url.url_id }}"
+               class="text-blue-600 hover:text-blue-800 focus:text-blue-800 focus:outline-none focus:underline transition-colors duration-200 max-w-xs truncate">
+              Archive
+            </a>
+          </li>
+          {% endif %}
+
+          <!-- Current: Replay -->
+          <li class="flex items-center">
+            <svg class="w-4 h-4 text-gray-400 mx-2" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+            </svg>
+            <span class="text-gray-900 font-medium" aria-current="page">
+              Replay
+            </span>
+          </li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Metadata Header -->
+  <header class="card" role="banner">
+    <div class="card-body">
+      <div class="lg:flex lg:items-center lg:justify-between">
+
+        <!-- Snapshot Info -->
+        <div class="min-w-0 flex-1">
+          <h1 class="text-2xl font-bold sm:text-3xl truncate">
+            {{ snapshot.title or "Archived Snapshot" }}
+          </h1>
+
+          <div class="mt-2 flex flex-col sm:flex-row sm:items-center sm:space-x-6 text-sm text-gray">
+            <!-- Timestamp -->
+            <div class="flex items-center">
+              <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z"/>
+              </svg>
+              <span x-text="formatDate('{{ snapshot.timestamp }}')"></span>
+            </div>
+
+            <!-- Status Code -->
+            {% if snapshot.status_code %}
+            <div class="flex items-center">
+              <span class="badge" :class="getStatusBadgeClass({{ snapshot.status_code }})">
+                {{ snapshot.status_code }}
+              </span>
+            </div>
+            {% endif %}
+
+            <!-- Snapshot ID -->
+            <div class="flex items-center font-mono text-xs">
+              <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"/>
+              </svg>
+              <span>{{ snapshot_id }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- View Toggle Controls -->
+        <div class="mt-5 lg:mt-0 lg:ml-4">
+          <div x-show="availableViews.length > 1" class="btn-group" role="group">
+            <template x-for="view in availableViews" :key="view">
+              <button @click="switchView(view)"
+                      :class="{
+                        'btn-primary': currentView === view,
+                        'btn-secondary': currentView !== view
+                      }"
+                      class="btn"
+                      :aria-pressed="currentView === view ? 'true' : 'false'">
+                <span x-text="view.toUpperCase()"></span>
+              </button>
+            </template>
+          </div>
+
+          <!-- Single view indicator -->
+          <div x-show="availableViews.length === 1" class="text-sm text-gray">
+            <span x-text="currentView.toUpperCase() + ' View'"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container responsive-spacing" role="main">
+
+    <!-- Loading State -->
+    <div x-show="loading" class="flex justify-center items-center h-96" role="status" aria-live="polite">
+      <div class="inline-flex items-center">
+        <div class="loading-spinner mr-3"></div>
+        <span x-text="'Loading ' + currentView.toUpperCase() + ' content...'"></span>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div x-show="error" class="card error-state" role="alert">
+      <div class="card-body">
+        <div class="flex">
+          <svg class="h-5 w-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"/>
+          </svg>
+          <div>
+            <h3 class="text-sm font-medium">Error loading content</h3>
+            <div class="mt-2 text-sm">
+              <p x-text="error"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Replay Container -->
+    <div x-show="!loading && !error" class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+      <!-- Main Replay Area -->
+      <div class="lg:col-span-3">
+        <div class="card overflow-hidden">
+          <div class="card-header">
+            <h2 class="text-lg font-medium">
+              <span x-text="currentView.toUpperCase() + ' Replay'"></span>
+            </h2>
+            <p class="mt-1 text-sm text-gray">
+              Archived content from <span x-text="formatDate('{{ snapshot.timestamp }}')"></span>
+            </p>
+          </div>
+
+          <!-- Content Frame -->
+          <div class="bg-gray min-h-96">
+            <!-- WACZ Replay -->
+            <div x-show="currentView === 'wacz'" class="w-full h-full">
+              {% include "components/wacz_replay.html" %}
+            </div>
+
+            <!-- SingleFile Display -->
+            <div x-show="currentView === 'singlefile'" class="w-full h-full">
+              <!-- New SingleFile Viewer Component -->
+              {% include "components/singlefile_viewer.html" %}
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Citation Panel (Sidebar) -->
+      <div class="lg:col-span-1">
+        <div class="card">
+          <div class="card-body">
+            <h3 class="text-lg font-medium mb-4">Citation Information</h3>
+
+            <!-- Snapshot Details -->
+            <div class="space-y-4">
+              <div>
+                <label class="form-label">Snapshot ID</label>
+                <p class="mt-1 text-sm font-mono">{{ snapshot_id }}</p>
+              </div>
+
+              <div>
+                <label class="form-label">Captured</label>
+                <p class="mt-1 text-sm" x-text="formatDate('{{ snapshot.timestamp }}')"></p>
+              </div>
+
+              {% if archived_url %}
+              <div>
+                <label class="form-label">Original URL</label>
+                <p class="mt-1 text-sm break-words">{{ archived_url.original_url }}</p>
+              </div>
+              {% endif %}
+
+              {% if snapshot.title %}
+              <div>
+                <label class="form-label">Page Title</label>
+                <p class="mt-1 text-sm">{{ snapshot.title }}</p>
+              </div>
+              {% endif %}
+            </div>
+
+            <!-- Available Artifacts -->
+            <div class="mt-6">
+              <h4 class="form-label mb-3">Available Downloads</h4>
+              <div class="space-y-2">
+                {% for artifact in snapshot.available_artifacts %}
+                <button @click="downloadArtifact('{{ snapshot_id }}', '{{ artifact.split('.')[0] }}')"
+                        class="btn btn-outline w-full justify-between text-sm">
+                  <span>{{ artifact }}</span>
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/>
+                  </svg>
+                </button>
+                {% endfor %}
+              </div>
+            </div>
+
+            <!-- Citation Format Placeholder -->
+            <div class="mt-6 card-footer">
+              <h4 class="form-label mb-2">Citation Format</h4>
+              <p class="text-xs text-gray">
+                Citation formatting tools will be available here in future updates.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/replay.js') }}"></script>
+<!-- Only load ReplayWeb.page UI library when WACZ view is active -->
+{% if current_view == 'wacz' %}
+<script defer src="{{ url_for('static', path='lib/replaywebpage/ui.js') }}"></script>
+<script>
+  // Initialize WACZ service worker when WACZ view is loaded
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/replay-sw.js')
+      .then(registration => console.log('WACZ service worker registered:', registration))
+      .catch(error => console.error('Service worker registration failed:', error));
+  }
+</script>
+{% endif %}
+{% endblock %}

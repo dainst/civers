@@ -1,0 +1,97 @@
+# ==============================================================================
+# CiVers Orchestrator - Docker Compose
+# ==============================================================================
+#
+# This compose file sets up the complete orchestrator stack:
+# - Kafka broker (message bus)
+# - Kafka UI (monitoring)
+# - CiVers Orchestrator (workflow orchestration)
+#
+# Usage:
+#   # Copy .env.example to .env (first time only)
+#   cp .env.example .env
+#
+#   # Start all services
+#   docker compose up -d
+#
+#   # Start only Kafka (for local development)
+#   docker compose up -d kafka kafka-ui
+#
+#   # View logs
+#   docker compose logs -f orchestrator
+#
+#   # Rebuild orchestrator after code changes
+#   docker compose up -d --build orchestrator
+#
+#   # Stop all services
+#   docker compose down
+#
+# ==============================================================================
+
+services:
+  # ============================================================================
+  # Kafka Broker
+  # ============================================================================
+  kafka:
+    image: apache/kafka:latest
+    container_name: civers-kafka
+    env_file: .env
+    ports:
+      - "${KAFKA_EXTERNAL_PORT:-29092}:29092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: [ "CMD-SHELL", "./opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Kafka UI - Web interface for monitoring
+  # ============================================================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: civers-kafka-ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: ${KAFKA_UI_CLUSTER_NAME:-CiVers Kafka Cluster}
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: ${KAFKA_UI_BOOTSTRAP_SERVERS:-kafka:9092}
+      DYNAMIC_CONFIG_ENABLED: "true"
+    ports:
+      - "${KAFKA_UI_PORT:-8088}:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # CiVers Orchestrator Service
+  # ============================================================================
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: civers-orchestrator
+    env_file: .env
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - civers-network
+    restart: unless-stopped
+
+networks:
+  civers-network:
+    name: civers-network
+    driver: bridge
+
+volumes:
+  kafka-data:
+    name: civers-kafka-data

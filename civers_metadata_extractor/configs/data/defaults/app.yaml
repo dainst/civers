@@ -1,0 +1,22 @@
+# Metadata Extractor - Core Application Configuration
+# Base settings for the metadata extraction system
+
+app:
+  name: "${APP_NAME:-metadata_extraction_system}"
+  version: "2.0.0"
+  environment: "${CONFIG_ENVIRONMENT:-development}"
+
+# Logging configuration
+logging:
+  level: "${LOG_LEVEL:-INFO}"
+  file: "metadata_extraction.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  suppress_kafka_logs: true
+
+# Performance settings
+performance:
+  max_concurrent_extractions: 10
+  request_timeout_seconds: 30
+  retry_attempts: 3
+  cache_enabled: true
+  cache_ttl_seconds: 3600

@@ -1,0 +1,19 @@
+# Development Environment Configuration
+# For local development
+
+environment: development
+
+transport:
+  kafka:
+    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
+    consumer_group: "${KAFKA_CONSUMER_GROUP_ID:-metadata-extractor-dev}"
+
+storage:
+  backends:
+    local_file:
+      base_path: "${METADATA_OUTPUT_DIR:-output/metadata}"
+    civers_rest_api:
+      upload_url: "${CIVERS_API_URL:-http://localhost:8000}/api/upload"
+
+logging:
+  level: "${LOG_LEVEL:-DEBUG}"

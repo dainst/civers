@@ -1,0 +1,86 @@
+# Unified Kafka Transport Configuration
+# Shared topic definitions for all CIVERS components
+
+transport:
+  enabled:
+    - kafka
+
+  kafka:
+    # Default bootstrap servers - override in environment configs
+    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
+
+    # Consumer configuration
+    consumer:
+      group_id: "${KAFKA_CONSUMER_GROUP_ID:-civers_default}"
+      auto_offset_reset: "${KAFKA_AUTO_OFFSET_RESET:-earliest}"
+      enable_auto_commit: true
+      auto_commit_interval_ms: 5000
+      session_timeout_ms: 30000
+      max_poll_interval_ms: 300000
+
+    # Producer configuration
+    producer:
+      acks: "all"
+      retries: 3
+      batch_size: 16384
+      linger_ms: 10
+
+    # Shared topic definitions
+    topics:
+      # Orchestrator topics
+      orchestrator_requests: "orchestrator.requests"
+      orchestrator_status: "orchestrator.status"
+      orchestrator_completed: "orchestrator.completed"
+      orchestrator_failed: "orchestrator.failed"
+
+      # Archive Generator topics
+      archive_requests: "archive.requests"
+      archive_status: "archive.status"
+      archive_completed: "archive.completed"
+      archive_failed: "archive.failed"
+
+      # Metadata Extractor topics
+      metadata_requests: "metadata.requests"
+      metadata_started: "metadata.started"
+      metadata_completed: "metadata.completed"
+      metadata_failed: "metadata.failed"
+
+    # Component Mappings: Maps transport-agnostic component identifiers
+    # to Kafka-specific topics and event model class names.
+    component_mappings:
+      archive_generator:
+        request_topic: "archive.requests"
+        response_topics:
+          success: "archive.completed"
+          failure: "archive.failed"
+        event_models:
+          request: "ArchiveRequestEvent"
+          success: "ArchiveCompletedEvent"
+          failure: "ArchiveFailedEvent"
+
+      metadata_extractor:
+        request_topic: "metadata.requests"
+        response_topics:
+          success: "metadata.completed"
+          failure: "metadata.failed"
+        event_models:
+          request: "MetadataExtractionRequestEvent"
+          success: "MetadataExtractionCompletedEvent"
+          failure: "MetadataExtractionFailedEvent"
+
+      doi_service:
+        request_topic: "doi.requests"
+        response_topics:
+          success: "doi.completed"
+          failure: "doi.failed"
+        event_models:
+          request: "DOIRequestEvent"
+          success: "DOICompletedEvent"
+          failure: "DOIFailedEvent"
+
+    # Connection and health settings
+    connection_retry_attempts: 5
+    connection_retry_delay_ms: 2000
+    health_check_enabled: true
+    health_check_timeout_ms: 5000
+    monitoring_enabled: true

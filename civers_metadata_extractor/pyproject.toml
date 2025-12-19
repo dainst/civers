@@ -1,0 +1,120 @@
+[project]
+name = "civers-metadata-extractor"
+version = "2.0.0"
+description = "Event-driven metadata extraction service for academic web resources with DataCite format conversion"
+authors = [
+    {name = "CIVERS Project", email = "info@dainst.org"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Text Processing :: Markup :: HTML",
+]
+dependencies = [
+    # Core dependencies for data validation and models
+    "pydantic>=2.11.5",
+    # Kafka messaging (async native)
+    "aiokafka>=0.10.0",
+    # HTML parsing and web content processing
+    "beautifulsoup4>=4.13.4",
+    "lxml>=5.4.0",
+    # Configuration management
+    "PyYAML>=6.0.2",
+    # HTTP client for content fetching (optional but recommended)
+    "httpx>=0.24.0",
+    # Testing framework
+    "pytest>=8.3.5",
+    "pytest-asyncio>=1.0.0",
+    "aiofiles>=24.1.0",
+    "psutil>=7.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-asyncio>=1.0.0",
+]
+http = [
+    "httpx>=0.24.0",
+]
+
+[project.scripts]
+civers-metadata-extractor = "main:main"
+civers-health-check = "scripts.civers_health_check:main"
+kafka-monitor = "scripts.kafka_monitor:main"
+
+[project.urls]
+Homepage = "https://github.com/dainst/civers-metadata-extractor"
+Documentation = "https://github.com/dainst/civers-metadata-extractor/blob/main/README.md"
+Repository = "https://github.com/dainst/civers-metadata-extractor"
+Issues = "https://github.com/dainst/civers-metadata-extractor/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "metadata_extraction_services",
+    "metadata_extractors", 
+    "models",
+    "configs",
+    "transport_services",
+    "storage_layer"
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.5",
+    "pytest-asyncio>=1.0.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "unit: marks tests as unit tests",
+    "integration: marks tests as integration tests",
+    "slow: marks tests as slow running",
+]
+
+[tool.coverage.run]
+source = [
+    "metadata_extraction_services",
+    "metadata_extractors",
+    "models",
+    "configs",
+    "transport_services",
+    "storage_layer",
+]
+omit = [
+    "tests/*",
+    "scripts/*",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

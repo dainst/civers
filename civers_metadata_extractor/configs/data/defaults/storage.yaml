@@ -1,0 +1,22 @@
+# Metadata Extractor - Storage Configuration
+# Multi-backend storage settings for metadata output
+
+app:
+  storage:
+    enabled:
+      - local_file
+      - civers_rest_api
+    
+    backends:
+      local_file:
+        base_path: "${METADATA_OUTPUT_DIR:-output/metadata}"
+        create_subdirectories: true
+      
+      civers_rest_api:
+        upload_url: "${CIVERS_API_URL:-http://localhost:8000}/api/upload"
+        timeout_seconds: 30
+        retry_attempts: 3
+        verify_ssl: false
+        auth:
+          enabled: false
+

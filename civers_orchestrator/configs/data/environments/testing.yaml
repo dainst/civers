@@ -1,0 +1,133 @@
+# ==============================================================================
+# Testing Environment Configuration
+# ==============================================================================
+#
+# This configuration is auto-detected when running pytest (PYTEST_CURRENT_TEST).
+# It can be explicitly set with: CONFIG_ENVIRONMENT=testing
+#
+# Testing configuration:
+#   - Uses localhost:29092 (same port as integration tests)
+#   - Test-specific topic prefixes ("test.")
+#   - Test consumer group
+#   - Shorter timeouts for faster tests
+#   - Inherits workflows and domains from defaults/
+#
+# ==============================================================================
+
+app:
+  environment: testing
+  name: "civers-orchestrator-test"
+  version: "1.0.0-test"
+
+transport:
+  enabled:
+    - kafka
+  kafka:
+    bootstrap_servers: "localhost:29092"  # Same as hardcoded integration tests
+    consumer:
+      group_id: "civers-orchestrator-test-group"
+      auto_offset_reset: "earliest"
+    producer:
+      acks: "all"
+      retries: 3
+    topics:
+      orchestrator_requests: "test.orchestrator.requests"
+      orchestrator_status: "test.orchestrator.status"
+      orchestrator_completed: "test.orchestrator.completed"
+      orchestrator_failed: "test.orchestrator.failed"
+
+    component_mappings:
+      archive_generator:
+        request_topic: "test.archive.requests"
+        response_topics:
+          success: "test.archive.completed"
+          failure: "test.archive.failed"
+        event_models:
+          request: "ArchiveRequestEvent"
+          success: "ArchiveCompletedEvent"
+          failure: "ArchiveFailedEvent"
+
+      metadata_extractor:
+        request_topic: "test.metadata.requests"
+        response_topics:
+          success: "test.metadata.completed"
+          failure: "test.metadata.failed"
+        event_models:
+          request: "MetadataExtractionRequestEvent"
+          success: "MetadataExtractionCompletedEvent"
+          failure: "MetadataExtractionFailedEvent"
+
+      doi_service:
+        request_topic: "test.doi.requests"
+        response_topics:
+          success: "test.doi.completed"
+          failure: "test.doi.failed"
+        event_models:
+          request: "DOIRequestEvent"
+          success: "DOICompletedEvent"
+          failure: "DOIFailedEvent"
+
+# Override domains and workflows for testing
+# These simplified workflows are used by integration tests
+domains:
+  - name: "example.com"
+    workflow: "simple_workflow"
+  - name: "arachne.dainst.org"
+    workflow: "archaeology_workflow"
+  - name: "*.dainst.org"
+    workflow: "dainst_workflow"
+  - name: "default"
+    workflow: "simple_workflow"
+
+workflows:
+  # Simple single-step workflow for basic tests
+  - name: "simple_workflow"
+    description: "Simple single-step workflow for testing"
+    steps:
+      - name: "archive_generation"
+        component: "archive_generator"
+        input_schema: "ArchiveRequest"
+        output_schemas:
+          success: "ArchiveCompleted"
+          failure: "ArchiveFailed"
+        depends_on: []
+        timeout_seconds: 60
+
+  # Two-step workflow with dependency
+  - name: "archaeology_workflow"
+    description: "Two-step workflow with archive -> metadata"
+    steps:
+      - name: "archive_generation"
+        component: "archive_generator"
+        input_schema: "ArchiveRequest"
+        output_schemas:
+          success: "ArchiveCompleted"
+          failure: "ArchiveFailed"
+        depends_on: []
+        timeout_seconds: 120
+
+      - name: "metadata_extraction"
+        component: "metadata_extractor"
+        input_schema: "MetadataRequest"
+        output_schemas:
+          success: "MetadataCompleted"
+          failure: "MetadataFailed"
+        depends_on:
+          - "archive_generation"
+        timeout_seconds: 60
+
+  # DAINST default workflow
+  - name: "dainst_workflow"
+    description: "Default DAINST workflow"
+    steps:
+      - name: "archive_generation"
+        component: "archive_generator"
+        input_schema: "ArchiveRequest"
+        output_schemas:
+          success: "ArchiveCompleted"
+          failure: "ArchiveFailed"
+        depends_on: []
+        timeout_seconds: 60
+
+# Note: These test workflows override the production workflows in defaults/
+# They have fewer steps (no DOI assignment) to make tests faster and simpler

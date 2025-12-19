@@ -1,0 +1,42 @@
+# Testing environment configuration
+# For integration tests and CI/CD
+
+environment: testing
+
+app:
+  # Test-specific archive directory
+  archive_directory: tests/archives_artifacts
+
+  # Test Kafka settings (dedicated test port)
+  transport:
+    kafka:
+      bootstrap_servers: localhost:29093
+  
+  # Storage configuration for testing
+  # Use local file only to avoid external dependencies in tests
+  storage:
+    enabled:
+      - local_file
+    backends:
+      local_file:
+        base_path: tests/archives_artifacts
+        create_subdirectories: true
+
+# Fast test domains only
+domains:
+  - name: httpbin.org
+    artifacts: [warc, html, screenshots, singlefile] 
+    webpage_types: dynamic
+    
+  - name: example.com
+    artifacts: [warc, html, singlefile]
+    webpage_types: dynamic
+
+  # Integration test domains
+  - name: arachne.dainst.org
+    artifacts: [warc, screenshots, singlefile]
+    webpage_types: dynamic
+    
+  - name: field.dainst.org
+    artifacts: [warc]
+    webpage_types: static

@@ -1,0 +1,44 @@
+# Base application configuration
+# Common settings shared across all environments
+
+app:
+  name: archive_generator
+  version: 1.0.0
+
+  # Scoop settings for web archiving
+  scoop_cli_command: "node lib/scoop/bin/cli.js"
+  scoop_timeout_sec: 300
+  scoop_extra_args: 
+    - "--screenshot"
+    - "true"
+    - "--dom-snapshot" 
+    - "true"
+    - "--log-level"
+    - "info"
+    - "--proxy-port"
+    - "0"
+
+  # SingleFile integration settings
+  singlefile_binary_path: "archive_generators/single-file-x86_64-linux"
+  singlefile_timeout_sec: 60
+
+  # Storage configuration defaults
+  storage:
+    # List of enabled storage backends
+    enabled:
+      - local_file
+    
+    # Backend configurations
+    backends:
+      local_file:
+        base_path: archives
+        create_subdirectories: true
+      
+      # CIVERS REST API (disabled by default, enable in environment configs)
+      civers_rest_api:
+        upload_url: "http://localhost:8000/api/upload"
+        timeout_seconds: 30
+        retry_attempts: 3
+        verify_ssl: true
+        auth:
+          enabled: false

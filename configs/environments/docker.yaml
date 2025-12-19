@@ -1,0 +1,28 @@
+# Docker Environment Configuration
+# For running inside Docker containers
+
+environment: docker
+
+transport:
+  kafka:
+    # Internal Docker networking
+    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}"
+    consumer:
+      group_id: "${KAFKA_CONSUMER_GROUP_ID:-civers-docker}"
+
+storage:
+  enabled:
+    - local_file
+    - civers_rest_api
+  backends:
+    local_file:
+      base_path: "${ARCHIVE_DIRECTORY:-/app/archives}"
+    civers_rest_api:
+      # Use Docker service name (web-interface)
+      upload_url: "${CIVERS_API_URL:-http://web-interface:8000}/api/upload"
+      verify_ssl: false
+
+
+# Domains are loaded from configs/defaults/domains.yaml
+# Do not override here to maintain single source of truth
+

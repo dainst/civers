@@ -1,0 +1,50 @@
+transport:
+  enabled:
+    - kafka
+  kafka:
+    bootstrap_servers: "localhost:29092"
+    consumer:
+      group_id: "${KAFKA_CONSUMER_GROUP_ID:-civers_orchestrator}"
+      auto_offset_reset: "${KAFKA_AUTO_OFFSET_RESET:-earliest}"
+    producer:
+      acks: "all"
+      retries: 3
+    topics:
+      orchestrator_requests: "orchestrator.requests"
+      orchestrator_status: "orchestrator.status"
+      orchestrator_completed: "orchestrator.completed"
+      orchestrator_failed: "orchestrator.failed"
+
+    # Component Mappings: Maps transport-agnostic component identifiers
+    # to Kafka-specific topics and event model class names.
+    # This keeps workflow definitions transport-agnostic.
+    component_mappings:
+      archive_generator:
+        request_topic: "archive.requests"
+        response_topics:
+          success: "archive.completed"
+          failure: "archive.failed"
+        event_models:
+          request: "ArchiveRequestEvent"
+          success: "ArchiveCompletedEvent"
+          failure: "ArchiveFailedEvent"
+
+      metadata_extractor:
+        request_topic: "metadata.requests"
+        response_topics:
+          success: "metadata.completed"
+          failure: "metadata.failed"
+        event_models:
+          request: "MetadataExtractionRequestEvent"
+          success: "MetadataExtractionCompletedEvent"
+          failure: "MetadataExtractionFailedEvent"
+
+      doi_service:
+        request_topic: "doi.requests"
+        response_topics:
+          success: "doi.completed"
+          failure: "doi.failed"
+        event_models:
+          request: "DOIRequestEvent"
+          success: "DOICompletedEvent"
+          failure: "DOIFailedEvent"

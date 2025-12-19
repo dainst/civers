@@ -1,0 +1,77 @@
+# Test Environment Docker Compose - Isolated test infrastructure
+# Use this for integration tests to avoid conflicts with development
+#
+# Usage: docker compose -f tests/test-docker-compose.yml up -d
+
+services:
+  test-broker:
+    image: apache/kafka:latest
+    container_name: test-broker
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT_INTERNAL://0.0.0.0:9092,PLAINTEXT_EXTERNAL://0.0.0.0:29093,CONTROLLER://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT_INTERNAL://test-broker:9092,PLAINTEXT_EXTERNAL://localhost:29093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT_INTERNAL:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9094
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 1  # Fewer partitions for faster test startup
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "29093:29093"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "./opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  test-archive-generator:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: test-archive-generator
+    environment:
+      # Test environment configuration
+      ARCHIVE_ENV: testing
+      KAFKA_BOOTSTRAP_SERVERS: test-broker:9092
+      KAFKA_TOPIC_REQUESTS: archive.requests
+      KAFKA_TOPIC_STATUS: archive.status
+      KAFKA_TOPIC_COMPLETED: archive.completed
+      KAFKA_TOPIC_FAILED: archive.failed
+      KAFKA_CONSUMER_GROUP: test_archive_generator_group
+      ARCHIVE_DIRECTORY: test_archives
+      APP_NAME: test_archive_generator
+      APP_VERSION: 0.1.0-test
+      UV_LOG_LEVEL: debug
+    volumes:
+      - ../test_archives:/app/test_archives
+      - ../tests/integration/test_app_config.yaml:/app/app_config.yaml:ro
+    depends_on:
+      test-broker:
+        condition: service_healthy
+    restart: unless-stopped
+
+  test-kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: test-kafka-ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: "Test Kafka Cluster"
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "test-broker:9092"
+    ports:
+      - "8090:8080"
+    depends_on:
+      - test-broker
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

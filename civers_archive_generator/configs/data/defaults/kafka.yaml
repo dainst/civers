@@ -1,0 +1,37 @@
+# Base Kafka transport configuration
+# Common settings shared across all environments
+
+app:
+  transport:
+    enabled: ["kafka"]
+    kafka:
+      bootstrap_servers: localhost:9092  # Default, overridden by environments
+      consumer_group: "archive_generator_group"
+      health_check_enabled: true
+      monitoring_enabled: true
+      
+      topics:
+        archive_requests: "archive.requests"
+        archive_status: "archive.status" 
+        archive_completed: "archive.completed"
+        archive_failed: "archive.failed"
+
+      # Kafka client configuration defaults
+      consumer_config:
+        auto_offset_reset: "earliest"
+        enable_auto_commit: true
+        auto_commit_interval_ms: 5000
+        session_timeout_ms: 30000
+        max_poll_interval_ms: 300000
+        
+      producer_config:
+        acks: "1"
+        retries: 3
+        batch_size: 16384
+        linger_ms: 10
+        buffer_memory: 33554432
+        
+      # Connection and retry settings
+      connection_retry_attempts: 5
+      connection_retry_delay_ms: 2000
+      health_check_timeout_ms: 5000

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Page Not Found - {{ super() }}{% endblock %}
+
+{% block meta_description %}The requested page could not be found. Return to the Civers Archive home page or use navigation to find what you're looking for.{% endblock %}
+
+{% block page_header %}
+<div class="mb-8 text-center">
+    <div class="mb-4">
+        <!-- 404 Icon -->
+        <svg class="mx-auto h-24 w-24 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-.82-5.45-2.109.055-.55.139-1.085.25-1.601a8.963 8.963 0 003.2-5.29 8.963 8.963 0 003.2 5.29c.111.516.195 1.05.25 1.601A7.962 7.962 0 0112 15z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+    </div>
+    <h1 class="text-4xl font-bold text-gray-900 mb-2">Page Not Found</h1>
+    <p class="text-lg text-gray-600 max-w-md mx-auto">
+        The page you're looking for doesn't exist or may have been moved.
+    </p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+    <!-- Error Information -->
+    <div class="bg-white shadow rounded-lg p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">What happened?</h2>
+        <div class="space-y-3 text-gray-600">
+            <div class="flex items-start">
+                <svg class="flex-shrink-0 h-5 w-5 text-red-400 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+                <span>The requested URL was not found on this server</span>
+            </div>
+            <div class="flex items-start">
+                <svg class="flex-shrink-0 h-5 w-5 text-blue-400 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+                <span>If you typed the URL manually, please check for typos</span>
+            </div>
+            <div class="flex items-start">
+                <svg class="flex-shrink-0 h-5 w-5 text-green-400 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span>Use the navigation below to find what you're looking for</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Navigation -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Where would you like to go?</h2>
+        <div class="space-y-3">
+            <a href="/"
+               class="flex items-center p-3 rounded-md border border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-colors duration-200 group">
+                <svg class="h-5 w-5 text-gray-400 group-hover:text-blue-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z"/>
+                </svg>
+                <div>
+                    <div class="font-medium text-gray-900 group-hover:text-blue-900">Browse Archives</div>
+                    <div class="text-sm text-gray-500">View all archived URLs and their snapshots</div>
+                </div>
+            </a>
+
+            <a href="/docs"
+               class="flex items-center p-3 rounded-md border border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-colors duration-200 group">
+                <svg class="h-5 w-5 text-gray-400 group-hover:text-blue-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-.82-5.45-2.109.055-.55.139-1.085.25-1.601a8.963 8.963 0 003.2-5.29 8.963 8.963 0 003.2 5.29c.111.516.195 1.05.25 1.601A7.962 7.962 0 0112 15z"/>
+                </svg>
+                <div>
+                    <div class="font-medium text-gray-900 group-hover:text-blue-900">API Documentation</div>
+                    <div class="text-sm text-gray-500">Explore the REST API endpoints</div>
+                </div>
+            </a>
+
+            <button onclick="history.back()"
+                    class="w-full flex items-center p-3 rounded-md border border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-colors duration-200 group">
+                <svg class="h-5 w-5 text-gray-400 group-hover:text-blue-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+                <div class="text-left">
+                    <div class="font-medium text-gray-900 group-hover:text-blue-900">Go Back</div>
+                    <div class="text-sm text-gray-500">Return to the previous page</div>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Technical Details (for debugging) -->
+    {% if request %}
+    <div class="mt-6 bg-gray-50 rounded-lg p-4">
+        <details class="text-sm text-gray-600">
+            <summary class="cursor-pointer font-medium text-gray-700 hover:text-gray-900">Technical Details</summary>
+            <div class="mt-2 space-y-1">
+                <div><strong>Requested URL:</strong> {{ request.url }}</div>
+                <div><strong>Method:</strong> {{ request.method }}</div>
+                <div><strong>Time:</strong> <span id="error-time"></span></div>
+            </div>
+        </details>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Set current time for technical details
+document.addEventListener('DOMContentLoaded', function() {
+    const timeElement = document.getElementById('error-time');
+    if (timeElement) {
+        timeElement.textContent = new Date().toLocaleString();
+    }
+});
+</script>
+{% endblock %}

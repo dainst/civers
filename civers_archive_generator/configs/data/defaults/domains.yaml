@@ -1,0 +1,11 @@
+# Base domain configurations
+# Common domain settings that can be extended by environments
+
+domains:
+  - name: arachne.test.dainst.org
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    
+  - name: example.com
+    artifacts: [warc, html, singlefile]
+    webpage_types: dynamic

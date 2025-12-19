@@ -1,0 +1,66 @@
+services:
+  # Production service
+  civers-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: civers-archive-web
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=false
+      - HOST=0.0.0.0
+      - PORT=8000
+      - LOG_LEVEL=INFO
+      - JSON_LOGGING=true
+      - STORAGE_PATH=/app/archives
+    volumes:
+      - ./archives:/app/archives:ro
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - civers-network
+
+  # Development service (overrides prod for hot reload)
+  civers-web-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: civers-archive-web-dev
+    environment:
+      - DEBUG=false
+      - HOST=0.0.0.0
+      - PORT=8000
+      - LOG_LEVEL=DEBUG
+    ports:
+      - "8001:8000"    # Map container 8000 -> host 8001 to avoid conflicts
+    volumes:
+      - .:/app         # Mount source for live reload
+      - ./archives:/app/archives:ro
+      - ./logs:/app/logs
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /app/app
+      --reload-dir /app/templates
+      --reload-dir /app/static
+    profiles:
+      - development
+    networks:
+      - civers-network
+
+networks:
+  civers-network:
+    driver: bridge
+
+volumes:
+  civers-logs:
+    driver: local

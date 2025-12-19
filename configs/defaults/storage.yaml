@@ -1,0 +1,22 @@
+# Storage Configuration
+# Shared storage backends for artifact storage
+
+storage:
+  # List of enabled storage backends
+  enabled:
+    - local_file
+
+  # Backend configurations
+  backends:
+    local_file:
+      base_path: "${ARCHIVE_DIRECTORY:-archives}"
+      create_subdirectories: true
+
+    # CIVERS REST API for centralized storage
+    civers_rest_api:
+      upload_url: "${CIVERS_API_URL:-http://localhost:8000}/api/upload"
+      timeout_seconds: 30
+      retry_attempts: 3
+      verify_ssl: "${STORAGE_API_VERIFY_SSL:-true}"
+      auth:
+        enabled: "${STORAGE_API_AUTH_ENABLED:-false}"

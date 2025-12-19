@@ -1,0 +1,138 @@
+# Transport-Agnostic Workflow Definitions
+#
+# These workflows define business logic only - NO transport-specific concepts.
+# - component: Which service to invoke (not Kafka topics)
+# - input_schema: Data contract name (not Kafka event models)
+# - output_schemas: Result schemas for success/failure (not Kafka topics)
+#
+# Transport routing (topics, endpoints, etc.) is configured separately in
+# transport-specific files (e.g., kafka.yaml component_mappings).
+
+workflows:
+  - name: "standard_archive_workflow"
+    description: "Standard web page archiving workflow"
+    steps:
+      - name: "archive_generation"
+        component: "archive_generator"
+        input_schema: "ArchiveRequest"
+        output_schemas:
+          success: "ArchiveCompleted"
+          failure: "ArchiveFailed"
+        depends_on: []
+        timeout_seconds: 300
+
+      - name: "metadata_extraction"
+        component: "metadata_extractor"
+        input_schema: "MetadataRequest"
+        output_schemas:
+          success: "MetadataCompleted"
+          failure: "MetadataFailed"
+        depends_on:
+          - "archive_generation"
+        timeout_seconds: 60
+
+      - name: "doi_assignment"
+        component: "doi_service"
+        input_schema: "DOIRequest"
+        output_schemas:
+          success: "DOICompleted"
+          failure: "DOIFailed"
+        depends_on:
+          - "metadata_extraction"
+        timeout_seconds: 30
+
+  - name: "archaeology_workflow"
+    description: "Specialized workflow for archaeological content"
+    steps:
+      - name: "archive_generation"
+        component: "archive_generator"
+        input_schema: "ArchiveRequest"
+        output_schemas:
+          success: "ArchiveCompleted"
+          failure: "ArchiveFailed"
+        depends_on: []
+        timeout_seconds: 600  # Longer timeout for complex pages
+
+      - name: "metadata_extraction"
+        component: "metadata_extractor"
+        input_schema: "MetadataRequest"
+        output_schemas:
+          success: "MetadataCompleted"
+          failure: "MetadataFailed"
+        depends_on:
+          - "archive_generation"
+        timeout_seconds: 120
+
+      - name: "doi_assignment"
+        component: "doi_service"
+        input_schema: "DOIRequest"
+        output_schemas:
+          success: "DOICompleted"
+          failure: "DOIFailed"
+        depends_on:
+          - "metadata_extraction"
+        timeout_seconds: 30
+
+  - name: "field_data_workflow"
+    description: "Workflow for field data archiving"
+    steps:
+      - name: "archive_generation"
+        component: "archive_generator"
+        input_schema: "ArchiveRequest"
+        output_schemas:
+          success: "ArchiveCompleted"
+          failure: "ArchiveFailed"
+        depends_on: []
+        timeout_seconds: 300
+
+      - name: "metadata_extraction"
+        component: "metadata_extractor"
+        input_schema: "MetadataRequest"
+        output_schemas:
+          success: "MetadataCompleted"
+          failure: "MetadataFailed"
+        depends_on:
+          - "archive_generation"
+        timeout_seconds: 60
+
+      - name: "doi_assignment"
+        component: "doi_service"
+        input_schema: "DOIRequest"
+        output_schemas:
+          success: "DOICompleted"
+          failure: "DOIFailed"
+        depends_on:
+          - "metadata_extraction"
+        timeout_seconds: 30
+
+  - name: "standard_dainst_workflow"
+    description: "Standard DAINST workflow"
+    steps:
+      - name: "archive_generation"
+        component: "archive_generator"
+        input_schema: "ArchiveRequest"
+        output_schemas:
+          success: "ArchiveCompleted"
+          failure: "ArchiveFailed"
+        depends_on: []
+        timeout_seconds: 300
+
+      - name: "metadata_extraction"
+        component: "metadata_extractor"
+        input_schema: "MetadataRequest"
+        output_schemas:
+          success: "MetadataCompleted"
+          failure: "MetadataFailed"
+        depends_on:
+          - "archive_generation"
+        timeout_seconds: 60
+
+      - name: "doi_assignment"
+        component: "doi_service"
+        input_schema: "DOIRequest"
+        output_schemas:
+          success: "DOICompleted"
+          failure: "DOIFailed"
+        depends_on:
+          - "metadata_extraction"
+        timeout_seconds: 30

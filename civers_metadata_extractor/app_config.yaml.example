@@ -1,0 +1,159 @@
+# Metadata Extraction System Configuration
+# Configuration with explicit class.property mapping syntax
+
+app:
+  name: metadata_extraction_system
+  version: 2.0.0
+
+  # Transport configuration using existing TransportConfig model
+  transport:
+    enabled: ["kafka"] # List of enabled transports
+
+    # Kafka configuration using existing KafkaConfig model
+    kafka:
+      bootstrap_servers: "localhost:29092"
+      topics:
+        # Metadata extraction topics (matching ConfigDataModel expectations)
+        metadata_extraction_requests: "metadata.extraction.requests"
+        metadata_extraction_started: "metadata.extraction.started"
+        metadata_extracted: "metadata.extracted"
+        metadata_extraction_failed: "metadata.extraction.failed"
+        metadata_validation_completed: "metadata.validation.completed"
+        metadata_status: "metadata.status"
+        # Additional topics for our enhanced functionality
+        metadata_extraction_completed: "metadata.extraction.completed"
+        metadata_quality: "metadata.quality"
+      consumer_group: "metadata_extraction_group"
+      health_check_enabled: true
+      monitoring_enabled: true
+
+  # Storage configuration using existing StorageConfig model
+  storage:
+    backend: local_file
+    backends:
+      local_file:
+        base_path: archives
+
+# Domain-specific metadata extraction configurations with explicit class.property mapping
+# Each domain has single mapper configuration based on input source
+domains:
+  # Arachne domain configuration - Updated for simplified JSON-LD keys
+  - name: arachne.dainst.org
+    input_source: html_document # Process HTML with embedded JSON-LD
+    # Mappings for universal mapper (FlattenedToIntermediateModelMapper)
+    mappings:
+      # PRIORITY 1: Required DataCite fields using simplified keys
+      
+      # Core metadata - primary identifiers and titles
+      "name": "Title.title" # "Panzerstatue des Augustus von Prima Porta" -> Primary title
+      "description": "Description.description" # "Resource about cultural objects" -> Main description
+      "@id": "AlternateIdentifier.alternate_identifier" # "https://arachne.dainst.org/entity/1079332" -> Primary identifier
+      
+      # Creators - Dynamic array mapping for ALL authors (organizations and individuals)
+      "author[*].name": "Creator[*].creator_name|name_type=Organizational"
+      "author[*].identifier.value": "Creator[*].name_identifiers[NameIdentifier].identifier"
+      "author[*].identifier.propertyID": "Creator[*].name_identifiers[NameIdentifier].name_identifier_scheme"
+      # Publisher - Dynamic array mapping for ALL publishers
+
+      "publisher[*].name": "Publisher[*].publisher"
+      "publisher[*].identifier.value": "Publisher[*].publisher_identifier"
+      "publisher[*].identifier.propertyID": "Publisher[*].publisher_identifier_scheme"
+      
+      # "publisher[*].name": "Publisher.publisher" # All publisher organizations
+      # "publisher[*].identifier.value": "Publisher.publisher_identifier" # ROR identifiers
+      # "publisher[*].identifier.propertyID": "Publisher.publisher_identifier_scheme" # "ror.org"
+      
+      # Dates - Publication and modification dates with implicit type inference
+      "datePublished": "Date.date|date_type=Published" # Explicit semantic mapping
+      "dateModified": "Date.date|date_type=Updated" # Explicit semantic mapping
+      
+      # Resource type - REQUIRED field for DataCite  
+      "@type": "ResourceType.resource_type" # CreativeWork -> resource type
+      
+      # PRIORITY 2: Important optional fields
+      
+      # Geographic information - Dynamic mapping for ALL spatial coverage areas
+      "spatialCoverage[*].name": "GeoLocation.geo_location_place" # All location names
+      "spatialCoverage[*].geo.latitude": "GeoLocation.geo_location_point.point_latitude" # All coordinates
+      "spatialCoverage[*].geo.longitude": "GeoLocation.geo_location_point.point_longitude" # All coordinates
+      # Note: spatialCoverage[*].identifier.value is numeric - skipping to avoid type error
+      
+      # Temporal coverage - Historical period information
+      "temporalCoverage[0].name": "Subject.subject" # "augusteisch" -> Historical period as subject
+      "temporalCoverage[0].identifier.value": "AlternateIdentifier.alternate_identifier" # Chronontology reference
+      
+      # Website context - iDAI.objects/Arachne platform information
+      "isPartOf.name": "AlternateIdentifier.alternate_identifier" # "iDAI.objects/Arachne" -> Platform name
+      "isPartOf.url": "AlternateIdentifier.alternate_identifier" # "https://arachne.dainst.org" -> Platform URL
+      
+      # PRIORITY 3: Extended scholarly context
+      
+      # Key scholarly citations - Dynamic mapping for ALL citations
+      "citation[*].name": "Description.description|description_type=Other" # All scholarly references
+      "citation[*].identifier.value": "AlternateIdentifier.alternate_identifier" # All Zenon identifiers
+      
+      # Primary image references - Dynamic mapping for ALL images
+      "image[*]": "AlternateIdentifier.alternate_identifier|alternate_identifier_type=URL" # All image URLs
+
+  # Publications domain configuration - Based on publications_meta_tags_sample.html
+  - name: publications.dainst.org
+    input_source: html_document # Input source type
+    # Mappings for universal mapper (FlattenedToIntermediateModelMapper)
+    mappings:
+      # Dublin Core meta tag mappings with explicit class.property syntax
+      "DC.Title": "Title.title" # "Antike Plastik: Lieferung 31" -> Title model
+      "DC.Title.Alternative": "Title.title" # Alternative title -> additional Title instance
+      "DC.Creator.PersonalName": "Creator.creator_name" # "Christian Kunze" -> Creator model
+      "DC.Date.created": "Date.date" # "2019-03-05" -> Date model
+      "DC.Date.dateSubmitted": "Date.date" # "2018-11-21" -> Date model (separate instance)
+      "DC.Date.modified": "Date.date" # "2022-04-26" -> Date model (separate instance)
+      "DC.Description": "Description.description" # Long German description -> Description model
+      "DC.Identifier": "AlternateIdentifier.alternate_identifier" # "62" -> AlternateIdentifier model
+      "DC.Identifier.DOI": "AlternateIdentifier.alternate_identifier" # "10.34780/6ed1-2c6b" -> AlternateIdentifier model
+      "DC.Identifier.URI": "AlternateIdentifier.alternate_identifier" # "https://publications.dainst.org/books/dai/catalog/book/62" -> AlternateIdentifier model
+      "DC.Language": "Title.lang" # "de" -> Title language property
+      "DC.Rights": "Rights.rights" # Copyright statement -> Rights model
+      "DC.Source": "Publisher.publisher" # "iDAI.publications/books" -> Publisher model
+      "DC.Source.URI": "AlternateIdentifier.alternate_identifier" # "https://publications.dainst.org/books/dai" -> AlternateIdentifier model
+      "DC.Type": "ResourceType.resource_type" # "Text.Book" -> ResourceType model
+
+      # Citation-specific meta tags for enhanced metadata with explicit targeting
+      "citation_title": "Title.title" # Explicit Title model targeting
+      "citation_language": "Description.lang" # Language for descriptions
+      "citation_publication_date": "Date.date" # Publication date -> Date model
+      "citation_author": "Creator.creator_name" # Additional authors -> Creator model
+      "citation_abstract": "Description.description" # Abstract -> Description model
+      "citation_doi": "AlternateIdentifier.alternate_identifier" # DOI -> AlternateIdentifier model
+      "citation_pdf_url": "AlternateIdentifier.alternate_identifier" # PDF download link -> AlternateIdentifier model
+      "citation_publisher": "Publisher.publisher" # Publisher -> Publisher model
+
+      # Standard meta tags as additional fallback with explicit class targeting
+      "title": "Title.title" # Title fallback -> Title model
+      "generator": "Description.description" # "Open Monograph Press 3.4.0.6" -> Description model (technical info)
+      "gs_meta_revision": "AlternateIdentifier.alternate_identifier" # "1.1" -> version as identifier
+
+  # Test domain for validation and testing with explicit class.property mappings
+  - name: test.example.org
+    input_source: html_document # Input source type
+    # Mappings for universal mapper (FlattenedToIntermediateModelMapper)
+    mappings:
+      "h1.title": "Title.title" # Explicit Title model targeting
+      ".author": "Creator.creator_name" # Explicit Creator model targeting
+      ".pub-date": "Date.date" # Explicit Date model targeting
+      ".description": "Description.description" # Explicit Description model targeting
+      ".keywords": "Subject.subject" # Explicit Subject model targeting
+
+# Logging configuration
+logging:
+  level: INFO
+  file: metadata_extraction.log
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  suppress_kafka_logs: true
+
+# Performance settings
+performance:
+  max_concurrent_extractions: 10
+  request_timeout_seconds: 30
+  retry_attempts: 3
+  cache_enabled: true
+  cache_ttl_seconds: 3600

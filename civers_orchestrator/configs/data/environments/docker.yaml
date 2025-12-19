@@ -1,0 +1,70 @@
+# ==============================================================================
+# Docker Environment Configuration
+# ==============================================================================
+#
+# This configuration is auto-detected when running inside Docker (/.dockerenv)
+# or can be explicitly set with: CONFIG_ENVIRONMENT=docker
+#
+# All values support environment variable substitution with defaults:
+#   ${VAR_NAME}           - Required variable (fails if not set)
+#   ${VAR_NAME:-default}  - Variable with fallback default
+#
+# Environment variables can be set via:
+#   - docker-compose.yml env_file directive
+#   - .env file (auto-loaded by docker-compose)
+#   - Shell: VAR=value uv run python main.py
+#
+# ==============================================================================
+
+app:
+  environment: docker
+  name: "${APP_NAME:-civers_orchestrator}"
+  version: "${APP_VERSION:-1.0.0}"
+
+transport:
+  enabled:
+    - kafka
+  kafka:
+    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}"
+    consumer:
+      group_id: "${KAFKA_CONSUMER_GROUP_ID:-civers_orchestrator_docker}"
+      auto_offset_reset: "${KAFKA_CONSUMER_AUTO_OFFSET_RESET:-earliest}"
+    producer:
+      acks: "${KAFKA_PRODUCER_ACKS:-all}"
+      retries: "${KAFKA_PRODUCER_RETRIES:-3}"
+    topics:
+      orchestrator_requests: "${KAFKA_TOPIC_ORCHESTRATOR_REQUESTS:-orchestrator.requests}"
+      orchestrator_status: "${KAFKA_TOPIC_ORCHESTRATOR_STATUS:-orchestrator.status}"
+      orchestrator_completed: "${KAFKA_TOPIC_ORCHESTRATOR_COMPLETED:-orchestrator.completed}"
+      orchestrator_failed: "${KAFKA_TOPIC_ORCHESTRATOR_FAILED:-orchestrator.failed}"
+
+    component_mappings:
+      archive_generator:
+        request_topic: "${KAFKA_TOPIC_ARCHIVE_REQUESTS:-archive.requests}"
+        response_topics:
+          success: "${KAFKA_TOPIC_ARCHIVE_COMPLETED:-archive.completed}"
+          failure: "${KAFKA_TOPIC_ARCHIVE_FAILED:-archive.failed}"
+        event_models:
+          request: "ArchiveRequestEvent"
+          success: "ArchiveCompletedEvent"
+          failure: "ArchiveFailedEvent"
+
+      metadata_extractor:
+        request_topic: "${KAFKA_TOPIC_METADATA_REQUESTS:-metadata.requests}"
+        response_topics:
+          success: "${KAFKA_TOPIC_METADATA_COMPLETED:-metadata.completed}"
+          failure: "${KAFKA_TOPIC_METADATA_FAILED:-metadata.failed}"
+        event_models:
+          request: "MetadataExtractionRequestEvent"
+          success: "MetadataExtractionCompletedEvent"
+          failure: "MetadataExtractionFailedEvent"
+
+      doi_service:
+        request_topic: "${KAFKA_TOPIC_DOI_REQUESTS:-doi.requests}"
+        response_topics:
+          success: "${KAFKA_TOPIC_DOI_COMPLETED:-doi.completed}"
+          failure: "${KAFKA_TOPIC_DOI_FAILED:-doi.failed}"
+        event_models:
+          request: "DOIRequestEvent"
+          success: "DOICompletedEvent"
+          failure: "DOIFailedEvent"

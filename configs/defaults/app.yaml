@@ -1,0 +1,61 @@
+# Shared Application Configuration
+# Base settings for all CIVERS components
+# Component-specific settings can be extended in each component's own config
+
+app:
+  # Base app info - override with component-specific values
+  name: "${APP_NAME:-civers_component}"
+  version: "1.0.0"
+  environment: "${CONFIG_ENVIRONMENT:-development}"
+
+  # Archive directory (used by Archive Generator)
+  archive_directory: "${ARCHIVE_DIRECTORY:-archives}"
+
+  # Scoop integration settings (Archive Generator)
+  scoop_cli_command: "node lib/scoop/bin/cli.js"
+  scoop_timeout_sec: 300
+  scoop_extra_args:
+    - "--screenshot"
+    - "true"
+    - "--dom-snapshot"
+    - "true"
+    - "--log-level"
+    - "info"
+    - "--proxy-port"
+    - "0"
+
+  # SingleFile integration settings (Archive Generator)
+  singlefile_binary_path: "archive_generators/single-file-x86_64-linux"
+  singlefile_timeout_sec: 60
+
+  # Transport configuration (included from kafka.yaml, but app section needs reference)
+  transport:
+    enabled:
+      - kafka
+    kafka:
+      bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
+      consumer_group: "${KAFKA_CONSUMER_GROUP_ID:-civers_default}"
+      health_check_enabled: true
+      monitoring_enabled: true
+      topics:
+        archive_requests: "archive.requests"
+        archive_status: "archive.status"
+        archive_completed: "archive.completed"
+        archive_failed: "archive.failed"
+
+  # Storage configuration
+  storage:
+    enabled:
+      - local_file
+      - civers_rest_api
+    backends:
+      local_file:
+        base_path: "${ARCHIVE_DIRECTORY:-archives}"
+        create_subdirectories: true
+      civers_rest_api:
+        upload_url: "${CIVERS_API_URL:-http://localhost:8000}/api/upload"
+        timeout_seconds: 30
+        retry_attempts: 3
+        verify_ssl: false
+        auth:
+          enabled: false

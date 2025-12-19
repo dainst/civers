@@ -1,0 +1,15 @@
+domains:
+  - name: "arachne.dainst.org"
+    workflow: "archaeology_workflow"
+
+  - name: "arachne.test.dainst.org"
+    workflow: "archaeology_workflow"
+
+  - name: "field.dainst.org"
+    workflow: "field_data_workflow"
+
+  - name: "*.dainst.org"
+    workflow: "standard_dainst_workflow"
+
+  - name: "default"
+    workflow: "standard_archive_workflow"

@@ -1,0 +1,38 @@
+# Docker environment configuration  
+# For running inside Docker containers with host networking
+
+environment: docker
+
+app:
+  archive_directory: ${ARCHIVE_DIRECTORY:-archives}
+  
+  # Docker Kafka settings (internal port with host networking)
+  transport:
+    kafka:
+      bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+  
+  # Storage configuration for Docker
+  # Enable both local and CIVERS API in containerized environment
+  storage:
+    # Use JSON-like string for list expansion if possible, or keep as YAML list
+    enabled:
+      - local_file
+      - civers_rest_api
+    backends:
+      local_file:
+        base_path: ${STORAGE_LOCAL_BASE_PATH:-archives}
+        create_subdirectories: true
+      civers_rest_api:
+        # Use Docker network hostname or host.docker.internal
+        upload_url: ${STORAGE_API_UPLOAD_URL:-http://civers-api:8000/api/upload}
+        timeout_seconds: 30
+        retry_attempts: 3
+        verify_ssl: ${STORAGE_API_VERIFY_SSL:-false}
+        auth:
+          enabled: false
+
+# Additional domains for Docker environment
+domains:
+  - name: httpbin.org
+    artifacts: [warc, html, screenshots, singlefile]
+    webpage_types: dynamic

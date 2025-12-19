@@ -1,0 +1,204 @@
+# ==============================================================================
+# CIVERS Full Stack - Docker Compose
+# ==============================================================================
+#
+# This compose file sets up the complete CIVERS stack for integration testing:
+# - Kafka broker (message bus)
+# - Kafka UI (monitoring)
+# - Web Interface (archive storage and viewing)
+# - Orchestrator (workflow coordination)
+# - Archive Generator (web archiving)
+#
+# Usage:
+#   # Start all services
+#   docker compose up -d
+#
+#   # View logs
+#   docker compose logs -f
+#
+#   # Run integration test
+#   python scripts/full_stack_test.py
+#
+#   # Stop all services
+#   docker compose down
+#
+# ==============================================================================
+
+services:
+  # ============================================================================
+  # Kafka Broker - Message Bus
+  # ============================================================================
+  kafka:
+    image: apache/kafka:latest
+    container_name: civers-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    ports:
+      - "29092:29092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "./opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Kafka UI - Monitoring Dashboard (Optional, use --profile ui to start)
+  # ============================================================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: civers-kafka-ui
+    profiles:
+      - ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: CIVERS Cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      DYNAMIC_CONFIG_ENABLED: "true"
+    ports:
+      - "8088:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Web Interface - Archive Storage & Viewing
+  # ============================================================================
+  web-interface:
+    build:
+      context: ./civers_archive_web_interface
+      dockerfile: Dockerfile
+    container_name: civers-web-interface
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - web-archives:/app/archives
+      - web-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Orchestrator - Workflow Coordination
+  # ============================================================================
+  orchestrator:
+    build:
+      context: ./civers_orchestrator
+      dockerfile: Dockerfile
+    container_name: civers-orchestrator
+    environment:
+      - CONFIG_ENVIRONMENT=docker
+      - CONFIG_DIR=/shared-configs
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./configs:/shared-configs:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "print('healthy')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - civers-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # Archive Generator - Web Archiving
+  # NOTE: Uses host network to work with VPN - external URL archiving requires
+  # access to host's network stack. Kafka and Web Interface are accessed via
+  # localhost since they expose ports to the host.
+  # ============================================================================
+  archive-generator:
+    build:
+      context: ./civers_archive_generator
+      dockerfile: Dockerfile
+    container_name: civers-archive-generator
+    network_mode: host
+    environment:
+      - CONFIG_ENVIRONMENT=docker
+      - CONFIG_DIR=/shared-configs
+      # Use localhost since we're on host network
+      - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
+      - CIVERS_API_URL=http://localhost:8000
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./configs:/shared-configs:ro
+      - generator-archives:/app/archives
+    depends_on:
+      kafka:
+        condition: service_healthy
+      web-interface:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ============================================================================
+  # Metadata Extractor Service
+  # ============================================================================
+  # Extracts metadata from archived web pages and publishes to Kafka
+  # Uses network_mode: host for VPN compatibility
+  # Note: Uses internal configs, NOT shared configs (different schema for domains)
+  # ============================================================================
+  metadata-extractor:
+    build:
+      context: ./civers_metadata_extractor
+      dockerfile: Dockerfile
+    container_name: civers-metadata-extractor
+    network_mode: host
+    environment:
+      - CONFIG_ENVIRONMENT=docker
+      - CONFIG_DIR=/shared-configs
+      # Use localhost since we're on host network
+      - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
+      - CIVERS_API_URL=http://localhost:8000
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./configs:/shared-configs:ro
+      - metadata-output:/app/output/metadata
+    depends_on:
+      kafka:
+        condition: service_healthy
+      web-interface:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  civers-network:
+    name: civers-network
+    driver: bridge
+
+volumes:
+  kafka-data:
+    name: civers-kafka-data
+  web-archives:
+    name: civers-web-archives
+  web-data:
+    name: civers-web-data
+  generator-archives:
+    name: civers-generator-archives
+  metadata-output:
+    name: civers-metadata-output

@@ -1,0 +1,288 @@
+/* Component Styles for Civers Archive Web Interface */
+/* Navigation enhancements */
+.nav-link-active {
+    @apply text-blue-600 bg-blue-50 font-medium;
+}
+
+.nav-link-active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 2px;
+    background-color: #3b82f6;
+    border-radius: 1px;
+}
+
+/* Mobile menu animations */
+@media (max-width: 768px) {
+    #mobile-menu {
+        animation-fill-mode: forwards;
+    }
+    
+    .mobile-menu-enter {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    
+    .mobile-menu-enter-active {
+        opacity: 1;
+        transform: scale(1);
+        transition: opacity 100ms ease-out, transform 100ms ease-out;
+    }
+    
+    .mobile-menu-leave {
+        opacity: 1;
+        transform: scale(1);
+    }
+    
+    .mobile-menu-leave-active {
+        opacity: 0;
+        transform: scale(0.95);
+        transition: opacity 75ms ease-in, transform 75ms ease-in;
+    }
+}
+
+/* Toast notification enhancements */
+.toast-container {
+    z-index: 1000;
+}
+
+.toast-success {
+    @apply border-l-4 border-green-400;
+}
+
+.toast-error {
+    @apply border-l-4 border-red-400;
+}
+
+.toast-warning {
+    @apply border-l-4 border-yellow-400;
+}
+
+.toast-info {
+    @apply border-l-4 border-blue-400;
+}
+
+/* Focus enhancements for better accessibility */
+*:focus {
+    outline: none;
+}
+
+.focus-ring:focus {
+    @apply ring-2 ring-blue-500 ring-offset-2;
+}
+
+/* Button focus states */
+button:focus,
+a:focus {
+    @apply outline-none ring-2 ring-blue-500 ring-offset-2;
+}
+
+/* Enhanced hover states */
+.hover-lift:hover {
+    transform: translateY(-1px);
+    transition: transform 150ms ease-in-out;
+}
+
+/* Navigation logo animation */
+.nav-logo:hover svg {
+    transform: rotate(5deg);
+    transition: transform 200ms ease-in-out;
+}
+
+/* Footer grid responsive adjustments */
+@media (max-width: 640px) {
+    .footer-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .footer-grid > div:first-child {
+        text-align: center;
+    }
+}
+
+/* Print styles */
+@media print {
+    header[role="banner"],
+    footer[role="contentinfo"],
+    .mobile-menu-button,
+    .toast-container {
+        display: none !important;
+    }
+    
+    main {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    body {
+        background: white !important;
+        color: black !important;
+    }
+    
+    a {
+        color: black !important;
+        text-decoration: underline !important;
+    }
+    
+    .shadow,
+    .shadow-sm,
+    .shadow-md,
+    .shadow-lg {
+        box-shadow: none !important;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .text-gray-500,
+    .text-gray-600,
+    .text-gray-700 {
+        @apply text-black;
+    }
+    
+    .bg-gray-50 {
+        @apply bg-white;
+    }
+    
+    .border-gray-200 {
+        @apply border-black;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Dark mode support (for future enhancement) */
+@media (prefers-color-scheme: dark) {
+    .dark-mode-ready {
+        /* Placeholder for future dark mode implementation */
+    }
+}
+
+/* Component-specific styles */
+
+/* Navigation component */
+.nav-component {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    backdrop-filter: blur(10px);
+}
+
+/* Footer component */
+.footer-component {
+    margin-top: auto;
+}
+
+/* Toast animation improvements */
+.toast-slide-in {
+    animation: slideInFromRight 300ms ease-out;
+}
+
+.toast-slide-out {
+    animation: slideOutToRight 100ms ease-in;
+}
+
+@keyframes slideInFromRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutToRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* Loading states */
+.loading-skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading-shimmer 1.5s infinite;
+}
+
+@keyframes loading-shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Utility classes for component consistency */
+.component-spacing {
+    @apply px-4 sm:px-6 lg:px-8;
+}
+
+.component-max-width {
+    @apply max-w-7xl mx-auto;
+}
+
+.component-border {
+    @apply border border-gray-200;
+}
+
+.component-shadow {
+    @apply shadow-sm;
+}
+
+.component-rounded {
+    @apply rounded-lg;
+}
+
+/* Interactive element enhancements */
+.interactive-element {
+    @apply transition-all duration-200 ease-in-out;
+}
+
+.interactive-element:hover {
+    @apply transform scale-105;
+}
+
+.interactive-element:active {
+    @apply transform scale-95;
+}
+
+/* Error state styles */
+.error-state {
+    @apply border-red-300 bg-red-50 text-red-900;
+}
+
+.error-state svg {
+    @apply text-red-400;
+}
+
+/* Success state styles */
+.success-state {
+    @apply border-green-300 bg-green-50 text-green-900;
+}
+
+.success-state svg {
+    @apply text-green-400;
+}

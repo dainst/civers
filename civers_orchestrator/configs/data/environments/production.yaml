@@ -1,0 +1,77 @@
+# ==============================================================================
+# Production Environment Configuration
+# ==============================================================================
+#
+# This configuration is for production deployments running inside containers.
+# Similar to docker.yaml but with production-specific settings:
+#   - Higher retry counts for reliability
+#   - Production consumer group suffix
+#   - All values from environment variables (no hardcoded secrets)
+#
+# Usage:
+#   - Docker/Kubernetes: Set CONFIG_ENVIRONMENT=production in container
+#   - All sensitive values MUST be set via environment variables
+#
+# REQUIRED environment variables:
+#   - KAFKA_BOOTSTRAP_SERVERS: Production Kafka cluster address
+#
+# Optional with production defaults:
+#   - KAFKA_CONSUMER_GROUP_ID: Defaults to civers_orchestrator_prod
+#   - KAFKA_PRODUCER_RETRIES: Defaults to 5 (higher for production)
+#
+# ==============================================================================
+
+app:
+  environment: production
+  name: "${APP_NAME:-civers_orchestrator}"
+  version: "${APP_VERSION:-1.0.0}"
+
+transport:
+  enabled:
+    - kafka
+  kafka:
+    # REQUIRED: No default - must be explicitly set for production
+    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
+    consumer:
+      group_id: "${KAFKA_CONSUMER_GROUP_ID:-civers_orchestrator_prod}"
+      auto_offset_reset: "${KAFKA_CONSUMER_AUTO_OFFSET_RESET:-earliest}"
+    producer:
+      acks: "${KAFKA_PRODUCER_ACKS:-all}"
+      # Higher retries for production reliability
+      retries: "${KAFKA_PRODUCER_RETRIES:-5}"
+    topics:
+      orchestrator_requests: "${KAFKA_TOPIC_ORCHESTRATOR_REQUESTS:-orchestrator.requests}"
+      orchestrator_status: "${KAFKA_TOPIC_ORCHESTRATOR_STATUS:-orchestrator.status}"
+      orchestrator_completed: "${KAFKA_TOPIC_ORCHESTRATOR_COMPLETED:-orchestrator.completed}"
+      orchestrator_failed: "${KAFKA_TOPIC_ORCHESTRATOR_FAILED:-orchestrator.failed}"
+
+    component_mappings:
+      archive_generator:
+        request_topic: "${KAFKA_TOPIC_ARCHIVE_REQUESTS:-archive.requests}"
+        response_topics:
+          success: "${KAFKA_TOPIC_ARCHIVE_COMPLETED:-archive.completed}"
+          failure: "${KAFKA_TOPIC_ARCHIVE_FAILED:-archive.failed}"
+        event_models:
+          request: "ArchiveRequestEvent"
+          success: "ArchiveCompletedEvent"
+          failure: "ArchiveFailedEvent"
+
+      metadata_extractor:
+        request_topic: "${KAFKA_TOPIC_METADATA_REQUESTS:-metadata.requests}"
+        response_topics:
+          success: "${KAFKA_TOPIC_METADATA_COMPLETED:-metadata.completed}"
+          failure: "${KAFKA_TOPIC_METADATA_FAILED:-metadata.failed}"
+        event_models:
+          request: "MetadataExtractionRequestEvent"
+          success: "MetadataExtractionCompletedEvent"
+          failure: "MetadataExtractionFailedEvent"
+
+      doi_service:
+        request_topic: "${KAFKA_TOPIC_DOI_REQUESTS:-doi.requests}"
+        response_topics:
+          success: "${KAFKA_TOPIC_DOI_COMPLETED:-doi.completed}"
+          failure: "${KAFKA_TOPIC_DOI_FAILED:-doi.failed}"
+        event_models:
+          request: "DOIRequestEvent"
+          success: "DOICompletedEvent"
+          failure: "DOIFailedEvent"

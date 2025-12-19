@@ -1,0 +1,32 @@
+# Development environment configuration
+# For local development outside Docker
+
+environment: development
+
+# Override archive directory for development
+app:
+  archive_directory: archives
+  
+  # Development Kafka settings (external port)
+  transport:
+    kafka:
+      bootstrap_servers: localhost:29092
+  
+  # Storage configuration for development
+  # Enable both local file and CIVERS API for testing
+  storage:
+    enabled:
+      - local_file
+      - civers_rest_api
+    backends:
+      local_file:
+        base_path: archives
+        create_subdirectories: true
+      civers_rest_api:
+        upload_url: "http://127.0.0.1:8000/api/upload"
+        timeout_seconds: 30
+        retry_attempts: 3
+        verify_ssl: false  # Use false for local development
+        auth:
+          enabled: false
+

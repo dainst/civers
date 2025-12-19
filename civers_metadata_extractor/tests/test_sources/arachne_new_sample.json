@@ -1,0 +1,474 @@
+{
+    "@context": "http://schema.org",
+    "@type": "WebPage",
+    "@id": "https://arachne.dainst.org/entity/1079332",
+    "name": "Panzerstatue des Augustus von Prima Porta",
+    "description": "Resource about cultural objects",
+    "author": [
+      {
+        "@type": "Organization",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "ror.org",
+          "value": "https://ror.org/041qv0h25"
+        },
+        "name": "Deutsches Archäologisches Institut",
+        "alternateName": "German Archaeological Institute",
+        "url": "https://www.dainst.org",
+        "sameAs": [
+          "https://www.wikidata.org/wiki/Q695302"
+        ]
+      },
+      {
+        "@type": "Organization",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "ror.org",
+          "value": "https://ror.org/00rcxh774"
+        },
+        "name": "Universität zu Köln",
+        "alternateName": "University of Cologne",
+        "url": "http://www.portal.uni-koeln.de/",
+        "sameAs": [
+          "https://www.wikidata.org/wiki/Q54096"
+        ]
+      }
+    ],
+    "publisher": [
+      {
+        "@type": "Organization",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "ror.org",
+          "value": "https://ror.org/041qv0h25"
+        },
+        "name": "Deutsches Archäologisches Institut",
+        "alternateName": "German Archaeological Institute",
+        "url": "https://www.dainst.org",
+        "sameAs": [
+          "https://www.wikidata.org/wiki/Q695302"
+        ]
+      },
+      {
+        "@type": "Organization",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "ror.org",
+          "value": "https://ror.org/00rcxh774"
+        },
+        "name": "Universität zu Köln",
+        "alternateName": "University of Cologne",
+        "url": "http://www.portal.uni-koeln.de/",
+        "sameAs": [
+          "https://www.wikidata.org/wiki/Q54096"
+        ]
+      }
+    ],
+    "isPartOf": {
+      "@type": "WebSite",
+      "name": "iDAI.objects/Arachne",
+      "url": "https://arachne.dainst.org",
+      "publisher": [
+        {
+          "@type": "Organization",
+          "identifier": {
+            "@type": "PropertyValue",
+            "propertyID": "ror.org",
+            "value": "https://ror.org/041qv0h25"
+          },
+          "name": "Deutsches Archäologisches Institut",
+          "alternateName": "German Archaeological Institute",
+          "url": "https://www.dainst.org",
+          "sameAs": [
+            "https://www.wikidata.org/wiki/Q695302"
+          ]
+        },
+        {
+          "@type": "Organization",
+          "identifier": {
+            "@type": "PropertyValue",
+            "propertyID": "ror.org",
+            "value": "https://ror.org/00rcxh774"
+          },
+          "name": "Universität zu Köln",
+          "alternateName": "University of Cologne",
+          "url": "http://www.portal.uni-koeln.de/",
+          "sameAs": [
+            "https://www.wikidata.org/wiki/Q54096"
+          ]
+        }
+      ]
+    },
+    "dateModified": "2012-09-20T10:14:30.000Z",
+    "datePublished": "2012-09-20T10:14:30.000Z",
+    "spatialCoverage": [
+      {
+        "@type": "Place",
+        "name": "Staat Vatikanstadt, Italien, Musei Vaticani, Braccio Nuovo",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "gazetteer.dainst.org",
+          "value": 2095222
+        },
+        "geo": {
+          "@type": "GeoCoordinates",
+          "latitude": "41.90225",
+          "longitude": "12.4533"
+        }
+      }
+    ],
+    "temporalCoverage": [
+      {
+        "@type": "DefinedTerm",
+        "name": "augusteisch",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "chronontology.dainst.org",
+          "value": "https://chronontology.dainst.org/period/?"
+        }
+      }
+    ],
+    "citation": [
+      {
+        "@type": "CreativeWork",
+        "name": "H. Bruno – P. Arndt – F. Bruckmann (Hrsg.), Griechische und römische Porträts (München 1891–1942)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000746500"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "H. Brunn – F. Bruckmann, Denkmäler griechischer und römischer Skulptur I (München 1902)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "001369980"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "W. Helbig, Führer durch die öffentlichen Sammlungen klassischer Altertümer in Rom. Die päpstlichen Sammlungen im  Vatikan und Lateran I ⁴(Tübingen 1963)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000001272"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "J. J. Bernoulli, Römische Ikonographie II. Die Bildnisse der römischen Kaiser und ihrer Angehörigen 1. Das julisch-claudische Kaiserhaus (Berlin 1886)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000157112"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "W. Amelung, Die Sculpturen des Vaticanischen Museums I (Berlin 1903)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000182836"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "H. Jucker, HefteABern 3, 1977,"
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "H. Kähler, Die Augustusstatue von Primaporta (1959)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000201885"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "E. Simon, Der Augustus von Prima Porta (Bremen 1959)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000151474"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "U. Hausmann, Zur Typologie und Ideologie des Augustusporträts, ANRW II 12,2 (Berlin 1981)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000286101"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "D. Hertel, Untersuchungen zu Stil und Chronologie des Kaiser- und Prinzenporträts von Augustus bis Claudius. Diss. Bonn 1978 (Bonn 1982)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000202444"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "K. Fittschen – P. Zanker, Katalog der römischen Porträts in den Capitolinischen Museen und den anderen kommunalen Sammlungen der Stadt Rom 1. Kaiser- und Prinzenbildnisse (Mainz 1985)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000282352"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "B. Schmaltz, Zum Augustus-Bildnis Typus Primaporta, RM 93, 1986,",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000410604"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "N. Hannestad, Roman Art and Imperial Policy (1986)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000250601"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "K. Stemmer (Hrsg.), Standorte. Kontext und Funktion antiker Skulptur. Ausstellungskatalog Berlin (Berlin 1995)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000779850"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "P. Zanker, Augustus und die Macht der Bilder (München 1987)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000250713"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "D. Boschung, Die Bildnisse des Augustus, Das römische Herrscherbild I, 2 (Berlin 1993)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "000007067"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "C. Parisi Presicce, Arte, imprese e propaganda. L'Augusto di Prima Porta 150 anni dopo la scoperta, in: E. La Rocca – C. Parisi Presicce – A. Lo Monaco – C. Giroire – D. Roger (Hrsg.), Augusto. Ausstellungskatalog Rom (Mailand 2013)",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "001365937"
+        }
+      },
+      {
+        "@type": "CreativeWork",
+        "name": "Annali dell'Instituto di Corrispondenza Archeologica 35, 1863",
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "zenon.dainst.org",
+          "value": "001317361"
+        }
+      }
+    ],
+    "image": [
+      "https://arachne.dainst.org/data/image/7346407",
+      "https://arachne.dainst.org/data/image/7346276",
+      "https://arachne.dainst.org/data/image/7346331",
+      "https://arachne.dainst.org/data/image/7346375",
+      "https://arachne.dainst.org/data/image/7346376",
+      "https://arachne.dainst.org/data/image/7346560",
+      "https://arachne.dainst.org/data/image/7351788",
+      "https://arachne.dainst.org/data/image/7346578",
+      "https://arachne.dainst.org/data/image/7351789",
+      "https://arachne.dainst.org/data/image/7346577",
+      "https://arachne.dainst.org/data/image/7351790",
+      "https://arachne.dainst.org/data/image/7346857",
+      "https://arachne.dainst.org/data/image/7346326",
+      "https://arachne.dainst.org/data/image/7346286",
+      "https://arachne.dainst.org/data/image/7346282",
+      "https://arachne.dainst.org/data/image/7346283",
+      "https://arachne.dainst.org/data/image/7346284",
+      "https://arachne.dainst.org/data/image/7346290",
+      "https://arachne.dainst.org/data/image/7346298",
+      "https://arachne.dainst.org/data/image/7346300",
+      "https://arachne.dainst.org/data/image/7346378",
+      "https://arachne.dainst.org/data/image/7346374",
+      "https://arachne.dainst.org/data/image/7346380",
+      "https://arachne.dainst.org/data/image/7346274",
+      "https://arachne.dainst.org/data/image/7346406",
+      "https://arachne.dainst.org/data/image/7346327",
+      "https://arachne.dainst.org/data/image/7346287",
+      "https://arachne.dainst.org/data/image/7346377",
+      "https://arachne.dainst.org/data/image/7346381",
+      "https://arachne.dainst.org/data/image/7346379",
+      "https://arachne.dainst.org/data/image/7346275",
+      "https://arachne.dainst.org/data/image/7346277",
+      "https://arachne.dainst.org/data/image/7346285",
+      "https://arachne.dainst.org/data/image/7346301",
+      "https://arachne.dainst.org/data/image/7346280",
+      "https://arachne.dainst.org/data/image/7346305",
+      "https://arachne.dainst.org/data/image/7346306",
+      "https://arachne.dainst.org/data/image/7346330",
+      "https://arachne.dainst.org/data/image/7346574",
+      "https://arachne.dainst.org/data/image/7351791",
+      "https://arachne.dainst.org/data/image/7346303",
+      "https://arachne.dainst.org/data/image/7346302",
+      "https://arachne.dainst.org/data/image/7346304",
+      "https://arachne.dainst.org/data/image/7346299",
+      "https://arachne.dainst.org/data/image/7346861",
+      "https://arachne.dainst.org/data/image/7346573",
+      "https://arachne.dainst.org/data/image/7351792",
+      "https://arachne.dainst.org/data/image/7346319",
+      "https://arachne.dainst.org/data/image/7346320",
+      "https://arachne.dainst.org/data/image/7346307",
+      "https://arachne.dainst.org/data/image/7346308",
+      "https://arachne.dainst.org/data/image/7346309",
+      "https://arachne.dainst.org/data/image/7341693",
+      "https://arachne.dainst.org/data/image/7346397",
+      "https://arachne.dainst.org/data/image/7346391",
+      "https://arachne.dainst.org/data/image/7341756",
+      "https://arachne.dainst.org/data/image/7346279",
+      "https://arachne.dainst.org/data/image/7346278",
+      "https://arachne.dainst.org/data/image/7346281",
+      "https://arachne.dainst.org/data/image/7346335",
+      "https://arachne.dainst.org/data/image/7346390",
+      "https://arachne.dainst.org/data/image/7346311",
+      "https://arachne.dainst.org/data/image/7346342",
+      "https://arachne.dainst.org/data/image/7346384",
+      "https://arachne.dainst.org/data/image/7346385",
+      "https://arachne.dainst.org/data/image/7346312",
+      "https://arachne.dainst.org/data/image/7346310",
+      "https://arachne.dainst.org/data/image/7346341",
+      "https://arachne.dainst.org/data/image/7346337",
+      "https://arachne.dainst.org/data/image/7346343",
+      "https://arachne.dainst.org/data/image/7346388",
+      "https://arachne.dainst.org/data/image/7346389",
+      "https://arachne.dainst.org/data/image/7346572",
+      "https://arachne.dainst.org/data/image/7351793",
+      "https://arachne.dainst.org/data/image/7346373",
+      "https://arachne.dainst.org/data/image/7346372",
+      "https://arachne.dainst.org/data/image/7346862",
+      "https://arachne.dainst.org/data/image/7346575",
+      "https://arachne.dainst.org/data/image/7351794",
+      "https://arachne.dainst.org/data/image/7346386",
+      "https://arachne.dainst.org/data/image/7346576",
+      "https://arachne.dainst.org/data/image/7351795",
+      "https://arachne.dainst.org/data/image/7346369",
+      "https://arachne.dainst.org/data/image/7346368",
+      "https://arachne.dainst.org/data/image/7346863",
+      "https://arachne.dainst.org/data/image/7340518",
+      "https://arachne.dainst.org/data/image/7346864",
+      "https://arachne.dainst.org/data/image/7346865",
+      "https://arachne.dainst.org/data/image/7346866",
+      "https://arachne.dainst.org/data/image/7346313",
+      "https://arachne.dainst.org/data/image/7346315",
+      "https://arachne.dainst.org/data/image/7346387",
+      "https://arachne.dainst.org/data/image/7346314",
+      "https://arachne.dainst.org/data/image/7346296",
+      "https://arachne.dainst.org/data/image/7346321",
+      "https://arachne.dainst.org/data/image/7346324",
+      "https://arachne.dainst.org/data/image/7346365",
+      "https://arachne.dainst.org/data/image/7346364",
+      "https://arachne.dainst.org/data/image/7346366",
+      "https://arachne.dainst.org/data/image/7346403",
+      "https://arachne.dainst.org/data/image/7346402",
+      "https://arachne.dainst.org/data/image/7346867",
+      "https://arachne.dainst.org/data/image/7346332",
+      "https://arachne.dainst.org/data/image/7346339",
+      "https://arachne.dainst.org/data/image/7346333",
+      "https://arachne.dainst.org/data/image/7346353",
+      "https://arachne.dainst.org/data/image/7346360",
+      "https://arachne.dainst.org/data/image/7346361",
+      "https://arachne.dainst.org/data/image/7346359",
+      "https://arachne.dainst.org/data/image/7346288",
+      "https://arachne.dainst.org/data/image/7341704",
+      "https://arachne.dainst.org/data/image/7346329",
+      "https://arachne.dainst.org/data/image/7346328",
+      "https://arachne.dainst.org/data/image/7346401",
+      "https://arachne.dainst.org/data/image/7346400",
+      "https://arachne.dainst.org/data/image/7346340",
+      "https://arachne.dainst.org/data/image/7346358",
+      "https://arachne.dainst.org/data/image/7346346",
+      "https://arachne.dainst.org/data/image/7346347",
+      "https://arachne.dainst.org/data/image/7346348",
+      "https://arachne.dainst.org/data/image/7346349",
+      "https://arachne.dainst.org/data/image/7346367",
+      "https://arachne.dainst.org/data/image/7346356",
+      "https://arachne.dainst.org/data/image/7346858",
+      "https://arachne.dainst.org/data/image/7341663",
+      "https://arachne.dainst.org/data/image/7346294",
+      "https://arachne.dainst.org/data/image/7346344",
+      "https://arachne.dainst.org/data/image/7346370",
+      "https://arachne.dainst.org/data/image/7346371",
+      "https://arachne.dainst.org/data/image/7346352",
+      "https://arachne.dainst.org/data/image/7346325",
+      "https://arachne.dainst.org/data/image/7341664",
+      "https://arachne.dainst.org/data/image/7346293",
+      "https://arachne.dainst.org/data/image/7341666",
+      "https://arachne.dainst.org/data/image/7346355",
+      "https://arachne.dainst.org/data/image/7346354",
+      "https://arachne.dainst.org/data/image/7346338",
+      "https://arachne.dainst.org/data/image/7341665",
+      "https://arachne.dainst.org/data/image/7346323",
+      "https://arachne.dainst.org/data/image/7346404",
+      "https://arachne.dainst.org/data/image/7341668",
+      "https://arachne.dainst.org/data/image/7341667",
+      "https://arachne.dainst.org/data/image/7341677",
+      "https://arachne.dainst.org/data/image/7346292",
+      "https://arachne.dainst.org/data/image/7346859",
+      "https://arachne.dainst.org/data/image/7346362",
+      "https://arachne.dainst.org/data/image/7341678",
+      "https://arachne.dainst.org/data/image/7346291",
+      "https://arachne.dainst.org/data/image/7346860",
+      "https://arachne.dainst.org/data/image/7346363",
+      "https://arachne.dainst.org/data/image/7346297",
+      "https://arachne.dainst.org/data/image/7346357",
+      "https://arachne.dainst.org/data/image/7346336",
+      "https://arachne.dainst.org/data/image/7346345",
+      "https://arachne.dainst.org/data/image/7346334",
+      "https://arachne.dainst.org/data/image/7346405",
+      "https://arachne.dainst.org/data/image/7346295",
+      "https://arachne.dainst.org/data/image/7346350",
+      "https://arachne.dainst.org/data/image/7346351",
+      "https://arachne.dainst.org/data/image/7346393",
+      "https://arachne.dainst.org/data/image/7346410",
+      "https://arachne.dainst.org/data/image/7346411",
+      "https://arachne.dainst.org/data/image/7346409",
+      "https://arachne.dainst.org/data/image/7346316",
+      "https://arachne.dainst.org/data/image/7346317",
+      "https://arachne.dainst.org/data/image/7346398",
+      "https://arachne.dainst.org/data/image/7346399",
+      "https://arachne.dainst.org/data/image/7346394",
+      "https://arachne.dainst.org/data/image/7346395",
+      "https://arachne.dainst.org/data/image/7346396",
+      "https://arachne.dainst.org/data/image/7346322",
+      "https://arachne.dainst.org/data/image/7346318",
+      "https://arachne.dainst.org/data/image/7341669",
+      "https://arachne.dainst.org/data/image/7346289",
+      "https://arachne.dainst.org/data/image/7346392",
+      "https://arachne.dainst.org/data/image/7341670",
+      "https://arachne.dainst.org/data/image/7341705",
+      "https://arachne.dainst.org/data/image/7341671",
+      "https://arachne.dainst.org/data/image/7341672",
+      "https://arachne.dainst.org/data/image/7341694",
+      "https://arachne.dainst.org/data/image/7346382",
+      "https://arachne.dainst.org/data/image/7346383"
+    ]
+  }

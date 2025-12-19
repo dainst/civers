@@ -1,0 +1,32 @@
+# Testing Environment Configuration
+# For pytest and automated testing
+
+environment: testing
+
+transport:
+  kafka:
+    bootstrap_servers: "localhost:29092"
+    consumer:
+      group_id: "civers-test"
+      auto_offset_reset: "earliest"
+
+storage:
+  enabled:
+    - local_file
+  backends:
+    local_file:
+      base_path: "/tmp/test-archives"
+
+# Simplified domains for testing
+domains:
+  - name: arachne.test.dainst.org
+    workflow: archaeology_workflow
+    artifacts: [warc, html, screenshots]
+    webpage_types: dynamic
+    enabled: true
+
+  - name: example.com
+    workflow: standard_archive_workflow
+    artifacts: [warc, html]
+    webpage_types: dynamic
+    enabled: true
