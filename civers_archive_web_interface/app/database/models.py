@@ -6,7 +6,7 @@ including tables for URLs, snapshots, and artifacts with appropriate
 indexes for performance.
 """
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA_SQL = """
 -- URLs table
@@ -50,6 +50,23 @@ CREATE TABLE IF NOT EXISTS artifacts (
     UNIQUE(snapshot_id, artifact_type)
 );
 
+-- Request status table for tracking archive requests
+CREATE TABLE IF NOT EXISTS request_status (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id TEXT NOT NULL,
+    status TEXT NOT NULL,  -- pending, in_progress, completed, failed
+    domain TEXT,
+    url TEXT NOT NULL,
+    current_step TEXT,
+    completed_steps TEXT,  -- JSON array of step names
+    error_message TEXT,
+    callback_url TEXT,
+    snapshot_id TEXT,  -- Link to snapshot when completed
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (snapshot_id) REFERENCES snapshots(snapshot_id) ON DELETE SET NULL
+);
+
 -- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_snapshots_url_id ON snapshots(url_id);
 CREATE INDEX IF NOT EXISTS idx_snapshots_request_id ON snapshots(request_id);
@@ -59,6 +76,11 @@ CREATE INDEX IF NOT EXISTS idx_artifacts_snapshot_id ON artifacts(snapshot_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_type ON artifacts(artifact_type);
 CREATE INDEX IF NOT EXISTS idx_urls_last_captured ON urls(last_captured DESC);
 
+-- Status tracking indexes
+CREATE INDEX IF NOT EXISTS idx_request_status_request_id ON request_status(request_id);
+CREATE INDEX IF NOT EXISTS idx_request_status_status ON request_status(status);
+CREATE INDEX IF NOT EXISTS idx_request_status_created_at ON request_status(created_at DESC);
+
 -- Schema versioning
 CREATE TABLE IF NOT EXISTS schema_metadata (
     key TEXT PRIMARY KEY,
@@ -66,7 +88,9 @@ CREATE TABLE IF NOT EXISTS schema_metadata (
 );
 
 INSERT OR IGNORE INTO schema_metadata (key, value)
-VALUES ('version', '2');
+VALUES ('version', '3');
+
+UPDATE schema_metadata SET value = '3' WHERE key = 'version';
 """
 
 

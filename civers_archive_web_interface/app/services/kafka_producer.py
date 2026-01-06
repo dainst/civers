@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
-from app.config.models import KafkaConfig
+from configs.models import KafkaConfig
 
 logger = logging.getLogger(__name__)
 

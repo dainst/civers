@@ -13,9 +13,12 @@ from .api.urls import router as urls_router
 from .api.snapshot_detail import router as snapshots_router
 from .api.artifacts import router as artifacts_router
 from .api.upload import router as upload_router
+from .api.archive_request import router as archive_request_router
 from .routes.pages import router as pages_router
-from .config import load_app_config, ConfigurationError
+from configs import load_app_config, ConfigurationError
 from .storage import create_storage_service
+from .database.sqlite_manager import SQLiteManager
+from .database.models import get_schema_sql
 from .middleware import (
     ErrorDispatcherMiddleware,
     SecurityHeadersMiddleware
@@ -39,6 +42,9 @@ configure_logging(level=log_level, json_format=json_logging, log_file=log_file)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events."""
+    # Import services here to avoid circular imports
+    from .services import DomainService, KafkaProducerService, RequestStatusService
+    
     # Startup
     try:
         # Load application configuration
@@ -49,19 +55,65 @@ async def lifespan(app: FastAPI):
         storage_service = create_storage_service(app_config)
         app.state.storage_service = storage_service
         
-        # Get logger after middleware has set up logging
+        # Initialize database for request status tracking
+        # Re-use storage provider's DB if it's SQLite, otherwise create separate connection
+        db_manager = None
+        if hasattr(storage_service.provider, 'db') and isinstance(storage_service.provider.db, SQLiteManager):
+            db_manager = storage_service.provider.db
+            logger.info("Using storage provider's SQLite database for request status tracking")
+        elif app_config.storage.sqlite:
+            # Create a separate DB manager for status tracking
+            from pathlib import Path
+            db_path = Path(app_config.storage.sqlite.db_path)
+            if not db_path.is_absolute():
+                db_path = Path.cwd() / db_path
+            
+            db_manager = SQLiteManager(db_path)
+            db_manager.connect()
+            db_manager.initialize_schema(get_schema_sql())
+            logger.info(f"Created separate SQLite database for status tracking at {db_path}")
         
-        logger.debug("Application initialized successfully")
+        if db_manager:
+            app.state.request_status_service = RequestStatusService(db_manager)
+            logger.info("✅ Request status service initialized")
+        else:
+            logger.warning("⚠️ No database available for request status tracking")
+        
+        # Initialize domain service for archive request form
+        domain_service = DomainService(app_config.domains)
+        app.state.domain_service = domain_service
+        
+        logger.info(f"✅ Domain service loaded {len(domain_service.domains)} domains")
+        # Initialize Kafka producer service (optional - for archive request submission)
+        kafka_producer = KafkaProducerService(app_config.kafka)
+        app.state.kafka_producer = kafka_producer
+        
+        if kafka_producer.is_enabled:
+            # Attempt to initialize (will log warning if Kafka not available)
+            kafka_initialized = await kafka_producer.initialize()
+            if kafka_initialized:
+                logger.info("✅ Kafka producer initialized")
+            else:
+                logger.warning("⚠️ Kafka producer not initialized - archive request submission disabled")
+        else:
+            logger.info("📭 Kafka disabled in configuration")
+        
+        logger.info("✅ Application initialized successfully")
+        
     except ConfigurationError as e:
-        # Get logger after middleware has set up logging
-        
         logger.error(f"Failed to initialize application: {e}")
         raise RuntimeError(f"Application initialization failed: {e}") from e
     
     yield
     
-    # Shutdown (cleanup if needed)
-    logger.debug("Application shutting down")
+    # Shutdown (cleanup services)
+    logger.info("🛑 Application shutting down...")
+    
+    # Shutdown Kafka producer gracefully
+    if hasattr(app.state, 'kafka_producer') and app.state.kafka_producer:
+        await app.state.kafka_producer.shutdown()
+    
+    logger.info("✅ Application shutdown complete")
 
 # Create FastAPI application
 app = FastAPI(
@@ -106,6 +158,7 @@ app.include_router(urls_router)
 app.include_router(snapshots_router)
 app.include_router(artifacts_router)
 app.include_router(upload_router)
+app.include_router(archive_request_router)
 
 # Include page routers
 app.include_router(pages_router)

@@ -10,6 +10,13 @@ from typing import Literal, Optional, Set, Dict, List
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
 
+class AppInfoConfig(BaseModel):
+    """Application identification and environment info."""
+    name: str = Field(default="civers_web_interface", description="Application name")
+    version: str = Field(default="1.0.0", description="Application version")
+    environment: str = Field(default="development", description="Runtime environment")
+
+
 class FilesystemConfig(BaseModel):
     """Filesystem storage provider configuration."""
 
@@ -290,14 +297,43 @@ class KafkaConfig(BaseModel):
         return self.topics.get(topic_name)
 
 
+class DomainConfig(BaseModel):
+    """Domain configuration for archiving.
+    
+    Consistent with the shared domains.yaml structure.
+    """
+    model_config = ConfigDict(extra='ignore')
+    
+    name: str = Field(..., description="Domain name or pattern (e.g., 'arachne.dainst.org' or '*.dainst.org')")
+    enabled: bool = Field(default=True, description="Whether this domain is enabled")
+    description: str = Field(default="", description="Human-readable description")
+    
+    @property
+    def display_name(self) -> str:
+        """Get display name for form dropdown."""
+        if self.description:
+            return f"{self.name} - {self.description}"
+        return self.name
+    
+    @property
+    def is_wildcard(self) -> bool:
+        """Check if this is a wildcard domain pattern."""
+        return "*" in self.name
+    
+    @property
+    def is_default(self) -> bool:
+        """Check if this is the default fallback domain."""
+        return self.name.lower() == "default"
+
+
 class AppConfig(BaseModel):
     """Top-level application configuration."""
     
     model_config = ConfigDict(validate_assignment=True)
     
+    app: AppInfoConfig = Field(default_factory=AppInfoConfig)
+    
     storage: StorageConfig = Field(default_factory=StorageConfig)
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
-    kafka: Optional[KafkaConfig] = Field(
-        default=None,
-        description="Kafka configuration (optional, enables archive request publishing)"
-    )
+    kafka: KafkaConfig = Field(default_factory=KafkaConfig)
+    domains: List[DomainConfig] = Field(default_factory=list, description="Domain-to-workflow mappings")

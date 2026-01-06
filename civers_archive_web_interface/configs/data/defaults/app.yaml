@@ -1,0 +1,4 @@
+app:
+  name: "civers_web_interface"
+  version: "1.0.0"
+  environment: "${CONFIG_ENVIRONMENT:-development}"

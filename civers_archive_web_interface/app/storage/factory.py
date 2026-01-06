@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from ..config import StorageConfig, AppConfig
+from configs.models import StorageConfig, AppConfig
 from .providers.storage_provider_interface import StorageProviderInterface
 from .providers.filesystem import FilesystemStorageProvider
 from .providers.sqlite_storage import SQLiteStorageProvider

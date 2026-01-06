@@ -16,7 +16,7 @@ from urllib.parse import unquote
 from .storage_provider_interface import StorageProviderInterface, StorageError
 from ...models.url import ArchivedUrl
 from ...models.snapshot import Snapshot
-from ...config.models import ValidationConfig
+from configs.models import ValidationConfig
 from ...utils.url_parser import parse_url, generate_request_id, build_storage_path
 from ...utils.file_storage import store_snapshot_files
 

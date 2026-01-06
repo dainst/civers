@@ -1,0 +1,31 @@
+# Domain Configuration for Web Interface
+# Contains only fields necessary for form matching and validation
+
+domains:
+  - name: arachne.dainst.org
+    enabled: true
+    description: "iDAI.objects/Arachne - Archaeological object database"
+
+  - name: arachne.test.dainst.org
+    enabled: true
+    description: "Arachne test environment"
+
+  - name: field.dainst.org
+    enabled: true
+    description: "iDAI.field - Field documentation"
+
+  - name: publications.dainst.org
+    enabled: true
+    description: "DAINST Publications"
+
+  - name: "*.dainst.org"
+    enabled: true
+    description: "Default pattern for DAI domains"
+
+  - name: default
+    enabled: true
+    description: "Default fallback for unknown domains"
+
+  - name: httpbin.org
+    enabled: true
+    description: "HTTP testing service for integration tests"

@@ -5,7 +5,7 @@ This package provides centralized configuration loading and management
 for the entire application.
 """
 
-from .loader import load_app_config, ConfigurationError
+from .loaders import load_app_config, ConfigurationError
 from .models import (
     AppConfig,
     StorageConfig,
