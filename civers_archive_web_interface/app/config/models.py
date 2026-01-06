@@ -187,6 +187,109 @@ class ValidationConfig(BaseModel):
         return v
 
 
+# === Kafka Configuration Models ===
+# These models are designed to be consistent with other CIVERS components
+# (civers_orchestrator, civers_archive_generator, civers_metadata_extractor)
+# to enable future shared configuration logic.
+
+class KafkaProducerConfig(BaseModel):
+    """Kafka producer configuration.
+    
+    Matches orchestrator's KafkaProducerConfig structure.
+    """
+    
+    acks: str = Field(default="all", description="Acknowledgment policy")
+    retries: int = Field(default=3, ge=0, description="Number of retries")
+    batch_size: int = Field(default=16384, ge=0, description="Batch size in bytes")
+    linger_ms: int = Field(default=10, ge=0, description="Time to wait before sending a batch")
+
+
+class KafkaConfig(BaseModel):
+    """Kafka transport configuration.
+    
+    This model is designed to be consistent with other CIVERS components:
+    - civers_orchestrator/configs/models.py
+    - civers_archive_generator/configs/models.py  
+    - civers_metadata_extractor/configs/config_data_model.py
+    
+    Key design decisions for future maintainability:
+    - Uses Dict[str, str] for topics (like archive_generator & metadata_extractor)
+    - Includes health_check_enabled and monitoring_enabled (like archive_generator)
+    - Includes producer config (like orchestrator)
+    - The 'enabled' field is web-interface specific for optional Kafka support
+    """
+    model_config = ConfigDict(extra='ignore')
+    
+    # Web interface specific: allows disabling Kafka entirely
+    enabled: bool = Field(
+        default=True, 
+        description="Whether Kafka integration is enabled (web interface specific)"
+    )
+    
+    # Core Kafka settings (shared with all components)
+    bootstrap_servers: str = Field(
+        default="localhost:29092",
+        description="Kafka bootstrap servers"
+    )
+    
+    # Topics as Dict (consistent with archive_generator and metadata_extractor)
+    topics: Dict[str, str] = Field(
+        default={
+            "orchestrator_requests": "orchestrator.requests",
+            "orchestrator_status": "orchestrator.status",
+        },
+        description="Topic configuration as dictionary"
+    )
+    
+    # Producer configuration (consistent with orchestrator)
+    producer: KafkaProducerConfig = Field(
+        default_factory=KafkaProducerConfig,
+        description="Producer configuration"
+    )
+    
+    # Health and monitoring settings (consistent with archive_generator & metadata_extractor)
+    health_check_enabled: bool = Field(
+        default=True,
+        description="Enable health check for Kafka connection"
+    )
+    monitoring_enabled: bool = Field(
+        default=True,
+        description="Enable Kafka monitoring"
+    )
+    
+    # Connection retry settings
+    connection_retry_attempts: int = Field(
+        default=5,
+        ge=1,
+        description="Number of connection retry attempts"
+    )
+    connection_retry_delay_ms: int = Field(
+        default=2000,
+        ge=100,
+        description="Delay between connection retries in ms"
+    )
+
+    @field_validator('bootstrap_servers')
+    @classmethod
+    def validate_bootstrap_servers(cls, v):
+        if not v or not v.strip():
+            raise ValueError("bootstrap_servers cannot be empty")
+        return v.strip()
+    
+    def get_topic(self, topic_name: str) -> Optional[str]:
+        """Get Kafka topic name for a specific event type.
+        
+        Consistent with metadata_extractor's KafkaConfig.get_topic() method.
+        
+        Args:
+            topic_name: Topic key (e.g., 'orchestrator_requests')
+            
+        Returns:
+            Topic string or None if not found
+        """
+        return self.topics.get(topic_name)
+
+
 class AppConfig(BaseModel):
     """Top-level application configuration."""
     
@@ -194,3 +297,7 @@ class AppConfig(BaseModel):
     
     storage: StorageConfig = Field(default_factory=StorageConfig)
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
+    kafka: Optional[KafkaConfig] = Field(
+        default=None,
+        description="Kafka configuration (optional, enables archive request publishing)"
+    )

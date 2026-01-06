@@ -109,3 +109,39 @@ validation:
 #   CIVERS_CACHE_TTL_SECONDS=120
 #   CIVERS_VALIDATION_SNAPSHOT_ID_MAX_LENGTH=200
 #   CIVERS_VALIDATION_SNAPSHOT_DIRECTORY_PREFIX=snap_
+
+# Kafka configuration for archive request publishing
+# This enables submitting archive requests to the civers_orchestrator
+#
+# This configuration structure is designed to be consistent with other CIVERS components:
+# - civers_orchestrator/configs/data/defaults/kafka.yaml
+# - civers_archive_generator/configs/models.py
+# - civers_metadata_extractor/configs/config_data_model.py
+kafka:
+  # Enable/disable Kafka integration
+  # Set to false if running without Kafka (e.g., local development)
+  enabled: true
+
+  # Kafka bootstrap servers
+  # Can be overridden with KAFKA_BOOTSTRAP_SERVERS environment variable
+  bootstrap_servers: "localhost:29092"
+
+  # Producer configuration (consistent with orchestrator)
+  producer:
+    acks: "all"
+    retries: 3
+    batch_size: 16384
+    linger_ms: 10
+
+  # Topic configuration (Dict format, consistent with archive_generator & metadata_extractor)
+  topics:
+    orchestrator_requests: "orchestrator.requests"
+    orchestrator_status: "orchestrator.status"
+
+  # Health and monitoring settings (consistent with archive_generator & metadata_extractor)
+  health_check_enabled: true
+  monitoring_enabled: true
+
+  # Connection settings
+  connection_retry_attempts: 5
+  connection_retry_delay_ms: 2000

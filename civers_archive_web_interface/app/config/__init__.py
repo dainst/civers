@@ -6,7 +6,15 @@ for the entire application.
 """
 
 from .loader import load_app_config, ConfigurationError
-from .models import AppConfig, StorageConfig, FilesystemConfig, SQLiteConfig, CacheConfig
+from .models import (
+    AppConfig,
+    StorageConfig,
+    FilesystemConfig,
+    SQLiteConfig,
+    CacheConfig,
+    KafkaConfig,
+    KafkaProducerConfig,
+)
 
 __all__ = [
     "load_app_config",
@@ -16,4 +24,6 @@ __all__ = [
     "FilesystemConfig",
     "SQLiteConfig",
     "CacheConfig",
+    "KafkaConfig",
+    "KafkaProducerConfig",
 ]

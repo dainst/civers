@@ -126,4 +126,21 @@ def _apply_environment_overrides(config: Dict[str, Any]) -> Dict[str, Any]:
             config['validation'][config_key] = value_type(env_value)
             logger.debug(f"Validation {config_key} overridden by environment: {env_value}")
     
+    # Kafka overrides
+    # Check for KAFKA_BOOTSTRAP_SERVERS (standard Kafka env var) or CIVERS_KAFKA_BOOTSTRAP_SERVERS
+    kafka_bootstrap = os.getenv('KAFKA_BOOTSTRAP_SERVERS') or os.getenv('CIVERS_KAFKA_BOOTSTRAP_SERVERS')
+    if kafka_bootstrap:
+        if 'kafka' not in config:
+            config['kafka'] = {}
+        config['kafka']['bootstrap_servers'] = kafka_bootstrap
+        logger.debug(f"Kafka bootstrap servers overridden by environment: {kafka_bootstrap}")
+    
+    # Kafka enabled override
+    kafka_enabled = os.getenv('CIVERS_KAFKA_ENABLED')
+    if kafka_enabled is not None:
+        if 'kafka' not in config:
+            config['kafka'] = {}
+        config['kafka']['enabled'] = kafka_enabled.lower() in ('true', '1', 'yes')
+        logger.debug(f"Kafka enabled overridden by environment: {kafka_enabled}")
+    
     return config
