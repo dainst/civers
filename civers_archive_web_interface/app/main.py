@@ -14,6 +14,7 @@ from .api.snapshot_detail import router as snapshots_router
 from .api.artifacts import router as artifacts_router
 from .api.upload import router as upload_router
 from .api.archive_request import router as archive_request_router
+from .api.webhook import router as webhook_router
 from .routes.pages import router as pages_router
 from configs import load_app_config, ConfigurationError
 from .storage import create_storage_service
@@ -159,6 +160,7 @@ app.include_router(snapshots_router)
 app.include_router(artifacts_router)
 app.include_router(upload_router)
 app.include_router(archive_request_router)
+app.include_router(webhook_router)
 
 # Include page routers
 app.include_router(pages_router)

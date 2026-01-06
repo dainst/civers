@@ -25,6 +25,7 @@ from orchestration_services.orchestrator_service import OrchestratorService
 from transport_services.adapters.kafka_adapter import KafkaTransportAdapter
 from transport_services.kafka.event_publisher import EventPublisher
 from transport_services.kafka.event_registry import get_event_model
+from orchestration_services.callback_service import CallbackService
 from transport_services.kafka.event_models import (
     OrchestratorRequestEvent,
     OrchestratorStatusEvent,
@@ -86,6 +87,9 @@ class KafkaTransportService(TransportServiceInterface):
         self.producer: KafkaProducer | None = None
         self.event_publisher: EventPublisher | None = None
         self.event_handlers: dict[str, Callable] = {}
+
+        # Initialize callback service
+        self.callback_service = CallbackService()
 
         # Initialize producer and event publisher
         self._setup_producer()
@@ -506,6 +510,14 @@ class KafkaTransportService(TransportServiceInterface):
 
             if success:
                 logger.info(f"✅ Workflow completed: {workflow_instance.request_id}")
+                
+                # 5. Send callback if configured
+                if workflow_instance.callback_url:
+                    await self.callback_service.send_callback(
+                        workflow_instance.callback_url,
+                        event.model_dump(),
+                        workflow_instance.request_id
+                    )
             else:
                 logger.error(f"❌ Failed to publish completion event")
 
@@ -537,6 +549,14 @@ class KafkaTransportService(TransportServiceInterface):
                     f"❌ Workflow failed: {workflow_instance.request_id} "
                     f"at step {transition.failed_step}"
                 )
+                
+                # 5. Send callback if configured
+                if workflow_instance.callback_url:
+                    await self.callback_service.send_callback(
+                        workflow_instance.callback_url,
+                        event.model_dump(),
+                        workflow_instance.request_id
+                    )
             else:
                 logger.error(f"❌ Failed to publish failure event")
 
@@ -571,6 +591,16 @@ class KafkaTransportService(TransportServiceInterface):
 
             if success:
                 logger.info(f"📊 Published status update: {request_id} - {step_name} [{status}]")
+                
+                # 6. Send callback if configured
+                # Retrieve workflow instance to get callback_url
+                workflow_instance = self.orchestrator.get_workflow_state(request_id)
+                if workflow_instance and workflow_instance.callback_url:
+                    await self.callback_service.send_callback(
+                        workflow_instance.callback_url,
+                        event.model_dump(),
+                        request_id
+                    )
         except Exception as e:
             logger.error(f"❌ Failed to publish status update: {e}")
 

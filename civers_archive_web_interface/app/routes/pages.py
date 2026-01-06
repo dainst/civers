@@ -5,6 +5,7 @@ This module provides HTML page endpoints that render templates for the web inter
 """
 
 import logging
+import json
 from fastapi import APIRouter, HTTPException, Request, Query
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, Response
@@ -79,12 +80,50 @@ async def home_page(request: Request):
     """
     logger.debug("Rendering home page")
     
+    # Prepare domain list for the archive form
+    domain_service = request.app.state.domain_service
+    domains = domain_service.get_domain_names_for_dropdown()
+    
     context = {
         "request": request,
-        "title": "Civers Archive Web Interface"
+        "title": "Civers Archive Web Interface",
+        "domains_json": json.dumps(domains)
     }
     
-    return templates.TemplateResponse("base.html", context)
+    return templates.TemplateResponse("index.html", context)
+
+
+@router.get("/archive-request", response_class=HTMLResponse)
+async def archive_request_page(request: Request):
+    """
+    Render the archive request form page.
+    """
+    domain_service = request.app.state.domain_service
+    domains = domain_service.get_domain_names_for_dropdown()
+    
+    context = {
+        "request": request,
+        "title": "Request Site Archive",
+        "domains_json": json.dumps(domains)
+    }
+    
+    return templates.TemplateResponse("archive_request.html", context)
+
+
+@router.get("/status/{request_id}", response_class=HTMLResponse)
+async def status_page(request: Request, request_id: str):
+    """
+    Render the archive request status page.
+    """
+    # This status page will be implemented in detail in Task 8
+    # For now, it's just a placeholder template
+    context = {
+        "request": request,
+        "title": f"Archive Status: {request_id}",
+        "request_id": request_id
+    }
+    
+    return templates.TemplateResponse("status.html", context)
 
 
 @router.get("/replay/{snapshot_id}", response_class=HTMLResponse)

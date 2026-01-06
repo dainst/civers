@@ -124,11 +124,12 @@ class KafkaProducerService:
             logger.error(f"❌ {self._initialization_error}")
             return False
 
-    def publish_event(
+    async def publish_event(
         self,
-        topic: str,
-        key: str,
-        event: BaseModel,
+        topic_key: str,
+        event: Optional[BaseModel] = None,
+        event_data: Optional[Dict[str, Any]] = None,
+        key: Optional[str] = None,
         timeout: float = 10.0
     ) -> bool:
         """
@@ -160,27 +161,42 @@ class KafkaProducerService:
             raise KafkaProducerError(error_msg)
 
         try:
-            # Serialize event to dict
-            event_data = event.model_dump()
+            # 1. Resolve topic
+            topic = self.get_topic(topic_key)
+            
+            # 2. Resolve data and key
+            if event:
+                data = event.model_dump()
+                # Use request_id as default key if present for better partitioning
+                final_key = key or getattr(event, 'request_id', None)
+            elif event_data:
+                data = event_data
+                final_key = key or data.get('request_id')
+            else:
+                raise ValueError("Either 'event' or 'event_data' must be provided")
 
-            # Publish to Kafka
-            future = self.producer.send(
-                topic=topic,
-                key=key,
-                value=event_data
-            )
+            # 3. Publish to Kafka (offload blocking bit to thread if necessary, 
+            # but kafka-python send is non-blocking, only future.get blocks)
+            import asyncio
+            
+            def _send():
+                future = self.producer.send(
+                    topic=topic,
+                    key=final_key,
+                    value=data
+                )
+                return future.get(timeout=timeout)
 
-            # Wait for acknowledgment
-            future.get(timeout=timeout)
+            # Execute the blocking future.get() in a thread to keep event loop free
+            record_metadata = await asyncio.to_thread(_send)
 
             logger.info(
-                f"📤 Published {event.__class__.__name__} to {topic} "
-                f"(key={key})"
+                f"📤 Published event to {topic} (key={final_key}, offset={record_metadata.offset})"
             )
             return True
 
         except Exception as e:
-            logger.error(f"❌ Failed to publish event to {topic}: {e}")
+            logger.error(f"❌ Failed to publish event with key '{topic_key}': {e}")
             return False
 
     def publish_dict(

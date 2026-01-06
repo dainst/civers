@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Request Site Archive - {{ super() }}{% endblock %}
+
+{% block page_title %}Archive from Form{% endblock %}
+
+{% block page_description %}
+<p class="mt-1 text-sm text-gray-500">
+    Request a new archive capture for any supported domain.
+</p>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    {% include 'components/archive_form.html' %}
+
+    <div class="mt-8 bg-white shadow sm:rounded-lg overflow-hidden border border-gray-200">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-md font-medium text-gray-900 border-b border-gray-100 pb-3 mb-4">
+                What happens next?
+            </h3>
+            <ul class="space-y-4">
+                <li class="flex items-start">
+                    <div class="flex-shrink-0 pt-0.5">
+                        <span
+                            class="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-700">1</span>
+                    </div>
+                    <p class="ml-3 text-sm text-gray-600">
+                        <strong class="text-gray-900">Queueing:</strong> Your request is sent to the Orchestrator and
+                        placed in the processing queue.
+                    </p>
+                </li>
+                <li class="flex items-start">
+                    <div class="flex-shrink-0 pt-0.5">
+                        <span
+                            class="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-700">2</span>
+                    </div>
+                    <p class="ml-3 text-sm text-gray-600">
+                        <strong class="text-gray-900">Execution:</strong> The CIVERS Archive Generator starts a headless
+                        browser, captures the content, and ensures all resources are preserved.
+                    </p>
+                </li>
+                <li class="flex items-start">
+                    <div class="flex-shrink-0 pt-0.5">
+                        <span
+                            class="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-700">3</span>
+                    </div>
+                    <p class="ml-3 text-sm text-gray-600">
+                        <strong class="text-gray-900">Verification:</strong> The captured WACZ file is validated and
+                        metadata is extracted for indexing.
+                    </p>
+                </li>
+                <li class="flex items-start">
+                    <div class="flex-shrink-0 pt-0.5">
+                        <span
+                            class="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-700">4</span>
+                    </div>
+                    <p class="ml-3 text-sm text-gray-600">
+                        <strong class="text-gray-900">Storage:</strong> The final snapshot is stored in the vault and
+                        becomes available for replay.
+                    </p>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='/js/archive_form.js') }}"></script>
+{% endblock %}

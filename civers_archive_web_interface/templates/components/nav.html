@@ -4,11 +4,14 @@
             <!-- Logo and brand -->
             <div class="flex items-center">
                 <h1 class="text-xl font-semibold">
-                    <a href="/" class="nav-logo text-primary hover:text-primary focus-ring rounded-sm px-1" aria-label="Civers Archive - Home">
+                    <a href="/" class="nav-logo text-primary hover:text-primary focus-ring rounded-sm px-1"
+                        aria-label="Civers Archive - Home">
                         <span class="flex items-center">
                             <!-- Archive icon -->
-                            <svg class="w-6 h-6 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                            <svg class="w-6 h-6 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                             </svg>
                             Civers Archive
                         </span>
@@ -19,17 +22,18 @@
             <!-- Desktop Navigation -->
             <div class="desktop-nav hidden md:block">
                 <div class="ml-10 flex items-baseline space-x-4">
-                    <a href="/"
-                       class="btn btn-ghost text-sm"
-                       aria-current="{% if request.url.path == '/' %}page{% endif %}">
+                    <a href="/" class="btn btn-ghost text-sm"
+                        aria-current="{% if request.url.path == '/' %}page{% endif %}">
                         Home
                     </a>
-                    <a href="/docs"
-                       class="btn btn-ghost text-sm">
+                    <a href="/archive-request" class="btn btn-ghost text-sm"
+                        aria-current="{% if request.url.path == '/archive-request' %}page{% endif %}">
+                        Archive
+                    </a>
+                    <a href="/docs" class="btn btn-ghost text-sm">
                         API Docs
                     </a>
-                    <a href="/health"
-                       class="btn btn-ghost text-sm">
+                    <a href="/health" class="btn btn-ghost text-sm">
                         Health
                     </a>
                 </div>
@@ -37,50 +41,45 @@
 
             <!-- Mobile menu button -->
             <div class="mobile-menu-button md:hidden">
-                <button @click="mobileMenuOpen = !mobileMenuOpen"
-                        type="button"
-                        class="btn btn-ghost"
-                        :aria-expanded="mobileMenuOpen"
-                        aria-controls="mobile-menu"
-                        aria-label="Toggle mobile menu">
+                <button @click="mobileMenuOpen = !mobileMenuOpen" type="button" class="btn btn-ghost"
+                    :aria-expanded="mobileMenuOpen" aria-controls="mobile-menu" aria-label="Toggle mobile menu">
                     <span class="sr-only">Open main menu</span>
                     <!-- Menu icon when closed -->
-                    <svg x-show="!mobileMenuOpen" class="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    <svg x-show="!mobileMenuOpen" class="block h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
                     <!-- Close icon when open -->
-                    <svg x-show="mobileMenuOpen" class="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    <svg x-show="mobileMenuOpen" class="block h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
         </div>
 
         <!-- Mobile Navigation Menu -->
-        <div x-show="mobileMenuOpen"
-             x-transition:enter="transition ease-out duration-100 transform"
-             x-transition:enter-start="opacity-0 scale-95"
-             x-transition:enter-end="opacity-100 scale-100"
-             x-transition:leave="transition ease-in duration-75 transform"
-             x-transition:leave-start="opacity-100 scale-100"
-             x-transition:leave-end="opacity-0 scale-95"
-             class="md:hidden"
-             id="mobile-menu">
+        <div x-show="mobileMenuOpen" x-transition:enter="transition ease-out duration-100 transform"
+            x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-75 transform"
+            x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+            class="md:hidden" id="mobile-menu">
             <div class="responsive-spacing border-t bg-gray">
-                <a href="/"
-                   class="btn btn-ghost w-full text-left text-base"
-                   aria-current="{% if request.url.path == '/' %}page{% endif %}"
-                   @click="mobileMenuOpen = false">
+                <a href="/" class="btn btn-ghost w-full text-left text-base"
+                    aria-current="{% if request.url.path == '/' %}page{% endif %}" @click="mobileMenuOpen = false">
                     Home
                 </a>
-                <a href="/docs"
-                   class="btn btn-ghost w-full text-left text-base"
-                   @click="mobileMenuOpen = false">
+                <a href="/archive-request" class="btn btn-ghost w-full text-left text-base"
+                    aria-current="{% if request.url.path == '/archive-request' %}page{% endif %}"
+                    @click="mobileMenuOpen = false">
+                    Archive
+                </a>
+                <a href="/docs" class="btn btn-ghost w-full text-left text-base" @click="mobileMenuOpen = false">
                     API Docs
                 </a>
-                <a href="/health"
-                   class="btn btn-ghost w-full text-left text-base"
-                   @click="mobileMenuOpen = false">
+                <a href="/health" class="btn btn-ghost w-full text-left text-base" @click="mobileMenuOpen = false">
                     Health
                 </a>
             </div>
