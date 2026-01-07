@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from venv import logger
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -25,10 +25,18 @@ from .middleware import (
     SecurityHeadersMiddleware
 )
 from .logging import configure_logging
+from .constants import HealthStatus
 import uvicorn
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Load environment variables
+load_dotenv()
+
+# Load application configuration at module level for FastAPI initialization
+# This allows using config values before the lifespan context runs
+_app_config = load_app_config()
 # Load environment variables
 load_dotenv()
 
@@ -48,12 +56,11 @@ async def lifespan(app: FastAPI):
     
     # Startup
     try:
-        # Load application configuration
-        app_config = load_app_config()
-        app.state.app_config = app_config
+        # Store app configuration in app state (already loaded at module level)
+        app.state.app_config = _app_config
         
         # Create storage service with configuration
-        storage_service = create_storage_service(app_config)
+        storage_service = create_storage_service(_app_config)
         app.state.storage_service = storage_service
         
         # Initialize database for request status tracking
@@ -64,7 +71,6 @@ async def lifespan(app: FastAPI):
             logger.info("Using storage provider's SQLite database for request status tracking")
         elif app_config.storage.sqlite:
             # Create a separate DB manager for status tracking
-            from pathlib import Path
             db_path = Path(app_config.storage.sqlite.db_path)
             if not db_path.is_absolute():
                 db_path = Path.cwd() / db_path
@@ -76,30 +82,33 @@ async def lifespan(app: FastAPI):
         
         if db_manager:
             app.state.request_status_service = RequestStatusService(db_manager)
-            logger.info("✅ Request status service initialized")
+            logger.info("Request status service initialized")
         else:
-            logger.warning("⚠️ No database available for request status tracking")
+            logger.warning("No database available for request status tracking")
         
         # Initialize domain service for archive request form
-        domain_service = DomainService(app_config.domains)
+        domain_service = DomainService(_app_config.domains)
         app.state.domain_service = domain_service
         
-        logger.info(f"✅ Domain service loaded {len(domain_service.domains)} domains")
+        logger.info(f"Domain service loaded {len(domain_service.domains)} domains")
         # Initialize Kafka producer service (optional - for archive request submission)
-        kafka_producer = KafkaProducerService(app_config.kafka)
+        kafka_producer = KafkaProducerService(
+            _app_config.transport.kafka, 
+            enabled=_app_config.transport.kafka_enabled
+        )
         app.state.kafka_producer = kafka_producer
         
         if kafka_producer.is_enabled:
             # Attempt to initialize (will log warning if Kafka not available)
             kafka_initialized = await kafka_producer.initialize()
             if kafka_initialized:
-                logger.info("✅ Kafka producer initialized")
+                logger.info("Kafka producer initialized")
             else:
-                logger.warning("⚠️ Kafka producer not initialized - archive request submission disabled")
+                logger.warning("Kafka producer not initialized - archive request submission disabled")
         else:
-            logger.info("📭 Kafka disabled in configuration")
+            logger.info("Kafka disabled in configuration")
         
-        logger.info("✅ Application initialized successfully")
+        logger.info("Application initialized successfully")
         
     except ConfigurationError as e:
         logger.error(f"Failed to initialize application: {e}")
@@ -108,19 +117,19 @@ async def lifespan(app: FastAPI):
     yield
     
     # Shutdown (cleanup services)
-    logger.info("🛑 Application shutting down...")
+    logger.info("Application shutting down...")
     
     # Shutdown Kafka producer gracefully
     if hasattr(app.state, 'kafka_producer') and app.state.kafka_producer:
         await app.state.kafka_producer.shutdown()
     
-    logger.info("✅ Application shutdown complete")
+    logger.info("Application shutdown complete")
 
-# Create FastAPI application
+# Create FastAPI application using config values
 app = FastAPI(
-    title="Civers Archive Web Interface",
-    description="MVP for browsing and replaying archived versions of websites",
-    version="1.0.0",
+    title=_app_config.app.name,
+    description=_app_config.app.description,
+    version=_app_config.app.version,
     lifespan=lifespan
 )
 
@@ -149,10 +158,10 @@ app.add_exception_handler(RequestValidationError, custom_validation_exception_ha
 
 # Configure Jinja2 templates with auto-reload in debug mode
 debug = os.getenv("DEBUG", "False").lower() == "true"
-templates = Jinja2Templates(directory="templates", auto_reload=debug)
+templates = Jinja2Templates(directory=_app_config.directories.templates, auto_reload=debug)
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=_app_config.directories.static), name="static")
 
 # Include API routers
 app.include_router(urls_router)
@@ -169,9 +178,9 @@ app.include_router(pages_router)
 async def health_check():
     """Health check endpoint for monitoring and deployment validation"""
     return {
-        "status": "healthy",
-        "service": "civers-archive-web-interface",
-        "version": "1.0.0"
+        "status": HealthStatus.HEALTHY,
+        "service": _app_config.app.service_name,
+        "version": _app_config.app.version
     }
 
 @app.get("/debug/cache/stats", include_in_schema=False, tags=["Debug"])

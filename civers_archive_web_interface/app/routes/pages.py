@@ -10,10 +10,16 @@ from fastapi import APIRouter, HTTPException, Request, Query
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, Response
 
+from ..constants import RequestStatus
+
 logger = logging.getLogger(__name__)
 
-# Initialize templates
-templates = Jinja2Templates(directory="templates")
+# Import config loader to initialize templates correctly at module level
+from configs import load_app_config
+_tmp_config = load_app_config()
+
+# Initialize templates using config
+templates = Jinja2Templates(directory=_tmp_config.directories.templates)
 
 # Create router for page routes
 router = APIRouter(tags=["Pages"])
@@ -86,7 +92,7 @@ async def home_page(request: Request):
     
     context = {
         "request": request,
-        "title": "Civers Archive Web Interface",
+        "title": request.app.state.app_config.app.name,
         "domains_json": json.dumps(domains)
     }
     

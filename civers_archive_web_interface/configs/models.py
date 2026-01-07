@@ -12,9 +12,52 @@ from pydantic import BaseModel, Field, field_validator, model_validator, ConfigD
 
 class AppInfoConfig(BaseModel):
     """Application identification and environment info."""
-    name: str = Field(default="civers_web_interface", description="Application name")
+    name: str = Field(default="Civers Archive Web Interface", description="Application name")
     version: str = Field(default="1.0.0", description="Application version")
+    description: str = Field(
+        default="MVP for browsing and replaying archived versions of websites",
+        description="Application description"
+    )
+    service_name: str = Field(
+        default="civers-archive-web-interface", 
+        description="Service name for health checks and monitoring"
+    )
     environment: str = Field(default="development", description="Runtime environment")
+
+
+class PaginationConfig(BaseModel):
+    """API pagination configuration."""
+    default_page_size: int = Field(default=50, ge=1, le=1000, description="Default page size")
+    max_page_size: int = Field(default=100, ge=1, le=1000, description="Maximum page size")
+    default_page: int = Field(default=1, ge=1, description="Default page number")
+    default_offset: int = Field(default=0, ge=0, description="Default offset")
+
+
+class KafkaApiConfig(BaseModel):
+    """Kafka API-specific configuration."""
+    default_priority: int = Field(default=1, ge=1, description="Default message priority")
+
+
+class ApiConfig(BaseModel):
+    """API behavior configuration."""
+    pagination: PaginationConfig = Field(default_factory=PaginationConfig)
+    kafka: KafkaApiConfig = Field(default_factory=KafkaApiConfig)
+
+
+class DatabaseConfig(BaseModel):
+    """Database connection configuration."""
+    connection_timeout_seconds: float = Field(
+        default=10.0, 
+        ge=1.0, 
+        description="Database connection timeout"
+    )
+
+
+class DirectoriesConfig(BaseModel):
+    """Directory paths configuration."""
+    templates: str = Field(default="templates", description="Templates directory")
+    static: str = Field(default="static", description="Static files directory")
+    archives: str = Field(default="archives", description="Archives directory")
 
 
 class FilesystemConfig(BaseModel):
@@ -200,40 +243,24 @@ class ValidationConfig(BaseModel):
 # to enable future shared configuration logic.
 
 class KafkaProducerConfig(BaseModel):
-    """Kafka producer configuration.
-    
-    Matches orchestrator's KafkaProducerConfig structure.
-    """
-    
+    """Kafka producer configuration."""
     acks: str = Field(default="all", description="Acknowledgment policy")
     retries: int = Field(default=3, ge=0, description="Number of retries")
     batch_size: int = Field(default=16384, ge=0, description="Batch size in bytes")
     linger_ms: int = Field(default=10, ge=0, description="Time to wait before sending a batch")
+    
+    # Timeout settings
+    request_timeout_ms: int = Field(default=30000, ge=1000, description="Request timeout in ms")
+    api_version_timeout_ms: int = Field(default=30000, ge=1000, description="API version timeout in ms")
+    publish_timeout_seconds: float = Field(default=10.0, ge=1.0, description="Publish timeout in seconds")
+    shutdown_timeout_seconds: int = Field(default=5, ge=1, description="Shutdown timeout in seconds")
 
 
 class KafkaConfig(BaseModel):
-    """Kafka transport configuration.
-    
-    This model is designed to be consistent with other CIVERS components:
-    - civers_orchestrator/configs/models.py
-    - civers_archive_generator/configs/models.py  
-    - civers_metadata_extractor/configs/config_data_model.py
-    
-    Key design decisions for future maintainability:
-    - Uses Dict[str, str] for topics (like archive_generator & metadata_extractor)
-    - Includes health_check_enabled and monitoring_enabled (like archive_generator)
-    - Includes producer config (like orchestrator)
-    - The 'enabled' field is web-interface specific for optional Kafka support
-    """
+    """Kafka transport configuration."""
     model_config = ConfigDict(extra='ignore')
     
-    # Web interface specific: allows disabling Kafka entirely
-    enabled: bool = Field(
-        default=True, 
-        description="Whether Kafka integration is enabled (web interface specific)"
-    )
-    
-    # Core Kafka settings (shared with all components)
+    # Shared Kafka settings (shared with all components)
     bootstrap_servers: str = Field(
         default="localhost:29092",
         description="Kafka bootstrap servers"
@@ -284,17 +311,19 @@ class KafkaConfig(BaseModel):
         return v.strip()
     
     def get_topic(self, topic_name: str) -> Optional[str]:
-        """Get Kafka topic name for a specific event type.
-        
-        Consistent with metadata_extractor's KafkaConfig.get_topic() method.
-        
-        Args:
-            topic_name: Topic key (e.g., 'orchestrator_requests')
-            
-        Returns:
-            Topic string or None if not found
-        """
+        """Get Kafka topic name for a specific event type."""
         return self.topics.get(topic_name)
+
+
+class TransportConfig(BaseModel):
+    """Transport layer configuration."""
+    enabled: List[str] = Field(default=["kafka"], description="Enabled transport mechanisms")
+    kafka: KafkaConfig = Field(default_factory=KafkaConfig, description="Kafka configuration")
+    
+    @property
+    def kafka_enabled(self) -> bool:
+        """Helper to check if Kafka is enabled."""
+        return "kafka" in self.enabled
 
 
 class DomainConfig(BaseModel):
@@ -332,8 +361,16 @@ class AppConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
     
     app: AppInfoConfig = Field(default_factory=AppInfoConfig)
+    api: ApiConfig = Field(default_factory=ApiConfig)
+    database: DatabaseConfig = Field(default_factory=DatabaseConfig)
+    directories: DirectoriesConfig = Field(default_factory=DirectoriesConfig)
     
     storage: StorageConfig = Field(default_factory=StorageConfig)
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
-    kafka: KafkaConfig = Field(default_factory=KafkaConfig)
+    transport: TransportConfig = Field(default_factory=TransportConfig)
     domains: List[DomainConfig] = Field(default_factory=list, description="Domain-to-workflow mappings")
+
+    @property
+    def kafka(self) -> KafkaConfig:
+        """Helper to get Kafka config from transport."""
+        return self.transport.kafka

@@ -1,0 +1,25 @@
+# Civers Archive Web Interface Specific Configuration
+# These settings are used by the civers_archive_web_interface component.
+
+# API behavior settings
+api:
+  # Pagination defaults
+  pagination:
+    default_page_size: ${API_PAGINATION_DEFAULT_PAGE_SIZE:-50}
+    max_page_size: ${API_PAGINATION_MAX_PAGE_SIZE:-100}
+    default_page: 1
+    default_offset: 0
+  
+  # Kafka specific settings for the web API
+  kafka:
+    default_priority: ${KAFKA_DEFAULT_PRIORITY:-1}
+
+# Database settings for request status tracking
+database:
+  connection_timeout_seconds: ${DB_CONNECTION_TIMEOUT_SECONDS:-10.0}
+
+# Directory paths (relative to component root or absolute)
+directories:
+  templates: "${TEMPLATES_DIR:-templates}"
+  static: "${STATIC_DIR:-static}"
+  archives: "${ARCHIVE_DIRECTORY:-archives}"

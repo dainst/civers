@@ -6,7 +6,6 @@ This module provides the POST /api/upload endpoint for uploading archive files
 """
 
 import logging
-import json
 from typing import Optional, List
 from io import BytesIO
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Request

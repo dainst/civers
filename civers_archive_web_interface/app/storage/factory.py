@@ -7,9 +7,9 @@ and services based on configuration.
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
-from configs.models import StorageConfig, AppConfig
+from configs.models import StorageConfig, AppConfig, ValidationConfig
 from .providers.storage_provider_interface import StorageProviderInterface
 from .providers.filesystem import FilesystemStorageProvider
 from .providers.sqlite_storage import SQLiteStorageProvider
@@ -24,6 +24,22 @@ logger = logging.getLogger(__name__)
 class StorageConfigurationError(Exception):
     """Exception raised for storage configuration errors."""
     pass
+
+
+def _resolve_path(path: Union[str, Path]) -> Path:
+    """
+    Resolve a path, making relative paths relative to project root.
+    
+    Args:
+        path: Path string or Path object to resolve
+        
+    Returns:
+        Resolved absolute Path
+    """
+    resolved = Path(path)
+    if not resolved.is_absolute():
+        resolved = Path.cwd() / resolved
+    return resolved
 
 
 def create_storage_provider(app_config: AppConfig) -> StorageProviderInterface:
@@ -54,7 +70,10 @@ def create_storage_provider(app_config: AppConfig) -> StorageProviderInterface:
         raise StorageConfigurationError(f"Provider creation failed: {e}") from e
 
 
-def _create_filesystem_provider(config: StorageConfig, validation_config) -> FilesystemStorageProvider:
+def _create_filesystem_provider(
+    config: StorageConfig, 
+    validation_config: ValidationConfig
+) -> FilesystemStorageProvider:
     """
     Create filesystem storage provider.
     
@@ -69,18 +88,17 @@ def _create_filesystem_provider(config: StorageConfig, validation_config) -> Fil
     if fs_config is None:
         raise StorageConfigurationError("Filesystem configuration is required")
     
-    # Get storage path
-    storage_path = Path(fs_config.path)
-    if not storage_path.is_absolute():
-        # Make relative paths relative to project root
-        storage_path = Path.cwd() / storage_path
+    storage_path = _resolve_path(fs_config.path)
     
     logger.debug(f"Creating filesystem storage provider: path={storage_path}, timeout={fs_config.timeout_seconds}s")
     
     return FilesystemStorageProvider(storage_path, fs_config.timeout_seconds, validation_config)
 
 
-def _create_sqlite_provider(config: StorageConfig, validation_config) -> SQLiteStorageProvider:
+def _create_sqlite_provider(
+    config: StorageConfig, 
+    validation_config: ValidationConfig
+) -> SQLiteStorageProvider:
     """
     Create SQLite storage provider.
 
@@ -99,17 +117,8 @@ def _create_sqlite_provider(config: StorageConfig, validation_config) -> SQLiteS
     if fs_config is None:
         raise StorageConfigurationError("Filesystem configuration is required for SQLite provider")
 
-    # Get storage path
-    storage_path = Path(fs_config.path)
-    if not storage_path.is_absolute():
-        # Make relative paths relative to project root
-        storage_path = Path.cwd() / storage_path
-
-    # Get database path
-    db_path = Path(sqlite_config.db_path)
-    if not db_path.is_absolute():
-        # Make relative paths relative to project root
-        db_path = Path.cwd() / db_path
+    storage_path = _resolve_path(fs_config.path)
+    db_path = _resolve_path(sqlite_config.db_path)
 
     logger.debug(f"Creating SQLite storage provider: db={db_path}, storage={storage_path}")
 
@@ -121,21 +130,10 @@ def _create_sqlite_provider(config: StorageConfig, validation_config) -> SQLiteS
     db_manager.initialize_schema(get_schema_sql())
     logger.debug("Database schema initialized")
 
-    # Check if database needs indexing
-    cursor = db_manager.execute_query("SELECT COUNT(*) as count FROM urls")
-    result = cursor.fetchone()
-    url_count = result[0] if result else 0
-
-    # if url_count == 0 and sqlite_config.auto_rebuild:
-    #     logger.info("Database empty, rebuilding index from filesystem")
-    #     # Create temporary filesystem provider for indexing
-    #     fs_provider = FilesystemStorageProvider(storage_path, validation_config=validation_config)
-    #     indexer = FilesystemIndexer(db_manager, fs_provider)
-    #     stats = indexer.rebuild_index()
-    #     logger.info(f"Index rebuilt: {stats}")
-    
-    logger.info("rebuilding index from filesystem")
-    # Create temporary filesystem provider for indexing
+    # Rebuild index from filesystem
+    # TODO: Consider making this conditional based on sqlite_config.auto_rebuild
+    # and checking if database is empty first for better startup performance
+    logger.info("Rebuilding index from filesystem")
     fs_provider = FilesystemStorageProvider(storage_path, validation_config=validation_config)
     indexer = FilesystemIndexer(db_manager, fs_provider)
     stats = indexer.rebuild_index()

@@ -10,6 +10,8 @@ from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Request, HTTPException, status, Body
 from pydantic import BaseModel, Field
 
+from ..constants import RequestStatus
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
@@ -54,24 +56,24 @@ async def status_webhook(
             detail="Missing request_id in payload"
         )
         
-    logger.info(f"📥 Received status webhook for request {request_id}: {payload.get('status')}")
+    logger.info(f"Received status webhook for request {request_id}: {payload.get('status')}")
     
     # Map payload to database update arguments
-    status = payload.get("status")
+    request_status = payload.get("status")
     current_step = payload.get("current_step")
     completed_steps = payload.get("completed_steps")
     error_message = payload.get("error_message") or payload.get("message")
 
     # Infer status if missing (e.g., from OrchestratorCompletedEvent or OrchestratorFailedEvent)
-    if not status:
+    if not request_status:
         if "results" in payload or "step_results" in payload:
-            status = "completed"
+            request_status = RequestStatus.COMPLETED
         elif "failed_step" in payload or "error_message" in payload:
-            status = "failed"
+            request_status = RequestStatus.FAILED
         elif current_step:
-            status = "in_progress"
+            request_status = RequestStatus.IN_PROGRESS
         else:
-            status = "pending"
+            request_status = RequestStatus.PENDING
     
     # Handle completion results (e.g., extracting snapshot_id)
     snapshot_id = None
@@ -90,7 +92,7 @@ async def status_webhook(
     # Update the database
     success = status_service.update_status(
         request_id=request_id,
-        status=status,
+        status=request_status,
         current_step=current_step,
         completed_steps=completed_steps,
         error_message=error_message,
@@ -98,7 +100,7 @@ async def status_webhook(
     )
     
     if not success:
-        logger.error(f"❌ Failed to update status in DB for request {request_id}")
+        logger.error(f"Failed to update status in DB for request {request_id}")
         # We still return 200 to acknowledge receipt of webhook, 
         # but log the internal failure.
     

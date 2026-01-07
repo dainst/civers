@@ -14,6 +14,9 @@ from pydantic import BaseModel, Field
 from ..models.snapshot import Snapshot
 from ..models.responses import ErrorResponse
 from ..custom_exceptions.exceptions.api_exceptions import ResourceNotFoundError
+from configs import load_app_config
+
+_app_config = load_app_config()
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +74,7 @@ class SnapshotDetail(BaseModel):
         # Get allowed artifact types from config if not provided
         if allowed_artifact_types is None:
             try:
-                from ..config.loader import load_config
-                config = load_config()
-                allowed_artifact_types = config.validation.allowed_artifact_types
+                allowed_artifact_types = _app_config.validation.allowed_artifact_types
             except Exception:
                 # Fallback to common types if config loading fails
                 allowed_artifact_types = {

@@ -37,7 +37,7 @@ class DomainService:
         """
         self.domains = domains
         self.is_initialized = True
-        logger.info(f"✅ DomainService initialized with {len(self.domains)} domains")
+        logger.info(f"DomainService initialized with {len(self.domains)} domains")
     
     async def initialize(self) -> bool:
         """Compatibility method for lifespan initialization."""

@@ -7,6 +7,7 @@ an event to Kafka for the orchestrator to process.
 """
 
 import logging
+import os
 import uuid
 from typing import Dict, Any
 
@@ -15,6 +16,10 @@ from pydantic import ValidationError
 
 from ..models.archive_request_events import ArchiveRequestForm, OrchestratorRequestEvent
 from ..services import KafkaProducerError
+from ..utils.url_parser import generate_url_id
+from ..constants import (
+    RequestStatus, MetadataSource, WEBHOOK_STATUS_PATH
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,13 +65,11 @@ async def create_archive_request(
     logger.info(f"Processing new archive request: {request_id} for {form_data.url}")
     
     # 4. Determine callback URL for orchestrator to send status updates
-    # In Docker, orchestrator needs to reach web-interface via internal network
-    # CALLBACK_BASE_URL should be set to "http://web-interface:8000" in docker-compose
-    import os
+    app_config = request.app.state.app_config
     callback_base = os.getenv("CALLBACK_BASE_URL")
     if not callback_base:
         callback_base = str(request.base_url).rstrip('/')
-    callback_url = f"{callback_base}/api/webhook/status"
+    callback_url = f"{callback_base}{WEBHOOK_STATUS_PATH}"
     logger.debug(f"Using callback URL: {callback_url}")
 
     
@@ -89,7 +92,7 @@ async def create_archive_request(
         logger.warning(f"Kafka is disabled. Request {request_id} stored in DB but not published.")
         # We'll still return 201 because it's stored and could be processed later or manually
         return {
-            "status": "stored_locally",
+            "status": RequestStatus.STORED_LOCALLY,
             "message": "Archive request stored locally, but Kafka is disabled. It will not be sent to the orchestrator automatically.",
             "request_id": request_id,
             "url": form_data.url
@@ -101,10 +104,10 @@ async def create_archive_request(
             request_id=request_id,
             url=form_data.url,
             workflow_name=None,  # Orchestrator will auto-detect from domain
-            priority=1,  # System default
+            priority=app_config.api.kafka.default_priority,
             callback_url=callback_url,
             metadata={
-                "source": "web_interface_form",
+                "source": MetadataSource.WEB_INTERFACE_FORM,
                 "original_domain_selection": form_data.domain
             }
         )
@@ -127,10 +130,10 @@ async def create_archive_request(
                 detail="Kafka service temporarily unavailable. Please try again later."
             )
             
-        logger.info(f"✅ Successfully published archive request {request_id} to Kafka")
+        logger.info(f"Successfully published archive request {request_id} to Kafka")
         
         return {
-            "status": "submitted",
+            "status": RequestStatus.SUBMITTED,
             "message": "Archive request successfully submitted and sent to orchestrator.",
             "request_id": request_id,
             "url": form_data.url
@@ -140,7 +143,7 @@ async def create_archive_request(
         logger.error(f"Kafka error archiving {form_data.url}: {e}")
         status_service.update_status(
             request_id=request_id,
-            status="failed",
+            status=RequestStatus.FAILED,
             error_message=str(e)
         )
         raise HTTPException(
@@ -151,7 +154,7 @@ async def create_archive_request(
         logger.exception(f"Unexpected error processing archive request {request_id}")
         status_service.update_status(
             request_id=request_id,
-            status="failed",
+            status=RequestStatus.FAILED,
             error_message=str(e)
         )
         raise HTTPException(
@@ -173,8 +176,6 @@ async def get_request_status(
     Returns:
         JSON with status, current_step, completed_steps, error_message, snapshot_id, url_id
     """
-    from ..utils.url_parser import generate_url_id
-    
     status_service = request.app.state.request_status_service
     
     record = status_service.get_request(request_id)
@@ -191,7 +192,7 @@ async def get_request_status(
     
     return {
         "request_id": record.get("request_id"),
-        "status": record.get("status", "unknown"),
+        "status": record.get("status", RequestStatus.UNKNOWN),
         "url": url,
         "url_id": url_id,
         "domain": record.get("domain"),

@@ -163,8 +163,7 @@ class YamlFileConfigLoader:
         
         # 5. Backward compatibility: also apply old-style CIVERS_ overrides if present
         # This ensures legacy deployments still work without changing their env vars
-        expanded_config = _apply_legacy_overrides(expanded_config)
-        
+        expanded_config = _apply_legacy_overrides(expanded_config)        
         # 6. Validate
         try:
             return model_class(**expanded_config)

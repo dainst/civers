@@ -18,6 +18,9 @@ from ..models.snapshot import Snapshot
 from ..models.snapshot_filters import SnapshotFilters, SnapshotSortOption, SnapshotSummary
 from ..models.responses import PaginatedResponse, PaginationMeta, ErrorResponse
 from ..custom_exceptions.exceptions.api_exceptions import ResourceNotFoundError, ValidationError
+from configs import load_app_config
+
+_app_config = load_app_config()
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +68,8 @@ class UrlListSummary(BaseModel):
 )
 async def list_urls(
     request: Request,
-    page: int = Query(1, ge=1, description="Page number (1-based)"),
-    limit: int = Query(50, ge=1, le=100, description="Number of items per page (1-100)"),
+    page: int = Query(_app_config.api.pagination.default_page, ge=1, description="Page number (1-based)"),
+    limit: int = Query(_app_config.api.pagination.default_page_size, ge=1, le=_app_config.api.pagination.max_page_size, description=f"Number of items per page (1-{_app_config.api.pagination.max_page_size})"),
     sort: SortOption = Query(SortOption.URL, description="Sort order for results")
 ):
     """
@@ -151,8 +154,8 @@ async def list_urls(
 async def list_snapshots(
     request: Request,
     url_id: str,
-    page: int = Query(1, ge=1, description="Page number (1-based)"),
-    limit: int = Query(50, ge=1, le=100, description="Number of items per page (1-100)"),
+    page: int = Query(_app_config.api.pagination.default_page, ge=1, description="Page number (1-based)"),
+    limit: int = Query(_app_config.api.pagination.default_page_size, ge=1, le=_app_config.api.pagination.max_page_size, description=f"Number of items per page (1-{_app_config.api.pagination.max_page_size})"),
     sort: SnapshotSortOption = Query(SnapshotSortOption.TIMESTAMP_DESC, description="Sort order for results"),
     from_date: Optional[str] = Query(None, description="Filter snapshots from date (YYYY-MM-DD)"),
     to_date: Optional[str] = Query(None, description="Filter snapshots to date (YYYY-MM-DD)"),

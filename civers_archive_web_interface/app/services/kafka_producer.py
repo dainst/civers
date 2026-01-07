@@ -57,14 +57,16 @@ class KafkaProducerService:
         is_initialized: Whether the producer has been successfully initialized
     """
 
-    def __init__(self, config: Optional[KafkaConfig] = None):
+    def __init__(self, config: Optional[KafkaConfig] = None, enabled: bool = True):
         """
         Initialize the Kafka producer service.
 
         Args:
-            config: KafkaConfig instance. If None, producer will be disabled.
+            config: KafkaConfig instance.
+            enabled: Whether Kafka integration is enabled.
         """
         self.config = config
+        self._enabled = enabled
         self.producer = None
         self.is_initialized = False
         self._initialization_error: Optional[str] = None
@@ -72,7 +74,7 @@ class KafkaProducerService:
     @property
     def is_enabled(self) -> bool:
         """Check if Kafka is enabled in configuration."""
-        return self.config is not None and self.config.enabled
+        return self.config is not None and self._enabled
 
     async def initialize(self) -> bool:
         """
@@ -89,14 +91,14 @@ class KafkaProducerService:
             return True
 
         if not self.is_enabled:
-            logger.info("📭 Kafka is disabled - producer not initialized")
+            logger.info("Kafka is disabled - producer not initialized")
             return False
 
         try:
             # Import kafka-python here to allow application to run without Kafka
             from kafka import KafkaProducer
 
-            logger.info(f"🔌 Connecting to Kafka at {self.config.bootstrap_servers}...")
+            logger.info(f"Connecting to Kafka at {self.config.bootstrap_servers}...")
 
             self.producer = KafkaProducer(
                 bootstrap_servers=self.config.bootstrap_servers,
@@ -105,23 +107,23 @@ class KafkaProducerService:
                 acks=self.config.producer.acks if self.config.producer.acks != "all" else "all",
                 retries=self.config.producer.retries,
                 max_in_flight_requests_per_connection=1,
-                request_timeout_ms=30000,
-                api_version_auto_timeout_ms=30000,
+                request_timeout_ms=self.config.producer.request_timeout_ms,
+                api_version_auto_timeout_ms=self.config.producer.api_version_timeout_ms,
             )
 
             self.is_initialized = True
             self._initialization_error = None
-            logger.info("✅ Kafka producer initialized successfully")
+            logger.info("Kafka producer initialized successfully")
             return True
 
         except ImportError as e:
             self._initialization_error = f"kafka-python not installed: {e}"
-            logger.error(f"❌ {self._initialization_error}")
+            logger.error(self._initialization_error)
             return False
 
         except Exception as e:
             self._initialization_error = f"Failed to connect to Kafka: {e}"
-            logger.error(f"❌ {self._initialization_error}")
+            logger.error(self._initialization_error)
             return False
 
     async def publish_event(
@@ -130,7 +132,7 @@ class KafkaProducerService:
         event: Optional[BaseModel] = None,
         event_data: Optional[Dict[str, Any]] = None,
         key: Optional[str] = None,
-        timeout: float = 10.0
+        timeout: Optional[float] = None
     ) -> bool:
         """
         Publish a Pydantic event model to a Kafka topic.
@@ -157,8 +159,11 @@ class KafkaProducerService:
         """
         if not self.is_initialized or not self.producer:
             error_msg = self._initialization_error or "Producer not initialized"
-            logger.error(f"❌ Cannot publish: {error_msg}")
+            logger.error(f"Cannot publish: {error_msg}")
             raise KafkaProducerError(error_msg)
+
+        if timeout is None:
+            timeout = self.config.producer.publish_timeout_seconds if self.config else 10.0
 
         try:
             # 1. Resolve topic
@@ -191,12 +196,12 @@ class KafkaProducerService:
             record_metadata = await asyncio.to_thread(_send)
 
             logger.info(
-                f"📤 Published event to {topic} (key={final_key}, offset={record_metadata.offset})"
+                f"Published event to {topic} (key={final_key}, offset={record_metadata.offset})"
             )
             return True
 
         except Exception as e:
-            logger.error(f"❌ Failed to publish event with key '{topic_key}': {e}")
+            logger.error(f"Failed to publish event with key '{topic_key}': {e}")
             return False
 
     def publish_dict(
@@ -204,7 +209,7 @@ class KafkaProducerService:
         topic: str,
         key: str,
         data: Dict[str, Any],
-        timeout: float = 10.0
+        timeout: Optional[float] = None
     ) -> bool:
         """
         Publish a dictionary directly to Kafka.
@@ -222,8 +227,11 @@ class KafkaProducerService:
         """
         if not self.is_initialized or not self.producer:
             error_msg = self._initialization_error or "Producer not initialized"
-            logger.error(f"❌ Cannot publish: {error_msg}")
+            logger.error(f"Cannot publish: {error_msg}")
             raise KafkaProducerError(error_msg)
+
+        if timeout is None:
+            timeout = self.config.producer.publish_timeout_seconds if self.config else 10.0
 
         try:
             # Publish to Kafka
@@ -236,11 +244,11 @@ class KafkaProducerService:
             # Wait for acknowledgment
             future.get(timeout=timeout)
 
-            logger.debug(f"📤 Published dict to {topic} (key={key})")
+            logger.debug(f"Published dict to {topic} (key={key})")
             return True
 
         except Exception as e:
-            logger.error(f"❌ Failed to publish dict to {topic}: {e}")
+            logger.error(f"Failed to publish dict to {topic}: {e}")
             return False
 
     async def health_check(self) -> Dict[str, Any]:
@@ -312,12 +320,12 @@ class KafkaProducerService:
         """
         if self.producer:
             try:
-                logger.info("🛑 Shutting down Kafka producer...")
-                self.producer.flush(timeout=5)
-                self.producer.close(timeout=5)
-                logger.info("✅ Kafka producer closed")
+                logger.info("Shutting down Kafka producer...")
+                self.producer.flush(timeout=self.config.producer.publish_timeout_seconds)
+                self.producer.close(timeout=self.config.producer.shutdown_timeout_seconds)
+                logger.info("Kafka producer closed")
             except Exception as e:
-                logger.warning(f"⚠️ Error during producer shutdown: {e}")
+                logger.warning(f"Error during producer shutdown: {e}")
             finally:
                 self.producer = None
                 self.is_initialized = False
