@@ -1,0 +1,16 @@
+storage:
+  # Storage provider type: "filesystem" or "sqlite"
+  type: "sqlite"
+  
+  filesystem:
+    path: "archives"
+    timeout_seconds: 0
+  
+  sqlite:
+    db_path: "data/archives.db"
+    auto_rebuild: true
+    connection_timeout: 10
+  
+  cache:
+    ttl_seconds: 10000000
+    max_entries: 1000

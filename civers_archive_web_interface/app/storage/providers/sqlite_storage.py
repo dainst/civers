@@ -19,7 +19,7 @@ from ...database.sqlite_manager import SQLiteManager
 from ...database.indexer import FilesystemIndexer
 from ...utils.url_parser import parse_url, generate_request_id, build_storage_path
 from ...utils.file_storage import store_snapshot_files
-from ...config.models import ValidationConfig
+from configs.models import ValidationConfig
 
 logger = logging.getLogger(__name__)
 

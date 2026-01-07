@@ -24,6 +24,10 @@ transport:
       retries: 3
       batch_size: 16384
       linger_ms: 10
+      request_timeout_ms: ${KAFKA_PRODUCER_REQUEST_TIMEOUT_MS:-30000}
+      api_version_timeout_ms: ${KAFKA_PRODUCER_API_VERSION_TIMEOUT_MS:-30000}
+      publish_timeout_seconds: ${KAFKA_PRODUCER_PUBLISH_TIMEOUT_SECONDS:-10.0}
+      shutdown_timeout_seconds: ${KAFKA_PRODUCER_SHUTDOWN_TIMEOUT_SECONDS:-5}
 
     # Shared topic definitions
     topics:

@@ -5,14 +5,21 @@ This module provides HTML page endpoints that render templates for the web inter
 """
 
 import logging
+import json
 from fastapi import APIRouter, HTTPException, Request, Query
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, Response
 
+from ..constants import RequestStatus
+
 logger = logging.getLogger(__name__)
 
-# Initialize templates
-templates = Jinja2Templates(directory="templates")
+# Import config loader to initialize templates correctly at module level
+from configs import load_app_config
+_tmp_config = load_app_config()
+
+# Initialize templates using config
+templates = Jinja2Templates(directory=_tmp_config.directories.templates)
 
 # Create router for page routes
 router = APIRouter(tags=["Pages"])
@@ -79,12 +86,66 @@ async def home_page(request: Request):
     """
     logger.debug("Rendering home page")
     
+    # Prepare domain list for the archive form
+    domain_service = request.app.state.domain_service
+    domains = domain_service.get_domain_names_for_dropdown()
+    
     context = {
         "request": request,
-        "title": "Civers Archive Web Interface"
+        "title": request.app.state.app_config.app.name,
+        "domains_json": json.dumps(domains)
     }
     
-    return templates.TemplateResponse("base.html", context)
+    return templates.TemplateResponse("index.html", context)
+
+
+@router.get("/archive-request", response_class=HTMLResponse)
+async def archive_request_page(request: Request):
+    """
+    Render the archive request form page.
+    """
+    domain_service = request.app.state.domain_service
+    domains = domain_service.get_domain_names_for_dropdown()
+    
+    context = {
+        "request": request,
+        "title": "Request Site Archive",
+        "domains_json": json.dumps(domains)
+    }
+    
+    return templates.TemplateResponse("archive_request.html", context)
+
+
+@router.get("/status/{request_id}", response_class=HTMLResponse)
+async def status_page(request: Request, request_id: str):
+    """
+    Render the archive request status page.
+    """
+    # This status page will be implemented in detail in Task 8
+    # For now, it's just a placeholder template
+    context = {
+        "request": request,
+        "title": f"Archive Status: {request_id}",
+        "request_id": request_id
+    }
+    
+    return templates.TemplateResponse("status.html", context)
+
+
+@router.get("/my-requests", response_class=HTMLResponse)
+async def my_requests_page(request: Request):
+    """
+    Render the My Requests page where users can view all their archive requests.
+    
+    Requests are stored client-side in localStorage and their statuses are
+    fetched dynamically via the API.
+    """
+    context = {
+        "request": request,
+        "title": "My Archive Requests"
+    }
+    
+    return templates.TemplateResponse("my_requests.html", context)
 
 
 @router.get("/replay/{snapshot_id}", response_class=HTMLResponse)

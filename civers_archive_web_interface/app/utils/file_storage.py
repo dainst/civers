@@ -10,7 +10,7 @@ import logging
 import shutil
 from pathlib import Path
 from typing import Dict, IO, List
-from ..config.models import ValidationConfig
+from configs.models import ValidationConfig
 from ..custom_exceptions.exceptions.api_exceptions import ValidationError
 
 logger = logging.getLogger(__name__)

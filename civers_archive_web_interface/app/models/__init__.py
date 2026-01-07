@@ -9,14 +9,25 @@ from .url import ArchivedUrl
 from .snapshot import Snapshot
 from .artifact import Artifact
 from .responses import PaginatedResponse, ErrorResponse, SuccessResponse, PaginationMeta, CitationResponse
+from .archive_request_events import (
+    EventBaseModel,
+    OrchestratorRequestEvent,
+    ArchiveRequestForm,
+)
 
 __all__ = [
+    # Core data models
     "ArchivedUrl",
     "Snapshot", 
     "Artifact",
+    # Response models
     "PaginatedResponse",
     "ErrorResponse",
     "SuccessResponse",
     "PaginationMeta",
-    "CitationResponse"
+    "CitationResponse",
+    # Archive request event models
+    "EventBaseModel",
+    "OrchestratorRequestEvent",
+    "ArchiveRequestForm",
 ]

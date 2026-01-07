@@ -1,0 +1,105 @@
+{#
+Archive Request Form Component
+Requires:
+- domains_json: JSON string of domain options [{value, label}, ...]
+- Alpine.js and static/js/archive_form.js
+#}
+<div class="bg-white shadow sm:rounded-lg overflow-hidden border border-gray-200"
+    x-data='archiveForm({{ domains_json | safe if domains_json else "[]" }})'>
+    <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg leading-6 font-medium text-gray-900 flex items-center">
+            <svg class="h-5 w-5 mr-2 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Request New Archive
+        </h3>
+        <div class="mt-2 max-w-xl text-sm text-gray-500">
+            <p>
+                Found something important? Enter the URL below to preserve it in the Civers Archive.
+            </p>
+        </div>
+
+        <form @submit.prevent="submitForm" class="mt-5 space-y-4">
+            <div class="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-6">
+                <!-- Domain Selection -->
+                <div class="sm:col-span-3">
+                    <label for="domain" class="block text-sm font-medium text-gray-700">
+                        Target Domain
+                    </label>
+                    <div class="mt-1">
+                        <select id="domain" name="domain" x-model="formData.domain"
+                            class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm">
+                            <option value="">-- Select a supported domain --</option>
+                            <template x-for="domain in domains" :key="domain.value">
+                                <option :value="domain.value" x-text="domain.label"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-400">
+                        Selection helps categorize and process the request.
+                    </p>
+                </div>
+
+                <!-- URL Input -->
+                <div class="sm:col-span-6">
+                    <label for="url" class="block text-sm font-medium text-gray-700">
+                        Absolute URL
+                    </label>
+                    <div class="mt-1 relative rounded-md shadow-sm">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                        </div>
+                        <input type="url" name="url" id="url" x-model="formData.url" @input="error = null"
+                            placeholder="https://example.com/some/article"
+                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-2"
+                            required>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">
+                        Must match the selected domain's pattern.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Error Alert -->
+            <div x-show="error" x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
+                class="rounded-md bg-red-50 p-3">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium text-red-800" x-text="error"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex items-center justify-between pt-2">
+                <div class="text-xs text-gray-400">
+                    <span x-show="submitting">Communicating with server...</span>
+                </div>
+                <button type="submit" :disabled="submitting || !isValid"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                    <svg x-show="submitting" class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" fill="none"
+                        viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                        </path>
+                    </svg>
+                    <span x-text="submitting ? 'Processing...' : 'Archive Now'"></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

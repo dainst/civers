@@ -27,9 +27,10 @@
 services:
   # ============================================================================
   # Kafka Broker - Message Bus
+  # Note: Using 3.7.0 for compatibility with kafka-python library
   # ============================================================================
   kafka:
-    image: apache/kafka:latest
+    image: apache/kafka:3.7.0
     container_name: civers-kafka
     environment:
       KAFKA_NODE_ID: 1
@@ -49,7 +50,7 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD-SHELL", "./opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      test: [ "CMD-SHELL", "./opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1" ]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -78,6 +79,7 @@ services:
 
   # ============================================================================
   # Web Interface - Archive Storage & Viewing
+  # Also publishes archive requests to Kafka for the "Archive from Form" feature
   # ============================================================================
   web-interface:
     build:
@@ -87,16 +89,28 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8000
+      - LOG_LEVEL=INFO
+      # Use shared configs (same pattern as orchestrator)
+      - CONFIG_ENVIRONMENT=docker
+      - CONFIG_DIR=/shared-configs
+      # Override for Docker network
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      # Callback URL for orchestrator (must use Docker service name)
+      - CALLBACK_BASE_URL=http://web-interface:8000
     ports:
       - "8000:8000"
     volumes:
+      - ./configs:/shared-configs:ro
       - web-archives:/app/archives
       - web-data:/app/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
+    depends_on:
+      kafka:
+        condition: service_healthy
     networks:
       - civers-network
 
@@ -119,7 +133,7 @@ services:
       kafka:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "print('healthy')"]
+      test: [ "CMD", "python", "-c", "print('healthy')" ]
       interval: 30s
       timeout: 10s
       retries: 3

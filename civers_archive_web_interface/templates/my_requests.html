@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Archive Requests - CIVERS</title>
+    <meta name="description" content="View and track your archive requests">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse-slow {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .animate-pulse-slow {
+            animation: pulse-slow 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 min-h-screen">
+    <!-- Nav Header -->
+    <nav class="bg-black/20 backdrop-blur-sm border-b border-white/10">
+        <div class="max-w-4xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <a href="/" class="text-xl font-bold text-white">
+                    <span class="text-indigo-400">CIVERS</span> Archive
+                </a>
+                <a href="/archive-request" class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg
+                          bg-indigo-600 text-white hover:bg-indigo-500 transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    New Request
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-4xl mx-auto px-4 py-12">
+        <!-- Header Section -->
+        <div class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-bold text-white mb-3">
+                My Archive Requests
+            </h1>
+            <p class="text-gray-400 text-lg">
+                Track the progress of your web page archives
+            </p>
+        </div>
+
+        <!-- Main Content Card -->
+        <div class="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 overflow-hidden">
+            <!-- Stats Bar -->
+            <div id="stats-bar" class="px-6 py-4 bg-white/5 border-b border-white/10">
+                <div class="flex flex-wrap gap-6 text-sm">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                        <span class="text-gray-400">Pending: <span id="pending-count"
+                                class="text-white font-medium">0</span></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-blue-500 animate-pulse-slow"></span>
+                        <span class="text-gray-400">In Progress: <span id="progress-count"
+                                class="text-white font-medium">0</span></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                        <span class="text-gray-400">Completed: <span id="completed-count"
+                                class="text-white font-medium">0</span></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                        <span class="text-gray-400">Failed: <span id="failed-count"
+                                class="text-white font-medium">0</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Requests List -->
+            <div id="requests-container">
+                <!-- Empty State -->
+                <div id="empty-state" class="hidden px-6 py-16 text-center">
+                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                        <svg class="w-8 h-8 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-white mb-2">No requests yet</h3>
+                    <p class="text-gray-400 mb-6">Submit your first archive request to get started.</p>
+                    <a href="/archive-request" class="inline-flex items-center px-5 py-2.5 text-sm font-medium rounded-lg
+                              bg-indigo-600 text-white hover:bg-indigo-500 transition-colors">
+                        Create Archive Request
+                    </a>
+                </div>
+
+                <!-- Requests List Container -->
+                <div id="requests-list" class="divide-y divide-white/10">
+                    <!-- Requests will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Actions Footer -->
+            <div id="actions-footer"
+                class="hidden px-6 py-4 bg-white/5 border-t border-white/10 flex justify-between items-center">
+                <span class="text-sm text-gray-400">
+                    <span id="total-count">0</span> requests stored locally
+                </span>
+                <button id="clear-all-btn" class="text-sm text-red-400 hover:text-red-300 transition-colors">
+                    Clear All History
+                </button>
+            </div>
+        </div>
+
+        <!-- Info Note -->
+        <div class="mt-6 px-4 py-3 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
+            <p class="text-sm text-indigo-300">
+                <span class="font-medium">Note:</span> Your requests are stored locally in your browser.
+                Clearing browser data will remove this history.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'civers_archive_requests';
+        let requests = [];
+
+        // Load and render requests
+        async function loadRequests() {
+            try {
+                requests = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+                // Update statuses from API
+                await Promise.all(requests.map(async (req, index) => {
+                    if (req.status !== 'completed' && req.status !== 'failed') {
+                        try {
+                            const response = await fetch(`/api/request-status/${req.request_id}`);
+                            if (response.ok) {
+                                const data = await response.json();
+                                requests[index].status = data.status;
+                                requests[index].url = data.url || req.url;
+                                requests[index].snapshot_id = data.snapshot_id;
+                            }
+                        } catch (e) {
+                            console.warn(`Failed to fetch status for ${req.request_id}`);
+                        }
+                    }
+                }));
+
+                // Save updated statuses
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
+
+                renderRequests();
+            } catch (e) {
+                console.error('Error loading requests:', e);
+                showEmptyState();
+            }
+        }
+
+        function renderRequests() {
+            const container = document.getElementById('requests-list');
+            const emptyState = document.getElementById('empty-state');
+            const actionsFooter = document.getElementById('actions-footer');
+
+            if (requests.length === 0) {
+                showEmptyState();
+                return;
+            }
+
+            // Update stats
+            const stats = { pending: 0, in_progress: 0, completed: 0, failed: 0 };
+            requests.forEach(r => {
+                if (stats[r.status] !== undefined) stats[r.status]++;
+                else stats.pending++;
+            });
+
+            document.getElementById('pending-count').textContent = stats.pending;
+            document.getElementById('progress-count').textContent = stats.in_progress;
+            document.getElementById('completed-count').textContent = stats.completed;
+            document.getElementById('failed-count').textContent = stats.failed;
+            document.getElementById('total-count').textContent = requests.length;
+
+            emptyState.classList.add('hidden');
+            actionsFooter.classList.remove('hidden');
+
+            container.innerHTML = requests.map((req, index) => {
+                const statusConfig = {
+                    'pending': { color: 'bg-yellow-500', textColor: 'text-yellow-400', label: 'Pending', icon: '⏳' },
+                    'in_progress': { color: 'bg-blue-500', textColor: 'text-blue-400', label: 'In Progress', icon: '🔄', pulse: true },
+                    'completed': { color: 'bg-green-500', textColor: 'text-green-400', label: 'Completed', icon: '✅' },
+                    'failed': { color: 'bg-red-500', textColor: 'text-red-400', label: 'Failed', icon: '❌' }
+                };
+                const status = statusConfig[req.status] || statusConfig.pending;
+                const timeAgo = formatTimeAgo(new Date(req.created_at));
+                const displayUrl = req.url || 'Unknown URL';
+                const truncatedUrl = displayUrl.length > 60 ? displayUrl.substring(0, 60) + '...' : displayUrl;
+
+                return `
+                    <a href="/status/${req.request_id}" 
+                       class="block px-6 py-4 hover:bg-white/5 transition-colors group">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="w-2.5 h-2.5 rounded-full ${status.color} ${status.pulse ? 'animate-pulse-slow' : ''}"></span>
+                                    <span class="text-sm font-medium ${status.textColor}">${status.label}</span>
+                                    <span class="text-xs text-gray-500">${timeAgo}</span>
+                                </div>
+                                <p class="text-white font-medium truncate group-hover:text-indigo-400 transition-colors">
+                                    ${truncatedUrl}
+                                </p>
+                                <p class="text-xs text-gray-500 mt-1 font-mono">
+                                    ID: ${req.request_id.substring(0, 8)}...
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${req.status === 'completed' ? `
+                                    <span class="text-2xl">${status.icon}</span>
+                                ` : ''}
+                                <svg class="w-5 h-5 text-gray-500 group-hover:text-indigo-400 transition-colors" 
+                                     fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </a>
+                `;
+            }).join('');
+        }
+
+        function showEmptyState() {
+            document.getElementById('empty-state').classList.remove('hidden');
+            document.getElementById('requests-list').innerHTML = '';
+            document.getElementById('actions-footer').classList.add('hidden');
+        }
+
+        function formatTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return 'Just now';
+            if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+            if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+            if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+            return date.toLocaleDateString();
+        }
+
+        // Clear all history
+        document.getElementById('clear-all-btn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear all request history? This cannot be undone.')) {
+                localStorage.removeItem(STORAGE_KEY);
+                requests = [];
+                showEmptyState();
+            }
+        });
+
+        // Initial load
+        loadRequests();
+
+        // Auto-refresh for in-progress requests
+        setInterval(() => {
+            const hasInProgress = requests.some(r => r.status === 'pending' || r.status === 'in_progress');
+            if (hasInProgress) {
+                loadRequests();
+            }
+        }, 10000); // Every 10 seconds
+    </script>
+</body>
+
+</html>

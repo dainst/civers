@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from typing import Optional, Set
 
-from ..config.models import ValidationConfig
+from configs.models import ValidationConfig
 
 logger = logging.getLogger(__name__)
 

@@ -224,4 +224,4 @@ MOCKING_STORAGE_REFERENCE.md
 *.db-journal
 *.db-wal
 *.db-shm
-data/
+/data/

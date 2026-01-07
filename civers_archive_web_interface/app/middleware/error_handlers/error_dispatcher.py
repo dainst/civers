@@ -12,14 +12,16 @@ Architecture:
 - Maintains clean separation for future microservices split
 """
 
+import logging
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+from asgi_correlation_id.context import correlation_id
+
 from .api_error_handler import APIErrorHandler
 from .page_error_handler import PageErrorHandler
-from asgi_correlation_id.context import correlation_id
-import logging
-
+from ...constants import API_PREFIX, FASTAPI_API_PATHS
 
 logger = logging.getLogger(__name__)
 
@@ -52,15 +54,11 @@ class ErrorDispatcherMiddleware(BaseHTTPMiddleware):
         Performs single path check to determine if request should be handled
         by API error handler (JSON responses) or page error handler (HTML responses).
         """
-
-        # FastAPI built-in endpoints that should be treated as API requests
-        FASTAPI_API_PATHS = {'/docs', '/openapi.json', '/redoc'}
-
         # Debug: Check correlation_id availability
-        logger.info(f"ErrorDispatcher ENTRY - Available: {correlation_id.get('not_available')}")
+        logger.debug(f"ErrorDispatcher ENTRY - correlation_id: {correlation_id.get('not_available')}")
 
         # Single path check to determine handler
-        if (request.url.path.startswith('/api/') or
+        if (request.url.path.startswith(f'{API_PREFIX}/') or
             request.url.path in FASTAPI_API_PATHS):
             # API request - use API error handler for JSON responses
             handler = self.api_handler

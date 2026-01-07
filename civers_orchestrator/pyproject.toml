@@ -8,6 +8,7 @@ dependencies = [
     "pydantic>=2.11.5",
     "pyyaml>=6.0.2",
     "kafka-python>=2.2.10",
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]

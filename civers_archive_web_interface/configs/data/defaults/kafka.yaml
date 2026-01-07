@@ -1,0 +1,19 @@
+kafka:
+  enabled: true
+  bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
+  producer:
+    acks: "all"
+    retries: 3
+    batch_size: 16384
+    linger_ms: 10
+    request_timeout_ms: 30000
+    api_version_timeout_ms: 30000
+    publish_timeout_seconds: 10.0
+    shutdown_timeout_seconds: 5
+  topics:
+    orchestrator_requests: "orchestrator.requests"
+    orchestrator_status: "orchestrator.status"
+  health_check_enabled: true
+  monitoring_enabled: true
+  connection_retry_attempts: 5
+  connection_retry_delay_ms: 2000

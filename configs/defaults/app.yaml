@@ -3,8 +3,7 @@
 # Component-specific settings can be extended in each component's own config
 
 app:
-  # Base app info - override with component-specific values
-  name: "${APP_NAME:-civers_component}"
+  # Common settings for all components
   version: "1.0.0"
   environment: "${CONFIG_ENVIRONMENT:-development}"
 

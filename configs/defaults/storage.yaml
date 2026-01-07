@@ -2,6 +2,26 @@
 # Shared storage backends for artifact storage
 
 storage:
+  # Web Interface storage type ("filesystem" or "sqlite")
+  # Used by civers_archive_web_interface for request status tracking
+  type: "sqlite"
+  
+  filesystem:
+    path: "archives"
+    timeout_seconds: 0
+  
+  sqlite:
+    db_path: "data/archives.db"
+    auto_rebuild: true
+    connection_timeout: 10
+  
+  cache:
+    ttl_seconds: 10000000
+    max_entries: 1000
+
+  # ========================================================================
+  # Orchestrator/Generator storage backends (different schema)
+  # ========================================================================
   # List of enabled storage backends
   enabled:
     - local_file
@@ -20,3 +40,4 @@ storage:
       verify_ssl: "${STORAGE_API_VERIFY_SSL:-true}"
       auth:
         enabled: "${STORAGE_API_AUTH_ENABLED:-false}"
+
