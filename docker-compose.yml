@@ -27,9 +27,10 @@
 services:
   # ============================================================================
   # Kafka Broker - Message Bus
+  # Note: Using 3.7.0 for compatibility with kafka-python library
   # ============================================================================
   kafka:
-    image: apache/kafka:latest
+    image: apache/kafka:3.7.0
     container_name: civers-kafka
     environment:
       KAFKA_NODE_ID: 1
@@ -89,11 +90,17 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - LOG_LEVEL=INFO
-      # Override for Docker network (same pattern as orchestrator)
+      # Use shared configs (same pattern as orchestrator)
+      - CONFIG_ENVIRONMENT=docker
+      - CONFIG_DIR=/shared-configs
+      # Override for Docker network
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      # Callback URL for orchestrator (must use Docker service name)
+      - CALLBACK_BASE_URL=http://web-interface:8000
     ports:
       - "8000:8000"
     volumes:
+      - ./configs:/shared-configs:ro
       - web-archives:/app/archives
       - web-data:/app/data
     healthcheck:
@@ -101,6 +108,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    depends_on:
+      kafka:
+        condition: service_healthy
     networks:
       - civers-network
 

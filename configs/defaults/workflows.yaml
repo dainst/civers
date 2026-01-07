@@ -54,15 +54,8 @@ workflows:
               default_base_url: "http://localhost:8000"
               url_template: "{base_url}/api/artifacts/serve?snapshot_id={value}&type=dom-snapshot.html"
 
-      - name: "doi_assignment"
-        component: "doi_service"
-        input_schema: "DOIRequest"
-        output_schemas:
-          success: "DOICompleted"
-          failure: "DOIFailed"
-        depends_on:
-          - "metadata_extraction"
-        timeout_seconds: 30
+      # NOTE: doi_assignment step removed - DOI service not yet implemented
+      # Can be re-added when DOI service is available
 
   - name: "archaeology_workflow"
     description: "Specialized workflow for archaeological content"
@@ -95,15 +88,7 @@ workflows:
               default_base_url: "http://localhost:8000"
               url_template: "{base_url}/api/artifacts/serve?snapshot_id={value}&type=dom-snapshot.html"
 
-      - name: "doi_assignment"
-        component: "doi_service"
-        input_schema: "DOIRequest"
-        output_schemas:
-          success: "DOICompleted"
-          failure: "DOIFailed"
-        depends_on:
-          - "metadata_extraction"
-        timeout_seconds: 30
+      # NOTE: doi_assignment step removed - DOI service not yet implemented
 
   - name: "field_data_workflow"
     description: "Workflow for field data archiving"
@@ -136,15 +121,7 @@ workflows:
               default_base_url: "http://localhost:8000"
               url_template: "{base_url}/api/artifacts/serve?snapshot_id={value}&type=dom-snapshot.html"
 
-      - name: "doi_assignment"
-        component: "doi_service"
-        input_schema: "DOIRequest"
-        output_schemas:
-          success: "DOICompleted"
-          failure: "DOIFailed"
-        depends_on:
-          - "metadata_extraction"
-        timeout_seconds: 30
+      # NOTE: doi_assignment step removed - DOI service not yet implemented
 
   - name: "standard_dainst_workflow"
     description: "Standard DAINST workflow"
@@ -177,12 +154,5 @@ workflows:
               default_base_url: "http://localhost:8000"
               url_template: "{base_url}/api/artifacts/serve?snapshot_id={value}&type=dom-snapshot.html"
 
-      - name: "doi_assignment"
-        component: "doi_service"
-        input_schema: "DOIRequest"
-        output_schemas:
-          success: "DOICompleted"
-          failure: "DOIFailed"
-        depends_on:
-          - "metadata_extraction"
-        timeout_seconds: 30
+      # NOTE: doi_assignment step removed - DOI service not yet implemented
+

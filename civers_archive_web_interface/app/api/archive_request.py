@@ -59,10 +59,16 @@ async def create_archive_request(
     request_id = str(uuid.uuid4())
     logger.info(f"Processing new archive request: {request_id} for {form_data.url}")
     
-    # 4. Determine callback URL (assuming the webhook will be implemented in Task 11)
-    # For now, we'll construct it based on the current host
-    base_url = str(request.base_url).rstrip('/')
-    callback_url = f"{base_url}/api/webhook/status"
+    # 4. Determine callback URL for orchestrator to send status updates
+    # In Docker, orchestrator needs to reach web-interface via internal network
+    # CALLBACK_BASE_URL should be set to "http://web-interface:8000" in docker-compose
+    import os
+    callback_base = os.getenv("CALLBACK_BASE_URL")
+    if not callback_base:
+        callback_base = str(request.base_url).rstrip('/')
+    callback_url = f"{callback_base}/api/webhook/status"
+    logger.debug(f"Using callback URL: {callback_url}")
+
     
     # 5. Store request in database
     db_success = status_service.create_request(
@@ -152,3 +158,48 @@ async def create_archive_request(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred: {str(e)}"
         )
+
+
+@router.get("/request-status/{request_id}")
+async def get_request_status(
+    request: Request,
+    request_id: str
+):
+    """
+    Get the current status of an archive request.
+    
+    This endpoint is polled by the status page to show real-time progress.
+    
+    Returns:
+        JSON with status, current_step, completed_steps, error_message, snapshot_id, url_id
+    """
+    from ..utils.url_parser import generate_url_id
+    
+    status_service = request.app.state.request_status_service
+    
+    record = status_service.get_request(request_id)
+    
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Request {request_id} not found"
+        )
+    
+    # Generate url_id from the URL for archive page linking
+    url = record.get("url")
+    url_id = generate_url_id(url) if url else None
+    
+    return {
+        "request_id": record.get("request_id"),
+        "status": record.get("status", "unknown"),
+        "url": url,
+        "url_id": url_id,
+        "domain": record.get("domain"),
+        "current_step": record.get("current_step"),
+        "completed_steps": record.get("completed_steps", []),
+        "error_message": record.get("error_message"),
+        "snapshot_id": record.get("snapshot_id"),
+        "created_at": record.get("created_at"),
+        "updated_at": record.get("updated_at")
+    }
+

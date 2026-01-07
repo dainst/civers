@@ -126,6 +126,22 @@ async def status_page(request: Request, request_id: str):
     return templates.TemplateResponse("status.html", context)
 
 
+@router.get("/my-requests", response_class=HTMLResponse)
+async def my_requests_page(request: Request):
+    """
+    Render the My Requests page where users can view all their archive requests.
+    
+    Requests are stored client-side in localStorage and their statuses are
+    fetched dynamically via the API.
+    """
+    context = {
+        "request": request,
+        "title": "My Archive Requests"
+    }
+    
+    return templates.TemplateResponse("my_requests.html", context)
+
+
 @router.get("/replay/{snapshot_id}", response_class=HTMLResponse)
 async def replay_page(request: Request, snapshot_id: str, view_type: str = Query(None)):
     """

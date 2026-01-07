@@ -114,6 +114,31 @@ def parse_url(url: str) -> Tuple[str, str, str]:
     return domain, normalized_domain, normalized_path
 
 
+def generate_url_id(url: str) -> str:
+    """
+    Generate a url_id from a URL for archive page linking.
+
+    Creates a filesystem-safe identifier by combining the normalized domain
+    and path. Query parameters are stripped as they don't affect the archive page.
+
+    Args:
+        url: Full URL (e.g., "https://example.com/about?q=test")
+
+    Returns:
+        url_id (e.g., "example_com_about")
+
+    Examples:
+        >>> generate_url_id("https://example.com/about")
+        'example_com_about'
+        >>> generate_url_id("https://example.com/entity/123?fl=20&q=test")
+        'example_com_entity_123'
+        >>> generate_url_id("https://arachne.test.dainst.org/entity/1075882?fl=20")
+        'arachne_test_dainst_org_entity_1075882'
+    """
+    _, normalized_domain, normalized_path = parse_url(url)
+    return f"{normalized_domain}_{normalized_path}"
+
+
 def generate_request_id(request_id: str, timestamp: datetime = None) -> str:
     """
     Generate full request ID with timestamp.

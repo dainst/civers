@@ -10,8 +10,6 @@ from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Request, HTTPException, status, Body
 from pydantic import BaseModel, Field
 
-from ..models.archive_request_events import OrchestratorStatusEvent, OrchestratorCompletedEvent, OrchestratorFailedEvent
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter(

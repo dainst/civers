@@ -30,6 +30,10 @@
                         aria-current="{% if request.url.path == '/archive-request' %}page{% endif %}">
                         Archive
                     </a>
+                    <a href="/my-requests" class="btn btn-ghost text-sm"
+                        aria-current="{% if request.url.path == '/my-requests' %}page{% endif %}">
+                        My Requests
+                    </a>
                     <a href="/docs" class="btn btn-ghost text-sm">
                         API Docs
                     </a>
@@ -75,6 +79,11 @@
                     aria-current="{% if request.url.path == '/archive-request' %}page{% endif %}"
                     @click="mobileMenuOpen = false">
                     Archive
+                </a>
+                <a href="/my-requests" class="btn btn-ghost w-full text-left text-base"
+                    aria-current="{% if request.url.path == '/my-requests' %}page{% endif %}"
+                    @click="mobileMenuOpen = false">
+                    My Requests
                 </a>
                 <a href="/docs" class="btn btn-ghost w-full text-left text-base" @click="mobileMenuOpen = false">
                     API Docs
