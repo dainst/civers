@@ -5,7 +5,7 @@ from typing import Optional
 from pydantic import ValidationError
 
 from configs import ConfigLoaderInterface
-from configs.config_data_model import ConfigDataModel
+from configs.models import ConfigDataModel
 
 
 logger = logging.getLogger(__name__)

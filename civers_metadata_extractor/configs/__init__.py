@@ -7,7 +7,7 @@ This module provides configuration loading and validation capabilities:
 """
 
 from abc import ABC, abstractmethod
-from .config_data_model import ConfigDataModel
+from .models import ConfigDataModel
 from .config_validator import validate_configuration_file, ConfigValidationError, ConfigValidator
 from .loaders import YamlFileConfigLoader
 

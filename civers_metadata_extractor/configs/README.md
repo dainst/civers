@@ -46,7 +46,7 @@ graph TD
 | File | Purpose |
 |------|---------|
 | `yaml_file_loader_config.py` | YAML loading and parsing |
-| `config_data_model.py` | Pydantic models for configuration validation |
+| `models.py` | Pydantic models for configuration validation |
 | `logging_config.py` | Logging system configuration |
 
 ## Configuration Schema
@@ -96,6 +96,7 @@ Before diving into mapping configuration, it's essential to understand how extra
 #### Example: JSON-LD Extraction Process
 
 **Original JSON-LD Structure:**
+
 ```json
 {
   "@context": "http://schema.org",
@@ -124,6 +125,7 @@ Before diving into mapping configuration, it's essential to understand how extra
 ```
 
 **Flattened Key Structure (What Mappings Target):**
+
 ```json
 {
   "@context": "http://schema.org",
@@ -167,6 +169,7 @@ mappings:
 ```
 
 **Benefits:**
+
 - **Unambiguous**: No confusion about target model or property
 - **Self-Validating**: Configuration validates against actual model schemas  
 - **IDE Support**: Clear target paths enable editor assistance
@@ -219,6 +222,7 @@ mappings:
 ```
 
 **Key Benefits:**
+
 - **Unlimited Scalability**: Single pattern handles any number of array elements
 - **Zero Configuration Maintenance**: No updates needed for varying data sizes
 - **Performance**: Efficient regex-based pattern expansion at runtime
@@ -343,6 +347,7 @@ The `_infer_implicit_values()` method analyzes source field names to determine a
 #### Currently Supported Automatic Inference Rules
 
 **Date Type Inference** (for `Date.date` targets):
+
 - `"publish"` in field name → `DateType.PUBLISHED`
 - `"modif"` or `"updat"` in field name → `DateType.UPDATED`  
 - `"creat"` in field name → `DateType.CREATED`
@@ -351,16 +356,19 @@ The `_infer_implicit_values()` method analyzes source field names to determine a
 - `"submit"` in field name → `DateType.SUBMITTED`
 
 **Creator Name Type Inference** (for `Creator.creator_name` targets):
+
 - Field contains organizational indicators → `NameType.ORGANIZATIONAL`
 - Organizational indicators: `organization`, `institution`, `university`, `institute`, `company`, `corp`, `foundation`, `society`, `museum`, `library`
 - Otherwise defaults to → `NameType.PERSONAL`
 
 **Description Type Inference** (for `Description.description` targets):
+
 - `"abstract"` in field name → `DescriptionType.ABSTRACT`
 - `"citation"` in field name → `DescriptionType.OTHER`  
 - `"summary"` in field name → `DescriptionType.ABSTRACT`
 
 **Identifier Type Inference** (for `AlternateIdentifier.alternate_identifier` targets):
+
 - `"url"` in field name or `"http"` in field name → `IdentifierType.URL`
 - `"doi"` in field name → `IdentifierType.DOI`
 - `"image"` in field name → `IdentifierType.URL`
@@ -424,6 +432,7 @@ For now, extending the automatic inference requires modifying the `_infer_implic
       "citation_author": "Creator.creator_name"
       "citation_doi": "AlternateIdentifier.alternate_identifier"
 ```
+
 ## Adding New Domains
 
 ### Step-by-Step Process
@@ -460,7 +469,7 @@ domains:
 The system validates configuration at startup:
 
 ```python
-# Validation in config_data_model.py
+# Validation in models.py
 class ConfigDataModel(BaseModel):
     app: AppConfig
     domains: List[DomainConfig]
@@ -499,12 +508,14 @@ mappings:
 ### Common Issues
 
 **Configuration Won't Load**
+
 ```bash
 # Validate YAML syntax
 python3 -c "import yaml; yaml.safe_load(open('app_config.yaml'))"
 ```
 
 **Mapping Rules Not Working**
+
 ```bash
 # Check model class exists
 grep -r "class Title" models/
@@ -512,6 +523,7 @@ grep -r "title:" models/intermediate_metadata.py
 ```
 
 **Dynamic Arrays Not Expanding**
+
 ```bash
 # Verify pattern syntax (use [*] not [])
 # Check source data structure matches pattern
@@ -527,6 +539,6 @@ UV_LOG_LEVEL=debug uv run python3 main.py
 ## Implementation References
 
 - **Configuration Loading**: `configs/yaml_file_loader_config.py:15-45`
-- **Data Model Validation**: `configs/config_data_model.py:25-150`
+- **Data Model Validation**: `configs/models.py:25-150`
 - **Domain Configuration Usage**: `metadata_extraction_services/metadata_extraction_service.py:45-80`
 - **Mapping Rule Application**: `metadata_extractors/mappers/explicit_mapping/explicit_mapping_processor.py:32-136`

@@ -6,7 +6,7 @@ import time
 from typing import Dict, Any, Optional, Callable
 from datetime import datetime, timezone
 
-from configs.config_data_model import ConfigDataModel
+from configs.models import ConfigDataModel
 from .kafka_connection_manager import KafkaConnectionManager
 from .event_publisher import EventPublisher
 from metadata_extraction_services.metadata_extraction_service_interface import MetadataExtractionServiceInterface

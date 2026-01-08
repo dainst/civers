@@ -7,7 +7,7 @@ aggregating results and handling failures gracefully.
 
 import asyncio
 from typing import Dict, Any, List
-from configs.config_data_model import StorageConfig
+from configs.models import StorageConfig
 from configs.logging_config import get_logger
 from .storage_strategy import StorageStrategy, StorageResult, MultiStorageResult
 from .strategy_registry import StorageStrategyRegistry
@@ -68,19 +68,9 @@ class StorageManager:
         Reads enabled backends from config, retrieves strategy classes from
         registry, and creates instances with backend-specific configuration.
         Logs initialization and continues if some backends fail.
-        
-        NOTE: Currently supports single backend mode (self.storage_config.backend).
-        Multi-backend support (self.storage_config.enabled list) will be added
-        when Task 6 (ConfigDataModel Updates) is completed.
         """
-        # TODO: Update to multi-backend when Task 6 is complete
-        # For now, use single backend mode
-        if hasattr(self.storage_config, 'enabled'):
-            # New multi-backend config (from Task 6)
-            enabled = self.storage_config.enabled
-        else:
-            # Current single-backend config
-            enabled = [self.storage_config.backend]
+        # Get enabled backends from storage configuration
+        enabled = self.storage_config.get_enabled_backends()
         
         self.logger.info(f"Initializing {len(enabled)} storage backend(s): {', '.join(enabled)}")
         

@@ -26,7 +26,8 @@ from metadata_extraction_services import MetadataExtractionService
 
 
 # Configure logging with Kafka suppression
-setup_logging(level=logging.INFO, log_file='metadata_extractor.log', suppress_kafka_logs=True)
+log_level = getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
+setup_logging(level=log_level, log_file='metadata_extractor.log', suppress_kafka_logs=True)
 
 logger = get_logger(__name__)
 
@@ -34,9 +35,9 @@ logger = get_logger(__name__)
 class MetadataExtractionApp:
     """Main application using the metadata extraction service architecture."""
     
-    def __init__(self):
+    def __init__(self, config_loader: Optional[YamlFileConfigLoader] = None):
         self.config = None
-        self.config_loader: Optional[YamlFileConfigLoader] = None
+        self.config_loader = config_loader
         self.kafka_transport: Optional[KafkaTransportService] = None
         self.running = False
         self._shutdown_event = asyncio.Event()
@@ -49,7 +50,8 @@ class MetadataExtractionApp:
             # Load configuration using hierarchical loader
             logger.info("📄 Loading configuration using YamlFileConfigLoader")
             try:
-                self.config_loader = YamlFileConfigLoader()
+                if not self.config_loader:
+                    self.config_loader = YamlFileConfigLoader()
                 logger.info(f"🌍 Detected environment: {self.config_loader.environment}")
                 logger.info(f"📁 Config directory: {self.config_loader.config_dir}")
                 self.config = self.config_loader.load()
@@ -169,11 +171,12 @@ class MetadataExtractionApp:
         
         logger.info("✅ Cleanup completed")
 
-async def main_async():
-    """Async main entry point."""
-    app = MetadataExtractionApp()
-    logger.info("🎯 Starting Metadata Extraction Application")
+async def main_async(app: Optional[MetadataExtractionApp] = None):
+    """Asynchronous entry point for the application."""
     try:
+        if app is None:
+            app = MetadataExtractionApp()
+        logger.info("🎯 Starting Metadata Extraction Application")
         success = await app.start()
         if success:
             logger.info("👋 Metadata Extraction Application finished successfully")

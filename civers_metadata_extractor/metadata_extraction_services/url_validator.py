@@ -10,7 +10,7 @@ Works directly with ConfigDataModel - no unnecessary delegation.
 from typing import Dict, Any
 from urllib.parse import urlparse
 
-from configs.config_data_model import ConfigDataModel
+from configs.models import ConfigDataModel
 from configs.logging_config import get_logger
 
 

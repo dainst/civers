@@ -26,7 +26,7 @@ from .metadata_extraction_service_interface import MetadataExtractionServiceInte
 from .url_validator import UrlValidator
 from .extraction_result import ExtractionResult
 
-from configs.config_data_model import ConfigDataModel
+from configs.models import ConfigDataModel
 from configs.logging_config import get_logger
 from metadata_extractors.base_extractor import BaseExtractor
 from metadata_extractors.extractor_factory import factory as extractor_factory
@@ -246,7 +246,7 @@ class MetadataExtractionService(MetadataExtractionServiceInterface):
                 intermediate_metadata=metadata,
                 domain_used=domain,
                 mappers_used=self._get_used_mappers(domain_config),  # Track which mappers were used
-                artifacts_created=["metadata.json"],#TODO: add the artifacts created
+                artifacts_created=[],
                 source_url=url,
             )
             
@@ -488,6 +488,13 @@ class MetadataExtractionService(MetadataExtractionServiceInterface):
                     f"✅ Metadata stored successfully to {len(successful_backends)} backend(s): "
                     f"{', '.join(successful_backends)}"
                 )
+                
+                # Dynamically populate artifacts_created with all successful locations
+                for res in storage_result.results:
+                    if res.success and res.storage_location:
+                        # Add location to artifacts if not already present
+                        if res.storage_location not in result.artifacts_created:
+                            result.artifacts_created.append(res.storage_location)
                 
                 # Log failed backends if any
                 failed_backends = storage_result.get_failed_backends()

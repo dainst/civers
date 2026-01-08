@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional, List
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 from aiokafka.errors import KafkaError
 
-from configs.config_data_model import KafkaConfig
+from configs.models import KafkaConfig
 
 logger = logging.getLogger(__name__)
 

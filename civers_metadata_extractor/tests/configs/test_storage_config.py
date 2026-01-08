@@ -7,7 +7,7 @@ validation, and backward compatibility with single-backend mode.
 
 import pytest
 from pydantic import ValidationError
-from configs.config_data_model import StorageConfig
+from configs.models import StorageConfig
 
 
 class TestStorageConfigMultiBackend:

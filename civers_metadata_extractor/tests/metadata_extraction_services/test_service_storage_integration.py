@@ -6,7 +6,7 @@ Tests the integration of StorageManager into the service for multi-backend stora
 
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
-from configs.config_data_model import ConfigDataModel, StorageConfig
+from configs.models import ConfigDataModel, StorageConfig
 from metadata_extraction_services.metadata_extraction_service import MetadataExtractionService
 from storage_layer.storage_strategy import StorageResult, MultiStorageResult
 

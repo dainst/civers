@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional, Tuple
 import logging
 from pydantic import ValidationError
 
-from .config_data_model import ConfigDataModel, DomainConfig, TransportConfig, KafkaConfig
+from .models import ConfigDataModel, DomainConfig, TransportConfig, KafkaConfig
 
 
 logger = logging.getLogger(__name__)

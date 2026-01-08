@@ -35,6 +35,7 @@ uv run python main.py
 ```
 
 Expected output:
+
 ```
 INFO - CIVERS Metadata Extraction Service starting up
 INFO - Loading configuration from app_config.yaml
@@ -46,24 +47,28 @@ INFO - Service ready - listening for extraction requests
 ### Test It
 
 **Option 1: Default Mode (Embedded HTML Content)**
+
 ```bash
 # Run the demo with embedded HTML
 uv run python scripts/simple_demo.py
 ```
 
 **Option 2: Document URL Mode (Download from Storage)**
+
 ```bash
 # Run the demo with document_url
 uv run python scripts/simple_demo.py --document-url "http://127.0.0.1:8000/api/artifacts/serve?snapshot_id=req_123456_20251204_163237&type=document.html"
 ```
 
 **View All Options**
+
 ```bash
 # See help for all available options
 uv run python scripts/simple_demo.py --help
 ```
 
 Expected output:
+
 ```
 🎯 CIVERS Metadata Extractor - Simple Demo
 Arachne Archaeological Database Sample
@@ -112,6 +117,7 @@ Mappers Used: flattened_to_intermediate
 The service requires ONE of two content sources:
 
 **1. Download from Storage Service**
+
 ```json
 {
   "request_id": "req-001",
@@ -119,10 +125,12 @@ The service requires ONE of two content sources:
   "document_url": "https://storage.example.com/documents/123.html"
 }
 ```
+
 → Service downloads HTML from `document_url`  
 → Requires: `uv sync --extra http`
 
 **2. Provide HTML Directly**
+
 ```json
 {
   "request_id": "req-002",
@@ -130,6 +138,7 @@ The service requires ONE of two content sources:
   "html_content": "<html>...</html>"
 }
 ```
+
 → Service uses provided HTML  
 → No additional dependencies needed
 
@@ -190,6 +199,7 @@ graph TD
 ### Separation of Concerns
 
 **Transport Layer** (KafkaTransportService):
+
 - ✅ Receives and parses Kafka messages
 - ✅ Delegates to service layer
 - ✅ Publishes result events
@@ -198,6 +208,7 @@ graph TD
 - ❌ **NO** HTTP operations
 
 **Service Layer** (MetadataExtractionService):
+
 - ✅ Handles ALL content retrieval logic
 - ✅ Downloads from document_url, html_content, or URL
 - ✅ Validates URLs and domains
@@ -236,6 +247,7 @@ producer.send('metadata.extraction.requests', value=request)
 ```
 
 The service will:
+
 1. Download HTML from `document_url`
 2. Extract JSON-LD metadata
 3. Map to DataCite format
@@ -245,7 +257,7 @@ The service will:
 
 ```python
 from metadata_extraction_services.metadata_extraction_service import MetadataExtractionService
-from configs.config_data_model import ConfigDataModel
+from configs.models import ConfigDataModel
 
 # Initialize service
 config = ConfigDataModel.from_yaml("app_config.yaml")
@@ -451,7 +463,7 @@ uv run pytest tests/ --cov --cov-report=html
 civers_metadata_extractor/
 ├── main.py                              # Application entry point
 ├── configs/                             # Configuration system
-│   ├── config_data_model.py            # Configuration models
+│   ├── models.py                       # Configuration models
 │   ├── domains/                        # Domain-specific configs
 │   └── app_config.yaml                 # Main application config
 ├── metadata_extraction_services/        # Service layer (business logic)
@@ -564,6 +576,7 @@ uv run python scripts/civers_health_check.py
 ### Metrics
 
 The service tracks:
+
 - ✅ **Processing time** - Per-request extraction duration
 - ✅ **Success rate** - Extraction success/failure ratio
 - ✅ **Field counts** - Number of fields extracted and mapped
@@ -590,6 +603,7 @@ INFO - ✅ Request req-001 completed successfully in 0.85s
 ### Common Issues
 
 **Service won't start**
+
 ```bash
 # Check Kafka is running
 docker ps | grep kafka
@@ -602,11 +616,13 @@ uv run python -c "import metadata_extractors; print('✅ OK')"
 ```
 
 **No JSON-LD found**
+
 - Ensure HTML contains `<script type="application/ld+json">` tags
 - Validate JSON-LD at [JSON-LD Playground](https://json-ld.org/playground/)
 - Check service logs for parsing errors
 
 **HTTP content fetching fails**
+
 ```bash
 # Install HTTP dependencies
 uv sync --extra http
@@ -616,6 +632,7 @@ uv run python -c "import httpx; print('✅ httpx available')"
 ```
 
 **Mapping failures**
+
 - Verify domain configuration exists
 - Check mapping rules syntax in YAML
 - Review logs for specific field errors

@@ -7,22 +7,26 @@ This document outlines the design and implementation plan for a pluggable storag
 ## Key Updates (Per User Requirements)
 
 ### ✅ Multi-Backend Support
+
 - **Enable Multiple Backends**: Users can enable multiple storage backends at once
 - **Configuration**: `storage.enabled: ["local_file", "civers_rest_api", "s3"]`
 - **Simultaneous Storage**: Metadata is stored to ALL enabled backends in parallel
 - **Graceful Degradation**: Service succeeds if ANY backend succeeds
 
 ### ✅ Specific Storage Naming
+
 - **`civers_rest_api`**: Instead of generic `http_api` - specifically for CIVERS archive upload API
 - **`local_file`**: Local filesystem storage (default, always available)
 - **Future**: `s3`, `azure_blob`, `google_cloud_storage`, etc.
 
 ### ✅ Per-Backend Configuration
+
 - Each backend has its own `enabled` flag in configuration
 - Backend-specific settings under `storage.backends.{backend_name}`
 - Easy to add new storage types without modifying existing code
 
 ### ✅ Extensibility via Registry Pattern
+
 - New storage types registered via `StorageStrategyRegistry.register()`
 - Plugin architecture - add new backends by implementing `StorageStrategy` interface
 - No changes needed to core service layer when adding new storage types
@@ -36,6 +40,7 @@ This document outlines the design and implementation plan for a pluggable storag
 **Location**: Hardcoded in `metadata_extraction_services/metadata_extraction_service.py`
 
 **Current Implementation** (lines 377-461):
+
 ```python
 async def _generate_json_output(
     self, 
@@ -58,6 +63,7 @@ async def _generate_json_output(
 ```
 
 **Problems with Current Implementation**:
+
 1. ❌ Storage logic coupled to business logic
 2. ❌ No abstraction - can't switch storage backends
 3. ❌ Hardcoded directory path (`output/metadata`)
@@ -72,6 +78,7 @@ async def _generate_json_output(
 **API Endpoint**: `POST http://localhost:8000/api/upload`
 
 **Request Schema** (from OpenAPI spec):
+
 ```json
 {
   "url": "string",              // Original URL being archived
@@ -82,6 +89,7 @@ async def _generate_json_output(
 ```
 
 **Response Schema**:
+
 ```json
 {
   "success": true,
@@ -93,6 +101,7 @@ async def _generate_json_output(
 ```
 
 **Supported File Types**:
+
 - `archive.wacz` - WACZ archive
 - `screenshot.png` - Screenshot image
 - `singlefile.html` - SingleFile HTML
@@ -100,6 +109,7 @@ async def _generate_json_output(
 - `document.html` - Document HTML
 
 **Storage Structure**:
+
 ```
 archives/{domain}/{path}/req_{request_id}_{timestamp}/
   ├── archive.wacz
@@ -116,12 +126,14 @@ archives/{domain}/{path}/req_{request_id}_{timestamp}/
 ### 1. Design Pattern: Strategy Pattern
 
 **Why Strategy Pattern?**
+
 - ✅ Allows runtime selection of storage backend
 - ✅ Easy to add new storage backends without modifying existing code
 - ✅ Clear separation between business logic and storage logic
 - ✅ Each strategy is independently testable
 
 **Pattern Structure**:
+
 ```
 StorageStrategy (Interface)
     ↓
@@ -132,6 +144,7 @@ StorageStrategy (Interface)
 ### 2. Configuration Strategy - Multi-Backend Support
 
 **Updated `app_config.yaml` with Multiple Enabled Backends**:
+
 ```yaml
 storage:
   # List of enabled storage backends (supports multiple simultaneously)
@@ -176,6 +189,7 @@ storage:
 ```
 
 **Updated ConfigDataModel**:
+
 ```python
 class StorageConfig(BaseModel):
     """Extensible storage configuration supporting multiple backends."""
@@ -234,6 +248,7 @@ class StorageConfig(BaseModel):
 ```
 
 ✅ **Key Changes**:
+
 - Support for multiple enabled backends simultaneously
 - Each backend can be independently enabled/disabled
 - Clear naming: `civers_rest_api` instead of generic `http_api`
@@ -358,6 +373,7 @@ StorageStrategyRegistry.register("civers_rest_api", CiversRestApiStorageStrategy
 ### Phase 1: Core Storage Abstraction (High Priority)
 
 #### Step 1.1: Create Storage Strategy Interface
+
 **File**: `storage_layer/storage_strategy.py`
 
 ```python
@@ -440,6 +456,7 @@ class StorageStrategy(ABC):
 ```
 
 #### Step 1.2: Implement Local File Strategy (Default)
+
 **File**: `storage_layer/local_file_storage_strategy.py`
 
 ```python
@@ -516,6 +533,7 @@ class LocalFileStorageStrategy(StorageStrategy):
 ```
 
 #### Step 1.3: Implement CIVERS REST API Strategy
+
 **File**: `storage_layer/civers_rest_api_storage_strategy.py`
 
 ```python
@@ -665,6 +683,7 @@ class CiversRestApiStorageStrategy(StorageStrategy):
 ```
 
 #### Step 1.4: Create Strategy Registry
+
 **File**: `storage_layer/strategy_registry.py`
 
 ```python
@@ -725,6 +744,7 @@ class StorageStrategyRegistry:
 ```
 
 **Registration in `__init__.py`**:
+
 ```python
 # storage_layer/__init__.py
 from .strategy_registry import StorageStrategyRegistry
@@ -744,11 +764,12 @@ StorageStrategyRegistry.register("civers_rest_api", CiversRestApiStorageStrategy
 ```
 
 #### Step 1.5: Create Storage Manager (Multi-Backend Coordinator)
+
 **File**: `storage_layer/storage_manager.py`
 
 ```python
 from typing import Dict, Any, List
-from configs.config_data_model import StorageConfig
+from configs.models import StorageConfig
 from configs.logging_config import get_logger
 from .storage_strategy import StorageStrategy, StorageResult, MultiStorageResult
 from .strategy_registry import StorageStrategyRegistry
@@ -944,9 +965,11 @@ class StorageManager:
 ### Phase 2: Integration (Medium Priority)
 
 #### Step 2.1: Update MetadataExtractionService
+
 **File**: `metadata_extraction_services/metadata_extraction_service.py`
 
 **Changes**:
+
 ```python
 # Add import
 from storage_layer.storage_manager import StorageManager
@@ -1004,6 +1027,7 @@ class MetadataExtractionService:
 **Note**: Need to track `source_url` in ExtractionResult for HTTP API uploads.
 
 #### Step 2.2: Update ExtractionResult Model
+
 **File**: `metadata_extraction_services/extraction_result.py`
 
 ```python
@@ -1014,6 +1038,7 @@ class ExtractionResult:
 ```
 
 #### Step 2.3: Update Kafka Event Models (Optional)
+
 **File**: `transport_services/kafka/event_models.py`
 
 ```python
@@ -1026,6 +1051,7 @@ class MetadataExtractionCompletedEvent(BaseModel):
 ### Phase 3: Configuration Updates (Low Priority)
 
 #### Step 3.1: Update app_config.yaml.example
+
 ```yaml
 storage:
   backend: "local_file"  # Options: "local_file", "http_api"
@@ -1046,6 +1072,7 @@ storage:
 ```
 
 #### Step 3.2: Update README.md
+
 Add storage configuration section explaining both backends.
 
 ---
@@ -1073,6 +1100,7 @@ civers_metadata_extractor/
 ## Benefits
 
 ### Immediate Benefits
+
 1. ✅ **Multi-Backend Support** - Store to multiple backends simultaneously
 2. ✅ **Clean separation of concerns** - Storage logic isolated from business logic
 3. ✅ **Highly testable** - Easy to mock/test each strategy independently
@@ -1081,6 +1109,7 @@ civers_metadata_extractor/
 6. ✅ **Graceful degradation** - Service continues if some backends fail
 
 ### Extensibility Benefits
+
 1. 🚀 **Plugin architecture** - Add new backends without modifying existing code
 2. 🚀 **Registry pattern** - `StorageStrategyRegistry.register("new_backend", NewStrategy)`
 3. 🚀 **Easy to add**:
@@ -1090,6 +1119,7 @@ civers_metadata_extractor/
    - Custom backends: Just implement strategy and register
 
 ### Operational Benefits
+
 1. 📊 **Per-backend metrics** - Track success/failure rates for each backend
 2. 📊 **Redundancy** - Data stored in multiple locations automatically
 3. 📊 **Health monitoring** - `is_available()` checks for each backend
@@ -1127,6 +1157,7 @@ storage:
 ### Unit Tests
 
 **File**: `tests/storage_layer/test_local_file_storage.py`
+
 ```python
 @pytest.mark.asyncio
 async def test_local_file_storage_success():
@@ -1143,6 +1174,7 @@ async def test_local_file_storage_success():
 ```
 
 **File**: `tests/storage_layer/test_http_api_storage.py`
+
 ```python
 @pytest.mark.asyncio
 @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
@@ -1160,6 +1192,7 @@ async def test_http_api_storage_success(httpx_mock):
 ```
 
 **File**: `tests/storage_layer/test_storage_manager.py`
+
 ```python
 def test_storage_manager_creates_correct_strategy():
     """Test strategy selection based on configuration"""
@@ -1177,6 +1210,7 @@ def test_storage_manager_creates_correct_strategy():
 ### Integration Tests
 
 **File**: `tests/integration/test_metadata_extraction_with_storage.py`
+
 ```python
 @pytest.mark.asyncio
 async def test_extraction_with_local_storage():
@@ -1199,23 +1233,27 @@ async def test_extraction_with_http_storage(storage_api_mock):
 ## Migration Strategy
 
 ### Phase 1: Implement Storage Layer (Week 1)
+
 1. Create storage_layer directory
 2. Implement StorageStrategy interface
 3. Implement LocalFileStorageStrategy (1:1 replacement of current logic)
 4. Write unit tests for local storage
 
 ### Phase 2: Add HTTP API Support (Week 2)
+
 1. Implement HttpApiStorageStrategy
 2. Write unit tests with mocked HTTP
 3. Integration tests with test API
 
 ### Phase 3: Service Integration (Week 3)
+
 1. Update MetadataExtractionService to use StorageManager
 2. Update ExtractionResult model
 3. Update configuration examples
 4. Update documentation
 
 ### Phase 4: Testing & Validation (Week 4)
+
 1. Full integration testing
 2. Performance testing (local vs HTTP)
 3. Error handling validation
@@ -1235,12 +1273,14 @@ async def test_extraction_with_http_storage(storage_api_mock):
 ## Benefits
 
 ### Immediate Benefits
+
 1. ✅ **Clean separation of concerns** - Storage logic isolated
 2. ✅ **Testable** - Easy to mock/test each strategy
 3. ✅ **Maintainable** - Changes to storage don't affect business logic
 4. ✅ **Flexible** - Easy configuration switching
 
 ### Future Benefits
+
 1. 🚀 **Extensible** - Add S3, Azure, GCS strategies easily
 2. 🚀 **Scalable** - Support for distributed storage
 3. 🚀 **Observable** - Metrics per storage backend
@@ -1262,6 +1302,7 @@ async def test_extraction_with_http_storage(storage_api_mock):
 ## Future Enhancements
 
 ### Post-MVP Features
+
 1. **Hybrid Strategy**: Store locally AND upload to cloud
 2. **Fallback Strategy**: Try HTTP, fallback to local on failure
 3. **S3 Strategy**: Direct S3 uploads (no HTTP API)
@@ -1274,16 +1315,19 @@ async def test_extraction_with_http_storage(storage_api_mock):
 ## Success Criteria
 
 ### Phase 1 (Core Implementation)
+
 - [ ] All existing functionality works with LocalFileStorageStrategy
 - [ ] Unit tests achieve >90% coverage
 - [ ] Zero breaking changes to existing APIs
 
 ### Phase 2 (HTTP API)
+
 - [ ] Successful upload to test HTTP API
 - [ ] Proper error handling and retries
 - [ ] Integration tests passing
 
 ### Phase 3 (Production Ready)
+
 - [ ] Documentation complete
 - [ ] Configuration examples provided
 - [ ] Performance acceptable (<100ms overhead)

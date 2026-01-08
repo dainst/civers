@@ -15,7 +15,7 @@ import logging
 
 import yaml
 
-from configs.config_data_model import ConfigDataModel
+from .models import ConfigDataModel
 
 logger = logging.getLogger(__name__)
 
