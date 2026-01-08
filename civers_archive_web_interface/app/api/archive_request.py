@@ -190,6 +190,14 @@ async def get_request_status(
     url = record.get("url")
     url_id = generate_url_id(url) if url else None
     
+    # Simple user-friendly error message if request failed
+    raw_error = record.get("error_message")
+    user_error = None
+    if raw_error:
+        # Log technical error for debugging, but show simple message to user
+        logger.debug(f"Technical error for {request_id}: {raw_error}")
+        user_error = f"Failed to archive this page. Please try again or contact support."
+    
     return {
         "request_id": record.get("request_id"),
         "status": record.get("status", RequestStatus.UNKNOWN),
@@ -198,7 +206,7 @@ async def get_request_status(
         "domain": record.get("domain"),
         "current_step": record.get("current_step"),
         "completed_steps": record.get("completed_steps", []),
-        "error_message": record.get("error_message"),
+        "error_message": user_error,
         "snapshot_id": record.get("snapshot_id"),
         "created_at": record.get("created_at"),
         "updated_at": record.get("updated_at")
