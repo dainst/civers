@@ -34,7 +34,7 @@ COPY storage_layer/ ./storage_layer/
 COPY lib/scoop/ ./lib/scoop/
 
 # Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt watchfiles
 
 # Install Scoop dependencies (but not Playwright browsers yet)
 WORKDIR /app/lib/scoop

@@ -44,8 +44,8 @@ def configure_logging(level: str = "INFO", json_format: bool = True, log_file: O
             # Application loggers
             'app': {'level': level.upper()},
             # Third-party loggers
-            'uvicorn': {'level': 'WARNING'},
-            'uvicorn.access': {'level': 'WARNING'},
+            'uvicorn': {'level': 'INFO'},
+            'uvicorn.access': {'level': 'INFO'},
             'httpx': {'level': 'INFO'},
             'asgi_correlation_id': {'level': 'WARNING'},
         }

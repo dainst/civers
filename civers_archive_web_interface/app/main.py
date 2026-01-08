@@ -87,7 +87,8 @@ async def lifespan(app: FastAPI):
         app.state.domain_service = domain_service
         
         domain_names = [d.name for d in domain_service.domains]
-        logger.info(f"Domain service loaded {len(domain_service.domains)} domains: {domain_names}")
+        enabled_count = len(domain_service.get_enabled_domains(include_wildcards=True, include_default=True))
+        logger.info(f"Domain service loaded {len(domain_service.domains)} domains ({enabled_count} enabled): {domain_names}")
         # Initialize Kafka producer service (optional - for archive request submission)
         kafka_producer = KafkaProducerService(
             _app_config.transport.kafka, 
@@ -201,4 +202,4 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
     debug = os.getenv("DEBUG", "False").lower() == "true"
     
-    uvicorn.run("app.main:app", host=host, port=port, reload=debug)
+    uvicorn.run("app.main:app", host=host, port=port, reload=debug)# Reload test

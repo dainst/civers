@@ -62,20 +62,20 @@ services:
       - LOG_LEVEL=DEBUG
       - DEBUG=true
       - CONFIG_ENVIRONMENT=docker
-      - CONFIG_DIR=/shared-configs
+      - CONFIG_DIR=/app/shared-configs
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - CALLBACK_BASE_URL=http://web-interface:8000
+      - WATCHFILES_FORCE_POLLING=true
     ports:
       - "8000:8000"
     volumes:
       - ./civers_archive_web_interface:/app
-      - ./configs:/shared-configs:ro
+      - ./configs:/app/shared-configs
       - civers-web-archives-dev:/app/archives
       - civers-web-data-dev:/app/data
       # Preserve image's venv
       - /opt/venv
-    command: >
-      uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload  --reload-dir /app/app  --reload-dir /app/templates  --reload-dir /app/static
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-include '*.yaml' --reload-include '*.yml'
     depends_on:
       kafka:
         condition: service_healthy
@@ -92,14 +92,16 @@ services:
     container_name: civers-orchestrator-dev
     environment:
       - CONFIG_ENVIRONMENT=docker
-      - CONFIG_DIR=/shared-configs
+      - CONFIG_DIR=/app/shared-configs
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - LOG_LEVEL=DEBUG
+      - WATCHFILES_FORCE_POLLING=true
     volumes:
       - ./civers_orchestrator:/app
-      - ./configs:/shared-configs:ro
+      - ./configs:/app/shared-configs
       # Preserve the virtual environment built in the image
       - /app/.venv
+    command: watchfiles "python main.py" /app
     depends_on:
       kafka:
         condition: service_healthy
@@ -117,16 +119,18 @@ services:
     network_mode: host
     environment:
       - CONFIG_ENVIRONMENT=docker
-      - CONFIG_DIR=/shared-configs
+      - CONFIG_DIR=/app/shared-configs
       - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
       - CIVERS_API_URL=http://localhost:8000
       - LOG_LEVEL=DEBUG
+      - WATCHFILES_FORCE_POLLING=true
     volumes:
       - ./civers_archive_generator:/app
-      - ./configs:/shared-configs:ro
+      - ./configs:/app/shared-configs
       - civers-generator-archives-dev:/app/archives
       # Preserve node_modules and other generated files in lib/scoop
       - /app/lib/scoop/node_modules
+    command: watchfiles "python -u main_app.py" /app
     depends_on:
       kafka:
         condition: service_healthy
@@ -144,16 +148,18 @@ services:
     network_mode: host
     environment:
       - CONFIG_ENVIRONMENT=docker
-      - CONFIG_DIR=/shared-configs
+      - CONFIG_DIR=/app/shared-configs
       - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
       - CIVERS_API_URL=http://localhost:8000
       - LOG_LEVEL=DEBUG
+      - WATCHFILES_FORCE_POLLING=true
     volumes:
       - ./civers_metadata_extractor:/app
-      - ./configs:/shared-configs:ro
+      - ./configs:/app/shared-configs
       - civers-metadata-output-dev:/app/output/metadata
       # Preserve the virtual environment built in the image
       - /app/.venv
+    command: watchfiles "python main.py" /app
     depends_on:
       kafka:
         condition: service_healthy

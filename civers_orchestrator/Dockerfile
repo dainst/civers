@@ -48,6 +48,7 @@ WORKDIR /app
 
 # Copy virtual environment and source code from builder
 COPY --from=builder /app/.venv /app/.venv
+RUN . /app/.venv/bin/activate && pip install watchfiles
 COPY --from=builder /app/configs /app/configs
 COPY --from=builder /app/models /app/models
 COPY --from=builder /app/orchestration_services /app/orchestration_services

@@ -17,7 +17,7 @@ RUN python -m venv /opt/venv && \
     . /opt/venv/bin/activate && \
     pip install --upgrade pip && \
     pip install asgi-correlation-id fastapi itsdangerous jinja2 python-dotenv \
-                python-multipart pyyaml requests uvicorn kafka-python pydantic
+    python-multipart pyyaml requests uvicorn kafka-python pydantic watchfiles
 
 # Stage 2: Runtime
 FROM python:3.12-slim AS runtime
