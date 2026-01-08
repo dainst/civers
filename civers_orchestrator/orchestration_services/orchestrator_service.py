@@ -20,6 +20,7 @@ from configs.models import ConfigDataModel, DomainConfig, WorkflowConfig
 from models.orchestrator_models import StepInstruction, WorkflowTransition, WorkflowStatus
 from models.workflow_models import WorkflowInstance, WorkflowStepStatus, WorkflowStepInstance
 from orchestration_services.exceptions import CircularDependencyError, WorkflowNotFoundError
+from orchestration_services.orchestrator_service_interface import OrchestratorServiceInterface
 from orchestration_services.step_executor import StepExecutor
 from orchestration_services.timeout_monitor import TimeoutMonitor
 from orchestration_services.workflow_resolver import WorkflowResolver
@@ -28,7 +29,7 @@ from orchestration_services.workflow_state_store import WorkflowStateStore
 logger = get_logger(__name__)
 
 
-class OrchestratorService:
+class OrchestratorService(OrchestratorServiceInterface):
     """
     Pure business logic orchestrator with modular architecture.
 

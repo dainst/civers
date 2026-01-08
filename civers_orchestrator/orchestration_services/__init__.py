@@ -4,14 +4,13 @@ This package contains the core orchestration logic with pure business logic
 orchestrator that returns instructions for the transport layer.
 """
 
-from orchestration_services.orchestrator_service import (
-    CircularDependencyError,
-    OrchestratorService,
-    WorkflowNotFoundError,
-)
+from orchestration_services.orchestrator_service import OrchestratorService
+from orchestration_services.orchestrator_service_interface import OrchestratorServiceInterface
+from orchestration_services.exceptions import CircularDependencyError, WorkflowNotFoundError
 
 __all__ = [
     "OrchestratorService",
+    "OrchestratorServiceInterface",
     "CircularDependencyError",
     "WorkflowNotFoundError",
 ]
