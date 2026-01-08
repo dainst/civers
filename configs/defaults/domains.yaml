@@ -10,7 +10,7 @@
 domains:
   # Production domains
   - name: arachne.dainst.org
-    workflow: archaeology_workflow
+    workflow: simple_archive_only
     artifacts: [warc, html, screenshots, singlefile]
     webpage_types: dynamic
     enabled: true
@@ -72,15 +72,15 @@ domains:
       "citation[*].identifier.value": "AlternateIdentifier.alternate_identifier"
       "image[*]": "AlternateIdentifier.alternate_identifier|alternate_identifier_type=URL"
 
-  - name: field.dainst.org
-    workflow: field_data_workflow
+  - name: field.idai.world
+    workflow: simple_archive_only
     artifacts: [warc, html, singlefile]
     webpage_types: dynamic
     enabled: true
     description: "iDAI.field - Field documentation"
 
   - name: publications.dainst.org
-    workflow: standard_dainst_workflow
+    workflow: simple_archive_only
     artifacts: [warc, html, screenshots]
     webpage_types: dynamic
     enabled: true
@@ -116,7 +116,7 @@ domains:
 
   # Wildcard pattern for other DAI domains
   - name: "*.dainst.org"
-    workflow: standard_dainst_workflow
+    workflow: simple_archive_only
     artifacts: [warc, html, screenshots]
     webpage_types: dynamic
     enabled: true
@@ -124,7 +124,7 @@ domains:
 
   # Default fallback
   - name: default
-    workflow: standard_archive_workflow
+    workflow: simple_archive_only
     artifacts: [warc, html]
     webpage_types: dynamic
     enabled: true

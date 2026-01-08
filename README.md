@@ -20,16 +20,24 @@ A comprehensive system for archiving web pages, extracting metadata, and managin
 
 ### 1. Start Services
 
+The project uses a **Makefile** to simplify Docker operations.
+
+**Development Mode** (Hot-reload + local code mounts):
+
 ```bash
-# Clone and navigate to the project
-git clone <repository-url>
-cd civers
+make dev
+```
 
-# Start all services (first run takes a few minutes)
-docker compose up -d
+**Production Mode** (Runs built images):
 
-# Verify all services are healthy
-docker compose ps
+```bash
+make prod
+```
+
+**Verify status**:
+
+```bash
+make ps
 ```
 
 ### 2. Run a Test
@@ -60,6 +68,46 @@ After the test completes, it will display:
 | `http://localhost:8000/replay/{snapshot_id}` | Replay a specific snapshot |
 | `http://localhost:8000/archive/{url_id}` | View all snapshots for a URL |
 | `http://localhost:8000/docs` | API documentation |
+
+## Monorepo Management
+
+This project uses a monorepo structure managed with **Git Subtree**. This allows us to maintain a unified codebase while keeping the ability to sync changes with independent standalone repositories.
+
+### 1. Setup Remotes (One-time)
+
+If you are a maintainer who needs to sync sub-components with their standalone repositories, add the following remotes:
+
+```bash
+git remote add remote-archive-generator git@github.com:dainst/civers_archive_generator.git
+git remote add remote-web-interface git@github.com:dainst/civers_archive_web_interface.git
+git remote add remote-metadata-extractor git@github.com:dainst/civers_metadata_extractor.git
+git remote add remote-orchestrator git@github.com:dainst/civers_orchestrator.git
+```
+
+### 2. Pushing Changes to Standalone Repos
+
+When you make changes in the monorepo and want to push them to a component's standalone repository:
+
+```bash
+# Example: Pushing changes for the web interface
+git subtree push --prefix=civers_archive_web_interface remote-web-interface main
+```
+
+### 3. Pulling Changes from Standalone Repos
+
+To bring in changes made directly in a standalone repository:
+
+```bash
+git fetch remote-web-interface
+git subtree pull --prefix=civers_archive_web_interface remote-web-interface main --squash
+```
+
+### 4. Working on Features
+
+1. Create a new branch in the monorepo.
+2. Make changes across any components.
+3. Commit your changes normally.
+4. Use the `subtree push` commands above to sync specific components to their remotes.
 
 ## Architecture
 

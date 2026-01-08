@@ -44,7 +44,6 @@ class YamlFileConfigLoader:
                 current_file = Path(__file__).resolve()
                 config_dir = current_file.parent / "data"
 
-        self.config_dir = config_dir
         self.defaults_dir = config_dir / "defaults"
         self.environments_dir = config_dir / "environments"
         self.environment = environment or self._detect_environment()
@@ -121,57 +120,16 @@ class YamlFileConfigLoader:
         return result
 
     def _load_defaults(self) -> Dict[str, Any]:
-        """
-        Load all default configuration files.
-
-        Returns:
-            Merged default configuration
-        """
+        """Load all default configuration files."""
         config: Dict[str, Any] = {}
-
-        # Load all YAML files from defaults directory
         if self.defaults_dir.exists():
             for yaml_file in sorted(self.defaults_dir.glob("*.yaml")):
-                file_config = self._load_yaml_file(yaml_file)
-                config = self._deep_merge(config, file_config)
-
+                config = self._deep_merge(config, self._load_yaml_file(yaml_file))
         return config
 
     def _load_environment_overrides(self) -> Dict[str, Any]:
-        """
-        Load environment-specific configuration overrides.
-
-        Returns:
-            Environment configuration
-
-        Raises:
-            FileNotFoundError: If environment file doesn't exist and environment was explicitly set
-        """
+        """Load environment-specific overrides."""
         env_file = self.environments_dir / f"{self.environment}.yaml"
-
-        # Check if environment was explicitly set via CONFIG_ENVIRONMENT
-        explicitly_set = os.getenv("CONFIG_ENVIRONMENT") is not None
-
-        if not env_file.exists():
-            if explicitly_set:
-                # Environment was explicitly requested but file doesn't exist - this is an error
-                available_envs = [
-                    f.stem for f in self.environments_dir.glob("*.yaml")
-                ] if self.environments_dir.exists() else []
-
-                raise FileNotFoundError(
-                    f"Environment file '{env_file}' not found. "
-                    f"Environment '{self.environment}' was explicitly set via CONFIG_ENVIRONMENT "
-                    f"but no corresponding configuration file exists. "
-                    f"Available environments: {', '.join(available_envs) if available_envs else 'none'}"
-                )
-            else:
-                # Environment was auto-detected but file doesn't exist - just warn
-                logger.warning(
-                    f"Environment file '{env_file}' not found for auto-detected environment "
-                    f"'{self.environment}'. Using default configuration only."
-                )
-
         return self._load_yaml_file(env_file)
 
     def _expand_env_vars(self, config: Dict[str, Any]) -> Dict[str, Any]:

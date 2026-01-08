@@ -50,8 +50,8 @@ ENV PYTHONPATH="/app"
 # Ensure writable paths and create log file
 RUN mkdir -p /app/archives /app/lib/scoop/tmp \
     && touch /app/archive_generator.log \
-    && groupadd -g 10001 appgroup || true \
-    && useradd -m -u 10001 -g 10001 appuser || true \
+    && groupadd -g 1000 appgroup || true \
+    && useradd -m -u 1000 -g 1000 appuser || true \
     && chown -R appuser:appgroup /app
 
 USER appuser

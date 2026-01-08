@@ -57,17 +57,15 @@ class YamlFileConfigLoader:
             if env_config_dir := os.getenv("CONFIG_DIR"):
                 config_dir = Path(env_config_dir)
             else:
-                # Default to configs/data/ relative to project root
-                # This file is at configs/loaders.py
+                # Default to configs/data/ relative to this file
                 current_file = Path(__file__).resolve()
                 config_dir = current_file.parent / "data"
 
-        self.config_dir = config_dir
         self.defaults_dir = config_dir / "defaults"
         self.environments_dir = config_dir / "environments"
         self.environment = environment or self._detect_environment()
         
-        logger.debug(f"Config loader initialized: dir={self.config_dir}, env={self.environment}")
+        logger.debug(f"Config loader initialized: dir={config_dir}, env={self.environment}")
 
     def _detect_environment(self) -> str:
         """Auto-detect the runtime environment."""
@@ -105,15 +103,12 @@ class YamlFileConfigLoader:
         """Load all default configuration files."""
         config: Dict[str, Any] = {}
         if self.defaults_dir.exists():
-            # Load domains.yaml first if it exists (allows storage to override domain properties if needed)
-            # Actually, standard is alphabetically
             for yaml_file in sorted(self.defaults_dir.glob("*.yaml")):
-                file_config = self._load_yaml_file(yaml_file)
-                config = self._deep_merge(config, file_config)
+                config = self._deep_merge(config, self._load_yaml_file(yaml_file))
         return config
 
     def _load_environment_overrides(self) -> Dict[str, Any]:
-        """Load environment-specific configuration overrides."""
+        """Load environment-specific overrides."""
         env_file = self.environments_dir / f"{self.environment}.yaml"
         return self._load_yaml_file(env_file)
 

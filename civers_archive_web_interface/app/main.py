@@ -34,19 +34,15 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# Load application configuration at module level for FastAPI initialization
-# This allows using config values before the lifespan context runs
-_app_config = load_app_config()
-# Load environment variables
-load_dotenv()
-
-# Logging configuration
+# Configure logging at startup (before loading config to see setup logs)
 log_level = os.getenv("LOG_LEVEL", "INFO")
 log_file = os.getenv("LOG_FILE", None)
 json_logging = os.getenv("JSON_LOGGING", "true").lower() == "true"
-
-# Configure logging at startup
 configure_logging(level=log_level, json_format=json_logging, log_file=log_file)
+
+# Load application configuration at module level for FastAPI initialization
+# This allows using config values before the lifespan context runs
+_app_config = load_app_config()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -90,7 +86,8 @@ async def lifespan(app: FastAPI):
         domain_service = DomainService(_app_config.domains)
         app.state.domain_service = domain_service
         
-        logger.info(f"Domain service loaded {len(domain_service.domains)} domains")
+        domain_names = [d.name for d in domain_service.domains]
+        logger.info(f"Domain service loaded {len(domain_service.domains)} domains: {domain_names}")
         # Initialize Kafka producer service (optional - for archive request submission)
         kafka_producer = KafkaProducerService(
             _app_config.transport.kafka, 

@@ -1,5 +1,5 @@
 from typing import List, Literal, Dict, Optional, Union, Any
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 from pathlib import Path
 import os
 
@@ -126,8 +126,8 @@ class StorageConfig(BaseModel):
 
 class AppConfig(BaseModel):
     """Core application configuration"""
-    name: str
-    version: str
+    name: str = Field(default="Civers Archive Generator", description="Application name")
+    version: str = Field(default="0.1.0", description="Application version")
     
     # Core application settings
     archive_directory: str
