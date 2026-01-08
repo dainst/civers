@@ -25,7 +25,7 @@ WORKDIR /app
 
 # Copy application source files (project structure is in the current directory)
 COPY requirements.txt ./
-COPY main_app.py ./
+COPY main.py ./
 COPY configs/ ./configs/
 COPY archive_generators/ ./archive_generators/
 COPY archive_services/ ./archive_services/
@@ -63,4 +63,4 @@ RUN npx playwright install chromium
 # Run from the app folder so relative config path resolves
 WORKDIR /app
 
-CMD ["python", "-u", "main_app.py"]
+CMD ["python", "-u", "main.py"]

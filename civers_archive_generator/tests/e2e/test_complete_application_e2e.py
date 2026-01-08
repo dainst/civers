@@ -18,7 +18,7 @@ from kafka import KafkaProducer
 from kafka.errors import KafkaError
 import time
 
-from main_app import ArchiveGeneratorApp
+from main import ArchiveGeneratorApp
 from transport_services.kafka.event_models import ArchiveRequestEvent
 
 # Configure logging for E2E tests

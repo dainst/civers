@@ -50,7 +50,7 @@ command_exists() {
 check_project_directory() {
     log_step "Checking Project Directory"
     
-    if [[ ! -f "main_app.py" ]] || [[ ! -f "pyproject.toml" ]] || [[ ! -d "archive_generators" ]]; then
+    if [[ ! -f "main.py" ]] || [[ ! -f "pyproject.toml" ]] || [[ ! -d "archive_generators" ]]; then
         log_error "This doesn't appear to be the archive_generator project directory"
         log_error "Please run this script from the root of the civers_archive_generator project"
         exit 1
@@ -309,7 +309,7 @@ run_quick_test() {
     
     log_info "Starting application for quick test..."
     # Start application in background
-    uv run python main_app.py > /tmp/archive_app.log 2>&1 &
+    uv run python main.py > /tmp/archive_app.log 2>&1 &
     APP_PID=$!
     
     # Wait a moment for startup
@@ -351,7 +351,7 @@ print_final_instructions() {
     echo ""
     echo "Next steps:"
     echo "1. Start the application:"
-    echo "   uv run python main_app.py"
+    echo "   uv run python main.py"
     echo ""
     echo "2. In another terminal, send test requests:"
     echo "   uv run python send_test_requests.py"

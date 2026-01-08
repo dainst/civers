@@ -1,4 +1,4 @@
-# main_app.py
+# main.py
 import asyncio
 import logging
 import signal

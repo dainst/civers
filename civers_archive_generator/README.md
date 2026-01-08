@@ -34,7 +34,7 @@ cd lib/scoop && npm ci && cd ../..
 docker compose up -d broker
 
 # Start the application
-uv run python main_app.py
+uv run python main.py
 ```
 
 ### Test It Works
@@ -195,10 +195,10 @@ The system automatically detects the environment using this priority:
 
 ```bash
 # Start with automatic detection (uses development.yaml)
-uv run python main_app.py
+uv run python main.py
 
 # Or explicitly set the environment
-ARCHIVE_ENV=development uv run python main_app.py
+ARCHIVE_ENV=development uv run python main.py
 ```
 
 **Development settings:**
@@ -214,7 +214,7 @@ ARCHIVE_ENV=development uv run python main_app.py
 uv run pytest tests/
 
 # Or explicitly for manual testing
-ARCHIVE_ENV=testing uv run python main_app.py
+ARCHIVE_ENV=testing uv run python main.py
 ```
 
 **Testing settings:**
@@ -292,7 +292,7 @@ docker compose logs -f archive-generator
 
 ```bash
 # Set for production deployment
-ARCHIVE_ENV=production uv run python main_app.py
+ARCHIVE_ENV=production uv run python main.py
 ```
 
 **Production settings:**
@@ -535,7 +535,7 @@ Example output with full artifact testing:
 docker compose up -d
 
 # Start Archive Generator
-uv run python main_app.py
+uv run python main.py
 ```
 
 ### Send Archive Requests

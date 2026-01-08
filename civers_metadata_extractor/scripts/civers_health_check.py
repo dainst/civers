@@ -315,7 +315,7 @@ async def async_main(config_path="app_config.yaml"):
     if success:
         print("\n✅ System is healthy and ready to run!")
         print("You can now run:")
-        print("  - python main_app.py (main application)")
+        print("  - python main.py (main application)")
         print("  - python monitor_app.py (monitoring application)")
         print("  - ./run_tests.sh unit (unit tests)")
         print("  - ./run_tests.sh integration --run-integration (integration tests)")

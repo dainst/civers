@@ -46,6 +46,7 @@ except Exception as e:
 ### 1. Kafka Connection Issues
 
 **Symptoms:**
+
 - "Could not connect to Kafka broker"
 - "Kafka broker not ready"
 - Application hangs on startup
@@ -74,6 +75,7 @@ docker compose up -d broker
 ```
 
 **Port conflicts:**
+
 ```bash
 # Check what's using Kafka ports
 lsof -i :29092
@@ -86,6 +88,7 @@ sudo kill -9 <PID>
 ### 2. Node.js / Scoop Issues
 
 **Symptoms:**
+
 - "Node.js not found"
 - "Scoop CLI not working properly"  
 - "Scoop dependencies not available"
@@ -116,6 +119,7 @@ uv run playwright install chromium
 ### 3. Python Dependencies
 
 **Symptoms:**
+
 - Import errors
 - "Module not found"
 - uv command not found
@@ -142,6 +146,7 @@ playwright install chromium
 ### 4. Configuration Issues
 
 **Symptoms:**
+
 - "Configuration not found"
 - "Environment detection failed"
 - Invalid configuration errors
@@ -169,6 +174,7 @@ export ARCHIVE_ENV=development
 ### 5. Archive Generation Failures
 
 **Symptoms:**
+
 - "Archive generation failed"
 - Empty archive directories
 - Timeout errors
@@ -198,6 +204,7 @@ df -h .
 ### 6. Test Failures
 
 **Symptoms:**
+
 - Tests hang or timeout
 - Docker container issues
 - Import errors in tests
@@ -225,6 +232,7 @@ chmod +x run_tests.sh
 ### 7. Docker Issues
 
 **Symptoms:**
+
 - "Docker not found"
 - Permission denied errors
 - Container startup failures
@@ -252,6 +260,7 @@ docker volume prune
 ### 8. Performance Issues
 
 **Symptoms:**
+
 - Slow archive generation
 - High memory usage
 - Timeouts
@@ -276,6 +285,7 @@ df -h archives/
 ## Environment-Specific Issues
 
 ### Development Environment
+
 ```bash
 # Common development fixes
 export ARCHIVE_ENV=development
@@ -283,10 +293,11 @@ export UV_LOG_LEVEL=debug
 
 # Restart services
 docker compose restart broker
-uv run python main_app.py
+uv run python main.py
 ```
 
 ### Testing Environment
+
 ```bash
 # Test environment fixes
 export ARCHIVE_ENV=testing
@@ -297,6 +308,7 @@ docker compose -f tests/test-docker-compose.yml up -d
 ```
 
 ### Docker Environment
+
 ```bash
 # Docker-specific fixes
 export ARCHIVE_ENV=docker
@@ -307,6 +319,7 @@ docker compose up -d
 ## Log Analysis
 
 ### Application Logs
+
 ```bash
 # View real-time logs
 tail -f archive_generator.log
@@ -321,6 +334,7 @@ grep "Scoop" archive_generator.log
 ```
 
 ### Docker Logs
+
 ```bash
 # All services
 docker compose logs -f
@@ -334,7 +348,9 @@ docker compose -f tests/test-docker-compose.yml logs -f
 ```
 
 ### Scoop Logs
+
 After running archives, check individual operation logs:
+
 ```bash
 # View Scoop execution logs
 ls archives/*/scoop_*.log
@@ -344,13 +360,16 @@ cat archives/example_com/*/scoop_stdout.log
 ## Getting Help
 
 ### Self-Service Debugging
+
 1. Run the diagnostics command above
 2. Check relevant logs
 3. Try the specific solutions for your symptoms
 4. Check [DEVELOPMENT.md](DEVELOPMENT.md) for commands
 
 ### Before Reporting Issues
+
 Include this information:
+
 ```bash
 # System information
 uv --version
@@ -368,7 +387,9 @@ docker compose logs --tail=20
 ```
 
 ### Reset Everything
+
 Nuclear option if everything is broken:
+
 ```bash
 # Stop all services
 docker compose -f tests/test-docker-compose.yml down -v
@@ -387,5 +408,5 @@ cd lib/scoop && rm -rf node_modules && npm ci && cd ../..
 
 # Start fresh
 docker compose up -d broker
-uv run python main_app.py
+uv run python main.py
 ```

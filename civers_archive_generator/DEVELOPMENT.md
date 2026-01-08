@@ -5,15 +5,17 @@ Day-to-day development workflow and commands for the Archive Generator.
 ## Development Workflow
 
 ### Daily Setup
+
 ```bash
 # Start development services
 docker compose up -d broker kafka-ui
 
 # Start the application in development mode
-uv run python main_app.py
+uv run python main.py
 ```
 
 ### Testing Workflow
+
 ```bash
 # Quick unit tests (no Docker needed)
 uv run pytest -k "not (kafka or integration or e2e)" -v
@@ -29,6 +31,7 @@ uv run pytest -v
 ```
 
 ### Using the Test Runner
+
 ```bash
 # Use the convenient test runner script
 ./run_tests.sh unit          # Unit tests only
@@ -40,6 +43,7 @@ uv run pytest -v
 ## Development Commands
 
 ### Configuration Management
+
 ```bash
 # Check current configuration
 uv run python -c "
@@ -54,6 +58,7 @@ uv run python -c "from config.loaders import ConfigLoaderFactory; print('Config 
 ```
 
 ### Kafka Management
+
 ```bash
 # Access Kafka UI (after starting services)
 open http://localhost:8089
@@ -82,6 +87,7 @@ docker compose up -d broker
 ```
 
 ### Archive Testing
+
 ```bash
 # Test specific URLs
 uv run python -c "
@@ -106,8 +112,9 @@ ls -la archives/*/
 ## Code Structure
 
 ### Component Overview
+
 ```
-├── main_app.py                 # Application entry point
+├── main.py                 # Application entry point
 ├── config/                     # Configuration management
 │   ├── models.py              # Pydantic models
 │   ├── loaders.py             # Environment-based config loading
@@ -125,18 +132,21 @@ ls -la archives/*/
 ### Adding New Features
 
 #### Add a New Archive Generator
+
 1. Create class implementing `ArchiveGeneratorStrategyInterface`
 2. Register in `ArchiveGeneratorFactory`
 3. Add configuration support in domain config
 4. Write tests
 
 #### Add a New Transport
+
 1. Create class implementing `TransportServiceInterface`
 2. Add configuration model
 3. Update main app to use new transport
 4. Write integration tests
 
 #### Add New Domain Configuration
+
 ```yaml
 # In configs/data/defaults/domains.yaml or environment-specific files
 domains:
@@ -148,18 +158,21 @@ domains:
 ## Environment Variables
 
 ### Development
+
 ```bash
 export ARCHIVE_ENV=development  # Use development config
 export UV_LOG_LEVEL=debug      # Verbose logging
 ```
 
 ### Testing  
+
 ```bash
 export ARCHIVE_ENV=testing     # Use testing config
 export SKIP_BUILD=true         # Skip Docker builds in tests
 ```
 
 ### Docker
+
 ```bash
 export ARCHIVE_ENV=docker      # Use Docker config
 export KAFKA_BOOTSTRAP_SERVERS=broker:9092
@@ -168,6 +181,7 @@ export KAFKA_BOOTSTRAP_SERVERS=broker:9092
 ## Debugging
 
 ### Common Debugging Commands
+
 ```bash
 # Check component health
 uv run python -c "
@@ -195,6 +209,7 @@ node lib/scoop/bin/cli.js --version
 ```
 
 ### Log Files
+
 ```bash
 # Application logs
 tail -f archive_generator.log
@@ -213,11 +228,13 @@ ls archives/*/scoop_*.log
 ## VS Code Integration
 
 If you're using VS Code, run the setup script:
+
 ```bash
 ./setup_vscode_testing.sh
 ```
 
 This gives you:
+
 - Test Explorer integration
 - Pre-configured debug tasks  
 - Quick testing commands in Command Palette

@@ -20,37 +20,44 @@ That's it! The script will handle everything automatically.
 The `application_setup.sh` script automates all the manual installation steps from the README:
 
 ### 1. **System Verification**
+
 - Checks if you're in the correct project directory
 - Verifies Docker and curl are installed
 - Ensures Docker daemon is running
 
 ### 2. **Node.js v20 Installation**
+
 - Installs Node Version Manager (nvm) if needed
 - Installs and configures Node.js v20.x (required for Scoop)
 - Sets Node.js v20 as the default version
 - Verifies the installation
 
 ### 3. **Python Environment Setup**
+
 - Installs uv package manager if needed
 - Installs all Python dependencies via `uv sync`
 - Installs Playwright browsers for Python
 
 ### 4. **Scoop Dependencies**
+
 - Installs Scoop npm dependencies
 - Installs Playwright Chromium browser for Scoop
 - Verifies Scoop CLI functionality
 
 ### 5. **Permissions & Directories**
+
 - Makes SingleFile binary executable
 - Creates archives directory with proper permissions
 - Sets up project folder permissions
 
 ### 6. **Kafka Infrastructure**
+
 - Starts Docker Compose services (Kafka + Zookeeper)
 - Waits for Kafka to be ready and responsive
 - Verifies containers are running properly
 
 ### 7. **Installation Verification**
+
 - Tests Node.js v20 is active
 - Verifies Scoop CLI works
 - Checks Python/Playwright integration
@@ -58,6 +65,7 @@ The `application_setup.sh` script automates all the manual installation steps fr
 - Confirms Docker containers are running
 
 ### 8. **Quick Application Test**
+
 - Starts the application briefly
 - Sends a test archive request
 - Verifies basic functionality works
@@ -80,16 +88,19 @@ If the automated script fails, you can follow the manual installation steps in [
 Once setup completes successfully:
 
 1. **Start the application:**
+
    ```bash
-   uv run python main_app.py
+   uv run python main.py
    ```
 
 2. **Send test requests** (in another terminal):
+
    ```bash
    uv run python send_test_requests.py
    ```
 
 3. **Check generated archives:**
+
    ```bash
    ls -la archives/
    ```
@@ -97,12 +108,14 @@ Once setup completes successfully:
 ## Common Issues
 
 **Permission Denied:**
+
 ```bash
 chmod +x application_setup.sh
 ./application_setup.sh
 ```
 
 **Docker Not Running:**
+
 ```bash
 sudo systemctl start docker  # Linux
 # or start Docker Desktop    # macOS/Windows
@@ -126,6 +139,7 @@ Ensure you have internet access for downloading dependencies.
 ## Customization
 
 You can modify the script to:
+
 - Skip certain steps by commenting them out in `main()`
 - Change Node.js version by editing the `install_nodejs()` function
 - Adjust timeout values for Kafka startup
