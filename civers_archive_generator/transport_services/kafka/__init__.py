@@ -9,9 +9,6 @@ from .event_models import (
     ArchiveFailedEvent
 )
 from .health_check import SystemHealthCheck
-from .kafka_setup import setup_kafka_topics
-from .monitor_app import ArchiveStatusMonitor
-
 __all__ = [
     'KafkaTransportService',
     'EventBaseModel',
@@ -19,7 +16,5 @@ __all__ = [
     'ArchiveStatusEvent',
     'ArchiveCompletedEvent',
     'ArchiveFailedEvent',
-    'SystemHealthCheck',
-    'setup_kafka_topics',
-    'ArchiveStatusMonitor'
+    'SystemHealthCheck'
 ]

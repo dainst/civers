@@ -142,7 +142,7 @@ class SystemHealthCheck:
         """Check if required Python packages are available."""
         self.total_checks += 1
         required_packages = [
-            'kafka',
+            'aiokafka',
             'pydantic', 
             'yaml',
             'asyncio'

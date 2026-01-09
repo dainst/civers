@@ -24,14 +24,14 @@ class StorageResult:
         storage_location: Where the data was stored (file path, URL, or resource ID)
         error_message: Error description if operation failed
         metadata: Additional information about the operation
-        timestamp: ISO format timestamp when operation completed
+        created_at: ISO format timestamp when operation completed
     """
     success: bool
     storage_type: str
     storage_location: Optional[str] = None
     error_message: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
 
 @dataclass 

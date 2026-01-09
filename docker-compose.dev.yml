@@ -101,7 +101,7 @@ services:
       - ./configs:/app/shared-configs
       # Preserve the virtual environment built in the image
       - /app/.venv
-    command: watchfiles "python main.py" /app
+    command: watchfiles --filter python "python main.py" /app
     depends_on:
       kafka:
         condition: service_healthy
@@ -130,7 +130,9 @@ services:
       - civers-generator-archives-dev:/app/archives
       # Preserve node_modules and other generated files in lib/scoop
       - /app/lib/scoop/node_modules
-    command: watchfiles "python -u main.py" /app
+      # Preserve the virtual environment built in the image
+      - /app/.venv
+    command: watchfiles --filter python "python -u main.py" /app
     depends_on:
       kafka:
         condition: service_healthy
@@ -159,7 +161,7 @@ services:
       - civers-metadata-output-dev:/app/output/metadata
       # Preserve the virtual environment built in the image
       - /app/.venv
-    command: watchfiles "python main.py" /app
+    command: watchfiles --filter python "python main.py" /app
     depends_on:
       kafka:
         condition: service_healthy

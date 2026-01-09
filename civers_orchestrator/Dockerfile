@@ -28,13 +28,13 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --no-dev --no-install-project
 
 # Copy source code
 COPY . .
 
 # Install the project
-RUN uv sync --frozen --no-dev
+RUN uv sync --no-dev
 
 # Stage 2: Runtime stage
 FROM python:3.12-slim AS runtime

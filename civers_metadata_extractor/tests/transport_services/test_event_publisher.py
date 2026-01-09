@@ -87,7 +87,7 @@ class TestEventPublisher:
             stage_status="started",
             progress_percentage=50,
             current_operation="Extracting metadata",
-            timestamp="2024-01-29T10:00:00Z"
+            created_at="2024-01-29T10:00:00Z"
         )
     
     def test_event_publisher_initialization(self, event_publisher, mock_connection_manager, sample_topics):

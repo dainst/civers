@@ -49,6 +49,10 @@ class EventBaseModel(BaseModel):
         ..., 
         description="The URL to be archived"
     )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional request metadata"
+    )
 
     @field_validator("request_id")
     @classmethod
@@ -132,10 +136,6 @@ class OrchestratorRequestEvent(EventBaseModel):
     callback_url: Optional[str] = Field(
         default=None,
         description="Optional webhook URL for push notifications (status updates, completion, failure)"
-    )
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional request metadata (domain, user agent, etc.)"
     )
     
     @field_validator("callback_url")

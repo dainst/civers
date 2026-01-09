@@ -342,6 +342,27 @@ class KafkaTransportService(TransportServiceInterface):
         
         logger.info("✅ Kafka transport service stopped")
     
+    async def health_check(self) -> Dict[str, Any]:
+        """Check health of Kafka transport service."""
+        try:
+            health_status = {
+                "service": "kafka_transport",
+                "running": self.running,
+                "producer_ready": self.connection_manager.producer is not None,
+                "consumer_ready": self.connection_manager.consumer is not None,
+                "registered_topics": list(self.event_handlers.keys()),
+                "requests_processed": self._requests_processed
+            }
+
+            return {
+                "healthy": self.connection_manager.producer is not None,
+                "running": self.running,
+                "details": health_status,
+            }
+
+        except Exception as e:
+            return {"healthy": False, "error": str(e)}
+    
     
     async def send_response(self, destination: str, message: Dict[str, Any], **kwargs) -> bool:
         """

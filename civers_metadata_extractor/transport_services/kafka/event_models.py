@@ -12,11 +12,13 @@ from datetime import datetime, timezone
 import re
 class EventBaseModel(BaseModel):
     request_id: str = Field(..., description="Unique identifier for the request")
-    timestamp: str = Field(
+    created_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z'),
         description="The timestamp when the event was created, in ISO 8601 UTC format"
     )
     url: str = Field(..., description="The URL associated with the event")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional request metadata")
+
     @field_validator("request_id")
     @classmethod
     def validate_request_id(cls, v: str) -> str:
@@ -24,14 +26,15 @@ class EventBaseModel(BaseModel):
             raise ValueError("Input should be a valid string non-empty request_id")
         return v
 
-    @field_validator("timestamp", mode="before")
+    @field_validator("created_at", mode="before")
     @classmethod
-    def validate_timestamp_format(cls, v: Any) -> Any:
+    def validate_created_at_format(cls, v: Any) -> Any:
         if isinstance(v, str):
             iso8601_utc_regex = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
             if not re.match(iso8601_utc_regex, v):
-                raise ValueError("timestamp must be in ISO 8601 UTC format (e.g. '2023-10-01T12:00:00Z')")
+                raise ValueError("created_at must be in ISO 8601 UTC format (e.g. '2023-10-01T12:00:00Z')")
         return v
+
     @field_validator("url")
     def validate_url(cls, v: str) -> str:
         if not v or v.strip() == "":
@@ -52,7 +55,6 @@ class MetadataExtractionRequestEvent(EventBaseModel):
     include_quality_metrics: bool = Field(default=True, description="Include quality assessment in results")
     priority: int = Field(default=1, description="Processing priority (1=normal, 2=high, 3=urgent)")
     requester: Optional[str] = Field(None, description="Identifier of the requesting system/user")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional request metadata")
 
 
 
@@ -134,14 +136,12 @@ class MetadataExtractionFailedEvent(EventBaseModel):
         }
 
 
-class MetadataQualityEvent(BaseModel):
+class MetadataQualityEvent(EventBaseModel):
     """
     Event model for metadata quality assessment results.
     
     Provides quality metrics and validation results for extracted metadata.
     """
-    request_id: str = Field(..., description="Request identifier")
-    url: str = Field(..., description="URL that was processed")
     quality_score: float = Field(..., ge=0, le=1, description="Overall quality score (0.0 to 1.0)")
     completeness_score: float = Field(..., ge=0, le=1, description="Completeness assessment")
     accuracy_score: float = Field(..., ge=0, le=1, description="Accuracy assessment")
@@ -150,7 +150,6 @@ class MetadataQualityEvent(BaseModel):
     missing_fields: List[str] = Field(default_factory=list, description="Required fields that are missing")
     warnings: List[str] = Field(default_factory=list, description="Quality warnings")
     recommendations: List[str] = Field(default_factory=list, description="Improvement recommendations")
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Assessment timestamp")
 
     class Config:
         json_encoders = {
@@ -158,7 +157,7 @@ class MetadataQualityEvent(BaseModel):
         }
 
 
-class BatchMetadataExtractionRequestEvent(BaseModel):
+class BatchMetadataExtractionRequestEvent(EventBaseModel):
     """
     Event model for batch metadata extraction requests.
     
@@ -169,7 +168,6 @@ class BatchMetadataExtractionRequestEvent(BaseModel):
     domain: Optional[str] = Field(None, description="Domain configuration to use for all URLs")
     priority: int = Field(default=1, description="Processing priority for the batch")
     requester: Optional[str] = Field(None, description="Identifier of the requesting system/user")
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Batch request timestamp")
     batch_options: Dict[str, Any] = Field(default_factory=dict, description="Batch processing options")
 
     class Config:
@@ -178,7 +176,7 @@ class BatchMetadataExtractionRequestEvent(BaseModel):
         }
 
 
-class BatchMetadataExtractionStatusEvent(BaseModel):
+class BatchMetadataExtractionStatusEvent(EventBaseModel):
     """
     Event model for batch metadata extraction status updates.
     """
@@ -189,7 +187,6 @@ class BatchMetadataExtractionStatusEvent(BaseModel):
     in_progress_urls: int = Field(..., description="Number of URLs currently being processed")
     status: str = Field(..., description="Overall batch status")
     progress: float = Field(..., ge=0, le=1, description="Batch progress (0.0 to 1.0)")
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Status update timestamp")
     details: Dict[str, Any] = Field(default_factory=dict, description="Additional batch details")
 
     class Config:

@@ -1,260 +1,159 @@
-# transport_services/kafka_transport_service.py
+"""
+Async Kafka Transport Service for CiVers Archive Generator.
+
+This service handles archive requests via Kafka using asynchronous messaging
+(aiokafka). It coordinates between the Kafka connection manager, the event
+publisher, and the core archive service.
+"""
+
 import asyncio
-import json
 import logging
-from typing import Dict, Any, Optional, Callable
-from kafka import KafkaProducer, KafkaConsumer
-from kafka.errors import KafkaError
+from typing import Dict, Any, Optional, List, Callable
 
 from configs.models import ConfigDataModel
 from archive_services.archive_service_interface import ArchiveServiceInterface
 from transport_services.transport_service_interface import TransportServiceInterface
 from .event_models import (
     ArchiveRequestEvent,
-    ArchiveStatusEvent, 
-    ArchiveCompletedEvent, 
+    ArchiveStatusEvent,
+    ArchiveCompletedEvent,
     ArchiveFailedEvent
 )
+from .kafka_connection_manager import KafkaConnectionManager
+from .event_publisher import EventPublisher
 
 logger = logging.getLogger(__name__)
 
+
 class KafkaTransportService(TransportServiceInterface):
     """
-    Kafka transport service that handles archive requests via Kafka messaging.
-    
-    This service:
-    1. Consumes archive requests from Kafka topics
-    2. Delegates archive creation to injected ArchiveServiceInterface
-    3. Publishes status updates and completion/failure events
-    
-    Uses dependency injection for better testability and loose coupling.
+    Kafka transport service using aiokafka for async coordination.
     """
     
     def __init__(self, config: ConfigDataModel, archive_service: ArchiveServiceInterface):
         self.config = config
         self.archive_service = archive_service
         
-        # Get Kafka configuration from transport settings
+        # Get Kafka configuration
         self.kafka_config = config.app.get_kafka_config()
         if not self.kafka_config:
             raise ValueError("Kafka configuration not found in transport settings")
         
         self.topics = self.kafka_config.topics
         self.running = False
-        
-        # Kafka components
-        self.consumer: Optional[KafkaConsumer] = None
-        self.producer: Optional[KafkaProducer] = None
+        self._requests_processed = 0
         self.event_handlers: Dict[str, Callable] = {}
         
-        # Initialize producer
-        self._setup_producer()
+        # Initialize sub-components
+        self.connection_manager = KafkaConnectionManager(self.kafka_config)
+        self.event_publisher = EventPublisher(self.connection_manager, self.topics)
 
-    @staticmethod
-    def _safe_json_deserializer(m: Optional[bytes]):
-        """Decode bytes to JSON with resilience to malformed payloads.
-        - Returns dict when JSON parsed
-        - Returns None when not parseable, logging a warning
-        """
-        if m is None:
-            return None
-        try:
-            s = m.decode('utf-8', errors='ignore')
-        except Exception:
-            logger.warning("⚠️ Failed to decode Kafka message bytes; skipping")
-            return None
-        # Fast path
-        try:
-            return json.loads(s)
-        except Exception:
-            # Try to extract JSON object substring
-            start = s.find('{')
-            end = s.rfind('}')
-            if start != -1 and end != -1 and end > start:
-                candidate = s[start:end+1]
-                try:
-                    logger.debug("Attempting to parse JSON from substring of message value")
-                    return json.loads(candidate)
-                except Exception as e:
-                    logger.warning(f"⚠️ Could not parse JSON from candidate substring: {e}. Raw snippet: {s[:200]}")
-                    return None
-            logger.warning(f"⚠️ Received non-JSON Kafka message; skipping. Raw snippet: {s[:200]}")
-            return None
-    
-    def _setup_producer(self):
-        """Initialize Kafka producer for publishing events."""
-        try:
-            self.producer = KafkaProducer(
-                bootstrap_servers=self.kafka_config.bootstrap_servers,
-                value_serializer=lambda v: json.dumps(v, default=str).encode('utf-8'),
-                key_serializer=lambda k: k.encode('utf-8') if k else None,
-                acks=1,  # Wait for leader acknowledgment
-                retries=3,  # Retry failed sends
-                max_in_flight_requests_per_connection=1,  # Ensure ordering
-                request_timeout_ms=30000,  # Longer timeout for Docker
-                api_version_auto_timeout_ms=30000
-            )
-            logger.info("✅ Kafka producer initialized successfully")
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize Kafka producer: {e}")
-            raise
-    
-    def _setup_consumer(self):
-        """Initialize Kafka consumer for consuming archive requests."""
-        try:
-            topics_to_consume = list(self.event_handlers.keys())
-            if not topics_to_consume:
-                logger.warning("⚠️ No topics registered for consumption")
-                return
-            
-            self.consumer = KafkaConsumer(
-                *topics_to_consume,
-                bootstrap_servers=self.kafka_config.bootstrap_servers,
-                group_id=self.kafka_config.consumer_group,
-                value_deserializer=self._safe_json_deserializer,
-                key_deserializer=lambda k: k.decode('utf-8') if k else None,
-                auto_offset_reset='earliest',  # Start from beginning for testing
-                enable_auto_commit=True,
-                consumer_timeout_ms=1000,  # 1 second timeout for polling
-                request_timeout_ms=30000,  # 30 second timeout for Docker
-                api_version_auto_timeout_ms=30000
-            )
-            
-            logger.info(f"✅ Kafka consumer initialized for topics: {topics_to_consume}")
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize Kafka consumer: {e}")
-            raise
-    
     def register_handler(self, topic: str, handler: Callable):
         """Register an event handler for a specific topic."""
         self.event_handlers[topic] = handler
         logger.info(f"✅ Registered handler for topic: {topic}")
-    
+
     async def start(self):
-        """Start the Kafka transport service."""
+        """Start the async Kafka transport service."""
         try:
-            logger.info("🚀 Starting Kafka transport service")
+            logger.info("🚀 Starting Async Kafka transport service")
             
-            # Register default handler for archive requests
-            if self.topics.get('archive_requests'):
-                self.register_handler(
-                    self.topics['archive_requests'], 
-                    self._handle_archive_request
-                )
+            # Setup producer
+            await self.connection_manager.setup_producer()
+            
+            # Register default topic handlers
+            archive_request_topic = self.topics.get('archive_requests')
+            if archive_request_topic:
+                self.register_handler(archive_request_topic, self._handle_archive_request)
             
             # Setup consumer
-            self._setup_consumer()
-            
-            if not self.consumer:
-                raise ValueError("Failed to setup Kafka consumer")
+            topics_to_consume = list(self.event_handlers.keys())
+            if topics_to_consume:
+                await self.connection_manager.setup_consumer(topics_to_consume)
+            else:
+                logger.warning("⚠️ No topics registered for consumption")
             
             self.running = True
             
-            # Start consuming messages
-            await self._start_consuming()
-            
+            # Start the main consumption loop
+            if self.connection_manager.consumer:
+                await self._consume_loop()
+                
         except Exception as e:
             logger.error(f"❌ Failed to start Kafka transport service: {e}")
             await self.stop()
             raise
-    
-    async def _start_consuming(self):
-        """Start consuming messages from Kafka."""
-        logger.info("📡 Starting to consume Kafka messages")
-        
-        while self.running:
-            try:
-                # Poll for messages with timeout
-                message_batch = self.consumer.poll(timeout_ms=1000)
-                
-                if not message_batch:
-                    await asyncio.sleep(0.1)
-                    continue
-                
-                # Process all messages in the batch
-                for topic_partition, messages in message_batch.items():
-                    for message in messages:
-                        try:
-                            await self._process_kafka_message(message)
-                        except Exception as e:
-                            logger.error(f"❌ Error processing Kafka message: {e}", exc_info=True)
-                
-                await asyncio.sleep(0.1)
-                
-            except Exception as e:
-                if self.running:
-                    logger.error(f"❌ Kafka polling error: {e}")
-                    await asyncio.sleep(1)
-    
-    async def _process_kafka_message(self, message):
-        """Process a single Kafka message."""
+
+    async def stop(self):
+        """Stop the service gracefully."""
+        self.running = False
+        logger.info("🛑 Stopping Kafka transport service...")
+        await self.connection_manager.cleanup()
+        logger.info("✅ Kafka transport service stopped")
+
+    async def _consume_loop(self):
+        """Main async consumption loop."""
+        logger.info("📡 Starting async Kafka consumption loop")
         try:
-            topic = message.topic
-            request_id = message.key or "unknown"
-            message_data = message.value
-            
-            if message_data is None:
-                logger.warning("⚠️ Received empty or malformed Kafka message; skipping")
-                return
-            
-            logger.info(f"📥 Kafka message received from topic {topic}: {request_id}")
-            logger.debug(f"   Message data: {message_data}")
-            
-            # Get handler for this topic
-            handler = self.event_handlers.get(topic)
-            if not handler:
-                logger.warning(f"⚠️ No handler registered for topic: {topic}")
-                return
-            
-            # Call the handler
-            await handler(message, message_data)
-            
+            async for msg in self.connection_manager.consumer:
+                if not self.running:
+                    break
+                
+                try:
+                    await self._process_message(msg)
+                except Exception as e:
+                    logger.error(f"❌ Error processing Kafka message: {e}", exc_info=True)
+                    
         except Exception as e:
-            logger.error(f"❌ Failed to process Kafka message: {e}", exc_info=True)
-    
-    async def _handle_archive_request(self, message, message_data: Dict[str, Any]):
-        """
-        Handle archive request messages.
+            if self.running:
+                logger.error(f"❌ Kafka consumption loop error: {e}")
+                # Allow some time before potential restart or exit
+                await asyncio.sleep(1)
+
+    async def _process_message(self, message):
+        """Process a message from the consumer."""
+        topic = message.topic
+        message_data = message.value
         
-        Delegates archive creation to the injected ArchiveServiceInterface
-        while handling all Kafka-specific messaging concerns.
-        """
+        if message_data is None:
+            logger.warning(f"⚠️ Received empty message on topic {topic}")
+            return
+            
+        handler = self.event_handlers.get(topic)
+        if handler:
+            await handler(message, message_data)
+        else:
+            logger.debug(f"ℹ️ No handler for topic {topic}")
+
+    async def _handle_archive_request(self, message, message_data: Dict[str, Any]):
+        """Handle incoming archive requests."""
         try:
-            # Parse the archive request event
-            archive_request = ArchiveRequestEvent(**message_data)
-            request_id = archive_request.request_id
-            url = archive_request.url
-            priority = getattr(archive_request, 'priority', 1)
+            # Parse request event
+            event = ArchiveRequestEvent(**message_data)
+            request_id = event.request_id
+            url = event.url
+            priority = event.priority
             
             logger.info(f"🚀 Processing archive request: {request_id} for {url}")
+            self._requests_processed += 1
             
-            # Send initial processing status
-            await self._send_status_update(
+            # 1. Send processing status
+            await self.event_publisher.publish_status_update(ArchiveStatusEvent(
                 request_id=request_id,
+                url=url,
                 status="processing",
-                message=f"Started processing archive for {url}",
-                url=url
-            )
+                message=f"Archive generation started for {url}"
+            ))
             
-            # Use ArchiveService for core business logic
+            # 2. Call the core archive service
             result = await self.archive_service.create_archive(url, request_id, priority)
             
-            if result['success']:
-                # Extract snapshot_id from storage result if available
-                # The storage_result contains artifacts_storage_result with backend results
-                snapshot_id = None
-                storage_result = result.get('storage_result', {})
-                artifacts_result = storage_result.get('artifacts_storage_result')
-                if artifacts_result:
-                    # Find civers_rest_api backend result which has the snapshot_id
-                    for backend_result in artifacts_result.results:
-                        if backend_result.storage_type == 'civers_rest_api' and backend_result.success:
-                            snapshot_id = backend_result.storage_location
-                            break
+            if result.get('success'):
+                # Handle successful result
+                # Extract snapshot_id if present
+                snapshot_id = self._extract_snapshot_id(result)
                 
-                # Send completion event
+                # 3. Publish completion event
                 completion_event = ArchiveCompletedEvent(
                     request_id=request_id,
                     url=url,
@@ -263,239 +162,84 @@ class KafkaTransportService(TransportServiceInterface):
                     processing_time_seconds=result['processing_time_seconds'],
                     snapshot_id=snapshot_id
                 )
+                await self.event_publisher.publish_archive_completed(completion_event)
                 
-                success = self._publish_archive_completed(completion_event)
-                if success:
-                    logger.info(f"✅ Archive completed for request {request_id} in {result['processing_time_seconds']:.2f}s")
-                
-                # Final status update
-                await self._send_status_update(
-                    request_id=request_id,
-                    status="completed",
-                    message=f"Archive generation completed successfully in {result['processing_time_seconds']:.1f}s",
-                    url=url
-                )
-                
-            else:
-                # Send failure event
-                failure_event = ArchiveFailedEvent(
+                # 4. Final status update
+                await self.event_publisher.publish_status_update(ArchiveStatusEvent(
                     request_id=request_id,
                     url=url,
-                    error_message=result['error']
-                )
+                    status="completed",
+                    message=f"Archive completed in {result['processing_time_seconds']:.1f}s"
+                ))
+                logger.info(f"✅ Archive {request_id} finished")
                 
-                self._publish_archive_failed(failure_event)
-                
-                # Send failure status
-                await self._send_status_update(
-                    request_id=request_id,
-                    status="failed",
-                    message=f"Archive generation failed: {result['error']}",
-                    url=url
-                )
-                
-                logger.error(f"❌ Archive request failed: {request_id} - {result['error']}")
-                
-        except Exception as e:
-            error_msg = str(e)
-            logger.error(f"❌ Archive request processing failed: {error_msg}", exc_info=True)
-            
-            # Send failure event and status for unexpected errors
-            try:
-                request_id = message_data.get('request_id', 'unknown')
-                url = message_data.get('url', 'unknown')
-                
-                failure_event = ArchiveFailedEvent(
+            else:
+                # Handle failure
+                error_msg = result.get('error', 'Unknown error')
+                await self.event_publisher.publish_archive_failed(ArchiveFailedEvent(
                     request_id=request_id,
                     url=url,
                     error_message=error_msg
-                )
+                ))
                 
-                self._publish_archive_failed(failure_event)
-                
-                await self._send_status_update(
+                await self.event_publisher.publish_status_update(ArchiveStatusEvent(
                     request_id=request_id,
+                    url=url,
                     status="failed",
-                    message=f"Archive processing failed: {error_msg}",
-                    url=url
-                )
-                
-            except Exception as nested_e:
-                logger.error(f"❌ Failed to send failure notifications: {nested_e}")
-    
-    async def _send_status_update(self, request_id: str, status: str, message: str, url: str):
-        """Send a status update event to Kafka."""
-        try:
-            status_event = ArchiveStatusEvent(
-                request_id=request_id,
-                status=status,
-                message=message,
-                url=url
-            )
-            
-            success = self._publish_status_update(status_event)
-            if success:
-                logger.debug(f"📊 Status update sent: {status} - {message}")
-            else:
-                logger.warning(f"⚠️ Failed to send status update for {request_id}")
+                    message=f"Archive failed: {error_msg}"
+                ))
+                logger.error(f"❌ Archive {request_id} failed: {error_msg}")
                 
         except Exception as e:
-            logger.warning(f"⚠️ Failed to create/send status update: {e}")
-    
-    def _publish_status_update(self, event: ArchiveStatusEvent) -> bool:
-        """Publish a status update event to Kafka."""
-        return self._publish_event(
-            topic=self.topics['archive_status'],
-            key=event.request_id,
-            event_data=event.model_dump()
-        )
-    
-    def _publish_archive_completed(self, event: ArchiveCompletedEvent) -> bool:
-        """Publish an archive completion event to Kafka."""
-        return self._publish_event(
-            topic=self.topics['archive_completed'],
-            key=event.request_id,
-            event_data=event.model_dump()
-        )
-    
-    def _publish_archive_failed(self, event: ArchiveFailedEvent) -> bool:
-        """Publish an archive failure event to Kafka."""
-        return self._publish_event(
-            topic=self.topics['archive_failed'],
-            key=event.request_id,
-            event_data=event.model_dump()
-        )
-    
-    def publish_archive_request(self, event: ArchiveRequestEvent) -> bool:
-        """Publish an archive request event to Kafka."""
-        return self._publish_event(
-            topic=self.topics['archive_requests'],
-            key=event.request_id,
-            event_data=event.model_dump()
-        )
-    
-    def _publish_event(self, topic: str, key: str, event_data: Dict[str, Any]) -> bool:
-        """Publish an event to a Kafka topic."""
+            logger.error(f"❌ Critical error handling archive request: {e}", exc_info=True)
+
+    def _extract_snapshot_id(self, result: Dict[str, Any]) -> Optional[str]:
+        """Helper to extract snapshot ID from complex nested results."""
         try:
-            if not self.producer:
-                logger.error("❌ Kafka producer not initialized")
-                return False
-            
-            # Send the message
-            future = self.producer.send(
-                topic=topic,
-                key=key,
-                value=event_data
-            )
-            
-            # Wait for acknowledgment (with timeout)
-            future.get(timeout=10)
-            
-            logger.debug(f"📤 Event published to {topic}: {key}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to publish event to {topic}: {e}")
-            return False
-    
-    async def stop(self):
-        """Stop the Kafka transport service and cleanup resources."""
-        logger.info("🛑 Stopping Kafka transport service")
-        self.running = False
-        
-        try:
-            if self.consumer:
-                self.consumer.close()
-                logger.info("✅ Kafka consumer closed")
-        except Exception as e:
-            logger.warning(f"⚠️ Error closing Kafka consumer: {e}")
-        
-        try:
-            if self.producer:
-                self.producer.close()
-                logger.info("✅ Kafka producer closed")
-        except Exception as e:
-            logger.warning(f"⚠️ Error closing Kafka producer: {e}")
-        
-        logger.info("✅ Kafka transport service stopped")
-    
+            storage_result = result.get('storage_result', {})
+            artifacts_result = storage_result.get('artifacts_storage_result')
+            if artifacts_result and hasattr(artifacts_result, 'results'):
+                for res in artifacts_result.results:
+                    if getattr(res, 'storage_type', None) == 'civers_rest_api' and getattr(res, 'success', False):
+                        return getattr(res, 'storage_location', None)
+            return None
+        except Exception:
+            return None
+
     async def health_check(self) -> Dict[str, Any]:
-        """Check the health of the Kafka transport service."""
+        """Check health of Kafka transport service."""
         try:
-            health_status = {
-                'service': 'kafka_transport',
-                'running': self.running,
-                'producer_ready': self.producer is not None,
-                'consumer_ready': self.consumer is not None,
-                'registered_topics': list(self.event_handlers.keys()),
-                'kafka_config': {
-                    'bootstrap_servers': self.kafka_config.bootstrap_servers,
-                    'consumer_group': self.kafka_config.consumer_group,
-                    'topics': self.topics
+            status = self.connection_manager.get_connection_status() if hasattr(self.connection_manager, 'get_connection_status') else {}
+            is_healthy = self.connection_manager.producer is not None and self.running
+            
+            return {
+                "healthy": is_healthy,
+                "service_name": "KafkaTransportService",
+                "details": {
+                    "running": self.running,
+                    "requests_processed": self._requests_processed,
+                    "producer": "ready" if self.connection_manager.producer else "missing",
+                    "consumer": "ready" if self.connection_manager.consumer else "missing"
                 }
             }
-            
-            return {
-                'healthy': self.producer is not None,
-                'running': self.running,
-                'details': health_status
-            }
-            
         except Exception as e:
-            return {
-                'healthy': False,
-                'error': str(e)
-            }
-    
+            return {"healthy": False, "error": str(e)}
+
     async def send_response(self, destination: str, message: Dict[str, Any], **kwargs) -> bool:
-        """
-        Send a response message to a Kafka topic.
-        
-        Args:
-            destination: Kafka topic name
-            message: The message to send
-            **kwargs: Additional options like 'key'
-            
-        Returns:
-            bool: True if message was sent successfully, False otherwise
-        """
+        """Generic response sender."""
         try:
-            key = kwargs.get('key', None)
-            return self._publish_event(destination, key, message)
+            if not self.connection_manager.producer:
+                return False
+            await self.connection_manager.producer.send(destination, value=message, key=kwargs.get('key'))
+            return True
         except Exception as e:
-            logger.error(f"❌ Failed to send response to {destination}: {e}")
+            logger.error(f"❌ Failed to send response: {e}")
             return False
-    
+
     def get_transport_info(self) -> Dict[str, Any]:
-        """
-        Get information about the Kafka transport service configuration.
-        
-        Returns:
-            Dict containing transport service information and capabilities
-        """
+        """Info about the transport."""
         return {
-            'transport_type': 'KafkaTransportService',
-            'kafka_config': {
-                'bootstrap_servers': self.kafka_config.bootstrap_servers,
-                'consumer_group': self.kafka_config.consumer_group,
-                'topics': self.topics
-            },
-            'status': {
-                'running': self.running,
-                'producer_ready': self.producer is not None,
-                'consumer_ready': self.consumer is not None,
-                'registered_handlers': len(self.event_handlers)
-            },
-            'capabilities': {
-                'async_processing': True,
-                'event_driven': True,
-                'scalable': True,
-                'persistent_messaging': True
-            },
-            'supported_events': [
-                'ArchiveRequestEvent',
-                'ArchiveStatusEvent', 
-                'ArchiveCompletedEvent',
-                'ArchiveFailedEvent'
-            ]
+            "type": "AsyncKafka",
+            "bootstrap_servers": self.kafka_config.bootstrap_servers,
+            "consumer_group": self.kafka_config.consumer_group
         }

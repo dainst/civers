@@ -6,7 +6,7 @@ These models define the events exchanged with the archive_generator service.
 """
 
 from datetime import datetime, timezone
-from typing import Any, List, Optional, Dict
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 import re
@@ -24,9 +24,7 @@ class EventBaseModel(BaseModel):
         description="The timestamp when the event was created, in ISO 8601 UTC format",
     )
     url: str = Field(..., description="The URL associated with the event")
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict, description="Additional request metadata"
-    )
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional request metadata")
 
     @field_validator("request_id")
     @classmethod
@@ -58,23 +56,21 @@ class EventBaseModel(BaseModel):
 
 
 class ArchiveRequestEvent(EventBaseModel):
-    """Event when someone requests an archive to be created."""
+    """Event model for archive requests."""
 
-    priority: int = Field(default=1, ge=1, le=10, description="Processing priority")
+    priority: int = Field(default=1, description="Processing priority (1=normal, 2=high, 3=urgent)")
 
 
 class ArchiveStatusEvent(EventBaseModel):
-    """Event for status updates during processing."""
+    """Event model for archive generation status updates."""
 
-    status: str = Field(
-        ..., description="Current status: processing, completed, or failed"
-    )
-    message: Optional[str] = Field(None, description="Optional status message")
+    status: str = Field(..., description="Current status (processing, completed, failed)")
+    message: str = Field(..., description="Human-readable status message")
 
     @field_validator("status")
     @classmethod
     def validate_status(cls, v: str) -> str:
-        """Validate status is one of the allowed values."""
+        """Validate status."""
         valid_statuses = ["processing", "completed", "failed"]
         if v not in valid_statuses:
             raise ValueError(f"status must be one of {valid_statuses}")
@@ -82,29 +78,15 @@ class ArchiveStatusEvent(EventBaseModel):
 
 
 class ArchiveCompletedEvent(EventBaseModel):
-    """Event when archive is successfully created."""
+    """Event model for successful archive generation completion."""
 
-    archive_path: str = Field(..., description="Path to the created archive")
-    artifacts_created: List[str] = Field(
-        ..., description="List of artifacts/files created"
-    )
-    processing_time_seconds: float = Field(
-        ..., description="Time taken to process in seconds"
-    )
-    snapshot_id: Optional[str] = Field(
-        None, description="Snapshot ID from web interface after upload"
-    )
-
-    @field_validator("processing_time_seconds", mode="before")
-    @classmethod
-    def validate_processing_time(cls, v: float) -> float:
-        """Validate processing time is non-negative."""
-        if v < 0:
-            raise ValueError("Processing time must be a non-negative float")
-        return v
+    archive_path: str = Field(..., description="Path to the generated archive file")
+    artifacts_created: List[str] = Field(..., description="List of created artifact types")
+    processing_time_seconds: float = Field(..., description="Time taken to create archive")
+    snapshot_id: Optional[str] = Field(None, description="Optional snapshot ID from storage")
 
 
 class ArchiveFailedEvent(EventBaseModel):
-    """Event when archive creation fails."""
+    """Event model for failed archive generation attempts."""
 
     error_message: str = Field(..., description="Error message describing the failure")

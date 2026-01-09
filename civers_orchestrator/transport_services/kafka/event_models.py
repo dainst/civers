@@ -26,6 +26,9 @@ class EventBaseModel(BaseModel):
         description="The timestamp when the event was created, in ISO 8601 UTC format",
     )
     url: str = Field(..., description="The URL associated with the event")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional request metadata"
+    )
 
     @field_validator("request_id")
     @classmethod
@@ -73,9 +76,6 @@ class OrchestratorRequestEvent(EventBaseModel):
         None,
         description="Optional webhook URL for push notifications (status, completion, failure)",
     )
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict, description="Additional request metadata"
-    )
 
 
 class OrchestratorStatusEvent(EventBaseModel):
@@ -103,12 +103,9 @@ class OrchestratorCompletedEvent(EventBaseModel):
     completed_steps: list[str] = Field(
         default_factory=list, description="List of steps that were successfully completed"
     )
-    results: Dict[str, Any] = Field(
-        default_factory=dict, description="Aggregated results from all workflow steps",
-        alias="step_results"
+    step_results: Dict[str, Any] = Field(
+        default_factory=dict, description="Aggregated results from all workflow steps"
     )
-
-    model_config = {"populate_by_name": True}
 
     @field_validator("processing_time_seconds")
     @classmethod

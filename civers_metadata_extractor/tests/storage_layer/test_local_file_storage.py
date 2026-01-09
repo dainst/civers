@@ -165,7 +165,7 @@ class TestLocalFileStorageStrategy:
         # Arrange
         strategy = LocalFileStorageStrategy(base_path=str(tmp_path))
         data = {
-            "timestamp": datetime(2024, 1, 15, 10, 30),
+            "created_at": datetime(2024, 1, 15, 10, 30),
             "regular": "string"
         }
         
@@ -186,7 +186,7 @@ class TestLocalFileStorageStrategy:
             saved = json.load(f)
         
         assert saved["regular"] == "string"
-        assert isinstance(saved["timestamp"], str)  # Converted to string
+        assert isinstance(saved["created_at"], str)  # Converted to string
     
     @pytest.mark.asyncio
     async def test_handles_unicode_content(self, tmp_path):

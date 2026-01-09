@@ -16,7 +16,7 @@ class EventBaseModel(BaseModel):
     """Base model for metadata extractor events."""
 
     request_id: str = Field(..., description="Unique identifier for the request")
-    timestamp: str = Field(
+    created_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc)
         .replace(microsecond=0)
         .isoformat()
@@ -24,6 +24,7 @@ class EventBaseModel(BaseModel):
         description="The timestamp when the event was created, in ISO 8601 UTC format",
     )
     url: str = Field(..., description="The URL associated with the event")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional request metadata")
 
     @field_validator("request_id")
     @classmethod
@@ -33,15 +34,15 @@ class EventBaseModel(BaseModel):
             raise ValueError("Input should be a valid string non-empty request_id")
         return v
 
-    @field_validator("timestamp", mode="before")
+    @field_validator("created_at", mode="before")
     @classmethod
-    def validate_timestamp_format(cls, v: Any) -> Any:
-        """Validate timestamp is in ISO 8601 UTC format."""
+    def validate_created_at_format(cls, v: Any) -> Any:
+        """Validate created_at is in ISO 8601 UTC format."""
         if isinstance(v, str):
             iso8601_utc_regex = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
             if not re.match(iso8601_utc_regex, v):
                 raise ValueError(
-                    "timestamp must be in ISO 8601 UTC format (e.g. '2023-10-01T12:00:00Z')"
+                    "created_at must be in ISO 8601 UTC format (e.g. '2023-10-01T12:00:00Z')"
                 )
         return v
 
@@ -78,9 +79,6 @@ class MetadataExtractionRequestEvent(EventBaseModel):
     )
     requester: Optional[str] = Field(
         None, description="Identifier of the requesting system/user"
-    )
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict, description="Additional request metadata"
     )
 
 

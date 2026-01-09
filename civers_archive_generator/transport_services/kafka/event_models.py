@@ -9,6 +9,7 @@ class EventBaseModel(BaseModel):
         description="The timestamp when the event was created, in ISO 8601 UTC format"
     )
     url: str = Field(..., description="The URL associated with the event")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional request metadata")
     @field_validator("request_id")
     @classmethod
     def validate_request_id(cls, v: str) -> str:

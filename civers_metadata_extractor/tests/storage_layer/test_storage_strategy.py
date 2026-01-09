@@ -29,7 +29,7 @@ class TestStorageResult:
         assert result.storage_location == "/path/to/file.json"
         assert result.error_message is None
         assert result.metadata == {}
-        assert result.timestamp is not None
+        assert result.created_at is not None
     
     def test_create_failed_result(self):
         """Test creating a failed StorageResult with error message."""
@@ -59,15 +59,15 @@ class TestStorageResult:
         assert result.metadata["size_bytes"] == 1024
         assert result.metadata["filename"] == "metadata.json"
     
-    def test_timestamp_is_iso_format(self):
-        """Test that timestamp is in ISO format."""
+    def test_created_at_is_iso_format(self):
+        """Test that created_at is in ISO format."""
         result = StorageResult(
             success=True,
             storage_type="test"
         )
         
         # Should be able to parse as ISO format
-        parsed = datetime.fromisoformat(result.timestamp)
+        parsed = datetime.fromisoformat(result.created_at)
         assert isinstance(parsed, datetime)
     
     def test_default_metadata_is_empty_dict(self):
