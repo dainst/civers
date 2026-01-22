@@ -1,0 +1,130 @@
+# ==============================================================================
+# CIVERS Test Environment - Docker Compose Override
+# ==============================================================================
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
+#
+# This file extends the base docker-compose.yml for test server deployment
+# (test.civers.de). It adds:
+#   - Traefik reverse proxy with automatic SSL via Let's Encrypt
+#   - Test-specific environment variables
+#   - Proper Docker networking for server deployment
+#
+# ==============================================================================
+
+services:
+  # ============================================================================
+  # Web Interface - Override for test environment
+  # ============================================================================
+  web-interface:
+    environment:
+      - CONFIG_ENVIRONMENT=test
+      - LOG_LEVEL=DEBUG
+    labels:
+      - "traefik.enable=true"
+      # HTTPS route
+      - "traefik.http.routers.civers-web.rule=Host(`test.civers.de`)"
+      - "traefik.http.routers.civers-web.entrypoints=websecure"
+      - "traefik.http.routers.civers-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.civers-web.loadbalancer.server.port=8000"
+      # HTTP to HTTPS redirect
+      - "traefik.http.routers.civers-web-http.rule=Host(`test.civers.de`)"
+      - "traefik.http.routers.civers-web-http.entrypoints=web"
+      - "traefik.http.routers.civers-web-http.middlewares=https-redirect"
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Orchestrator - Override for test environment
+  # ============================================================================
+  orchestrator:
+    environment:
+      - CONFIG_ENVIRONMENT=test
+      - LOG_LEVEL=DEBUG
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Archive Generator - Override for test environment
+  # Use Docker networking instead of host network for server deployment
+  # ============================================================================
+  archive-generator:
+    environment:
+      - CONFIG_ENVIRONMENT=test
+      - LOG_LEVEL=DEBUG
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CIVERS_API_URL=http://web-interface:8000
+    network_mode: bridge
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Metadata Extractor - Override for test environment
+  # Use Docker networking instead of host network for server deployment
+  # ============================================================================
+  metadata-extractor:
+    environment:
+      - CONFIG_ENVIRONMENT=test
+      - LOG_LEVEL=DEBUG
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CIVERS_API_URL=http://web-interface:8000
+    network_mode: bridge
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Kafka - Ensure it's on the shared network
+  # ============================================================================
+  kafka:
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Traefik Reverse Proxy
+  # Handles SSL termination with automatic Let's Encrypt certificates
+  # ============================================================================
+  traefik:
+    image: traefik:v2.11
+    container_name: civers-traefik
+    restart: always
+    command:
+      # API & Dashboard (disable insecure in production)
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      # Docker provider
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=civers-network"
+      # Entrypoints
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Let's Encrypt ACME
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=it@dainst.de"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      # Logging
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard (restrict access in production)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certs:/letsencrypt
+    networks:
+      - civers-network
+    labels:
+      # HTTPS redirect middleware
+      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.permanent=true"
+
+volumes:
+  traefik-certs:
+    name: civers-traefik-certs
+
+networks:
+  civers-network:
+    name: civers-network
+    external: true

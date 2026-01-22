@@ -5,7 +5,7 @@ A comprehensive system for archiving web pages, extracting metadata, and managin
 ## Components
 
 | Component | Description |
-|-----------|-------------|
+| --------- | ----------- |
 | **Orchestrator** | Coordinates workflow and manages requests |
 | **Archive Generator** | Creates WACZ archives, screenshots, and HTML snapshots |
 | **Metadata Extractor** | Extracts structured metadata from archived pages |
@@ -63,7 +63,7 @@ After the test completes, it will display:
 ### 3. Access the Web Interface
 
 | URL | Description |
-|-----|-------------|
+| --- | ----------- |
 | `http://localhost:8000` | Browse all archived URLs and snapshots |
 | `http://localhost:8000/replay/{snapshot_id}` | Replay a specific snapshot |
 | `http://localhost:8000/archive/{url_id}` | View all snapshots for a URL |
@@ -120,13 +120,33 @@ User → Kafka → Orchestrator → Archive Generator → Web Interface
 ### Generated Artifacts
 
 | Artifact | Description |
-|----------|-------------|
+| -------- | ----------- |
 | `archive.wacz` | Web archive for replay |
 | `screenshot.png` | Full-page screenshot |
 | `singlefile.html` | Self-contained HTML snapshot |
 | `dom-snapshot.html` | Raw DOM snapshot |
 | `metadata.json` | Extracted metadata (DataCite format) |
 | `archive_generator_metadata.json` | Archive generation metadata |
+
+## Monitoring
+
+To track and debug requests as they flow through the Kafka pipeline, use the unified flow monitor:
+
+```bash
+# Standard mode
+python3 scripts/kafka_flow_monitor.py
+
+# Verbose mode (shows raw JSON payloads)
+VERBOSE=true python3 scripts/kafka_flow_monitor.py
+```
+
+This tool provides real-time visibility into:
+
+1. **Sender/Receiver**: Identifies which components are communicating.
+2. **Metadata**: Displays the payload and metadata sent with each event.
+3. **Workflow Status**: Color-coded tracking of successes, failures, and processing steps.
+
+For more details, see the [Workflow Monitoring Plan](workflow_monitoring_plan.md).
 
 ## Common Commands
 

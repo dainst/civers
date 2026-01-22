@@ -69,9 +69,6 @@ class TransformationEngine:
 
         # 3. Apply value transformations
         final_value = self._transform_value(input_value, rule.transformations)
-
-        # Print source and target path.
-        print(f"DEBUG: Applying rule for input_key='{input_key}' to target_path='{self.key_parser.segments_to_string(resolved_path)}'")
         
         # 4. Set value in target structure
         self._set_value(target_structure, resolved_path, final_value)
@@ -147,16 +144,7 @@ class TransformationEngine:
         current = structure
         
         for i, seg in enumerate(path):
-            # print(f"DEBUG: Processing segment {seg.name} (is_array={seg.is_array}, index={seg.index})")
-            if seg.name in ['Description', 'Identifier']:
-                print(f"DEBUG: Processing {seg.name}. Current keys: {current.keys() if isinstance(current, dict) else 'Not Dict'}")
-            
             is_last = (i == len(path) - 1)
-            
-            if is_last:
-                if seg.name in ['description', 'identifier']:
-                     print(f"DEBUG: Setting {seg.name} to {value}")
-                current[seg.name] = value
             
             if seg.is_array:
                 # Handle list
@@ -165,16 +153,11 @@ class TransformationEngine:
                 
                 list_obj = current[seg.name]
                 if not isinstance(list_obj, list):
-                     # Should not happen if schema is consistent
-                    # But if we have a collision (field used as both list and dict), it might.
-                    # For now, assume schema is valid.
-                    # But if we are overwriting, we might need to be careful.
-                    # Let's assume it's a list.
+                    # Should not happen if schema is consistent
                     pass
 
                 index = seg.index
                 if not isinstance(index, int):
-                     # Should have been resolved by now
                     raise ValueError(f"Unresolved wildcard index for {seg.name}")
 
                 # Extend list if needed
@@ -182,13 +165,8 @@ class TransformationEngine:
                     list_obj.append({}) 
                 
                 if is_last:
-                    # If we are setting the value AT this list index
-                    # This implies the target is a list of primitives, OR we are replacing the object?
-                    # Usually we map to a field inside an object.
-                    # If the path ends in an array, e.g. "sizes[*]", then we set the value directly.
                     list_obj[index] = value
                 else:
-                    # Navigate deeper
                     current = list_obj[index]
             
             else:

@@ -86,10 +86,20 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     def _add_api_csp(self, response: Response) -> None:
         """CSP for API endpoints."""
+        # For API endpoints, we allow cross-origin connections for the widget
+        # but keep other restrictions.
         csp_directives = [
             "default-src 'none'",
-            "frame-ancestors 'none'"
+            "connect-src 'self' http://localhost:* http://127.0.0.1:*",
+            "frame-ancestors 'self'"
         ]
+
+        if self.debug:
+            csp_directives = [
+                "default-src 'none'",
+                "connect-src *",
+                "frame-ancestors *"
+            ]
 
         response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
 

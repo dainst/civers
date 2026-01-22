@@ -19,10 +19,22 @@ class DomainConfig(BaseModel):
         """Ensure domain name is valid or a special identifier."""
         if not v:
             raise ValueError("Domain name cannot be empty")
-        # Allow wildcards (*.domain.com) and special 'default' keyword
-        if v != "default" and not ("." in v or "*" in v):
-            raise ValueError("Domain name must be a valid domain, wildcard, or 'default'")
-        return v
+        
+        # Allow special 'default' keyword
+        if v == "default":
+            return v
+            
+        # Allow wildcards (*.domain.com) or standard domains (with dots)
+        if "." in v or "*" in v:
+            return v
+            
+        # Allow local hostnames (localhost, arachne_local_demo, etc.)
+        # Check if it consists of alphanumeric characters, underscores or hyphens
+        import re
+        if re.match(r"^[a-zA-Z0-9_-]+$", v):
+            return v
+            
+        raise ValueError("Domain name must be a valid domain, wildcard, local hostname, or 'default'")
     
 
 class KafkaConfig(BaseModel):

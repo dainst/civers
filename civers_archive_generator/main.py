@@ -43,6 +43,7 @@ class ArchiveGeneratorApp:
             logger.info(f"   App: {self.config.app.name} v{self.config.app.version}")
             
             # Log transport configuration
+            #TODO: Load transport service automatically
             if self.config.app.transport and self.config.app.transport.kafka:
                 logger.info(f"   Kafka: {self.config.app.transport.kafka.bootstrap_servers}")
             else:

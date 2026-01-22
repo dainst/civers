@@ -1,0 +1,49 @@
+# Test Environment Configuration (test.civers.de)
+# For stakeholder review and QA testing
+
+environment: test
+
+transport:
+  kafka:
+    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}"
+    consumer:
+      group_id: "${KAFKA_CONSUMER_GROUP_ID:-civers-test}"
+    producer:
+      acks: "all"
+      retries: 3
+
+storage:
+  enabled:
+    - local_file
+    - civers_rest_api
+  backends:
+    local_file:
+      base_path: "${ARCHIVE_DIRECTORY:-/app/archives}"
+    civers_rest_api:
+      upload_url: "${CIVERS_API_URL:-http://web-interface:8000}/api/upload"
+      timeout_seconds: 30
+      retry_attempts: 3
+      verify_ssl: false
+
+# Test environment domains (includes both test and production domains)
+domains:
+  - name: arachne.test.dainst.org
+    workflow: archaeology_workflow
+    artifacts: [warc, html, screenshots, singlefile]
+    webpage_types: dynamic
+    enabled: true
+    description: "Test archaeological database"
+  
+  - name: arachne.dainst.org
+    workflow: archaeology_workflow
+    artifacts: [warc, html, screenshots, singlefile]
+    webpage_types: dynamic
+    enabled: true
+    description: "Archaeological database"
+
+  - name: field.dainst.org
+    workflow: field_data_workflow
+    artifacts: [warc, html, singlefile]
+    webpage_types: dynamic
+    enabled: true
+    description: "Field research data"

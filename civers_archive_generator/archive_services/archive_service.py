@@ -131,6 +131,9 @@ class ArchiveService(ArchiveServiceInterface):
         try:
             parsed_url = urlparse(url)
             domain = parsed_url.netloc
+            # Remove port if present for comparison
+            if ":" in domain:
+                domain = domain.split(":")[0]
             
             # If domain is empty, URL is invalid
             if not domain:
@@ -140,10 +143,10 @@ class ArchiveService(ArchiveServiceInterface):
             logger.debug(f"🔍 Looking for domain config for: {domain}")
             
             for domain_config in self.config.domains:
-                # Check if domain config name matches or is contained in the URL domain
-                if (domain_config.name in domain or 
-                    domain in domain_config.name or 
-                    domain_config.name.lower() in domain.lower()):
+                config_name = domain_config.name.lower()
+                # Check if domain config name matches
+                if (config_name == domain.lower() or 
+                    (domain_config.is_wildcard and domain.lower().endswith(config_name.replace("*", "")))):
                     
                     logger.debug(f"✅ Found matching domain config: {domain_config.name}")
                     return domain_config

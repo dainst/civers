@@ -5,6 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiokafka>=0.13.0",
     "kafka-python>=2.3.0",
+    "pyyaml>=6.0.3",
     "requests>=2.32.5",
 ]

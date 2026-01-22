@@ -222,20 +222,19 @@ class MetadataExtractionService(MetadataExtractionServiceInterface):
                 self.logger.info(f"Using provided HTML content for {url} ({len(content)} characters)")
             
             # Step 3: Process content (existing logic enhanced)
-            process_result = await self._process_content(content, domain_config, url)
-            if not process_result:
+            metadata, mapping_result, error_msg, error_type, raw_data = await self._process_content(content, domain_config, url)
+            
+            if not metadata:
                 processing_time = time.time() - start_time
                 return ExtractionResult.failure_result(
                     request_id=request_id,
                     processing_time=processing_time,
-                    error_message="Failed to extract metadata from content",
-                    error_type="MetadataExtractionError",
+                    error_message=error_msg or "Failed to extract metadata from content",
+                    error_type=error_type or "MetadataExtractionError",
                     failed_stage="content_processing",
-                    source_url=url
+                    source_url=url,
+                    raw_data=raw_data
                 )
-            
-            # Unpack the tuple
-            metadata, mapping_result = process_result
             
             processing_time = time.time() - start_time
             
@@ -297,7 +296,7 @@ class MetadataExtractionService(MetadataExtractionServiceInterface):
     
     # Private helper methods for core extraction logic
     
-    async def _process_content(self, content: str, domain_config: Dict[str, Any], source_url: str) -> Optional[Tuple[IntermediateMetadata, MappingResult]]:
+    async def _process_content(self, content: str, domain_config: Dict[str, Any], source_url: str) -> Tuple[Optional[IntermediateMetadata], Optional[MappingResult], Optional[str], Optional[str], Optional[Dict[str, Any]]]:
         """
         Process content using the consolidated extractor factory.
         
@@ -307,39 +306,37 @@ class MetadataExtractionService(MetadataExtractionServiceInterface):
             source_url: Source URL
             
         Returns:
-            Tuple of (IntermediateMetadata, MappingResult) or None
+            Tuple of (IntermediateMetadata, MappingResult, error_message, error_type, raw_data)
         """
         try:
             # Get appropriate extractor from factory (factory only creates extractors now)
             extractor = extractor_factory.get_extractor(domain_config, content)
             
             if not extractor:
-                self.logger.error("Failed to create extractor")
-                return None
-            
-            # Use the injected mapper instance (not from factory)
-            # mapper is now injected directly into the service during initialization
+                return None, None, "Failed to create extractor for content", "ExtractorCreationError", None
             
             # Extract raw data
             extraction_result = extractor.extract(content, source_url)
             
             if not extraction_result.is_successful():
-                self.logger.warning(f"Extraction failed: {extraction_result.error_message}")
-                return None
+                error_msg = extraction_result.error_message or "Extraction failed"
+                self.logger.warning(f"Extraction failed: {error_msg}")
+                return None, None, f"Extraction failed: {error_msg}", "ExtractionStoreError", extraction_result.raw_data
             
             # Map to intermediate model using injected mapper
             mapping_result = self.mapper.map_to_intermediate(extraction_result.raw_data, domain_config, source_url)
             
             if mapping_result.status != MappingStatus.SUCCESS or not mapping_result.intermediate_metadata:
-                self.logger.warning(f"Mapping failed: {mapping_result.error_message or 'No intermediate metadata generated'}")
-                return None
+                error_msg = mapping_result.errors[0] if mapping_result.errors else 'No intermediate metadata generated'
+                self.logger.warning(f"Mapping failed: {error_msg}")
+                return None, mapping_result, f"Mapping failed: {error_msg}", "MappingError", extraction_result.raw_data
             
             self.logger.debug(f"Successfully processed content using {extractor.get_extractor_type()} extractor and injected mapper")
-            return (mapping_result.intermediate_metadata, mapping_result)
+            return mapping_result.intermediate_metadata, mapping_result, None, None, extraction_result.raw_data
             
         except Exception as e:
-            self.logger.error(f"Error processing content: {e}")
-            return None
+            self.logger.error(f"Error processing content: {e}", exc_info=True)
+            return None, None, str(e), type(e).__name__, None
     
 
     

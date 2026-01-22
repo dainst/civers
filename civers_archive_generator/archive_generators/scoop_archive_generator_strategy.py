@@ -602,7 +602,7 @@ class ScoopArchiveGeneratorStrategy(ArchiveGeneratorStrategyInterface):
 
     def _create_output_folder(self, url: str, request_id: str) -> str:
         parsed = urlparse(url)
-        domain = parsed.netloc.replace(".", "_").replace("-", "_")
+        domain = (parsed.hostname or parsed.netloc.split(':')[0]).replace(".", "_").replace("-", "_")
         path_part = parsed.path.strip("/").replace("/", "_").replace("-", "_")
         if not path_part:
             path_part = "home_page"
@@ -641,9 +641,12 @@ class ScoopArchiveGeneratorStrategy(ArchiveGeneratorStrategyInterface):
             "--export-attachments-output", output_folder,
             "--log-level", "info",
         ]
-        # Allow extra args from config to extend/override (we will override proxy settings after this)
+        # Allow extra args from config to extend/override
         if self.config.app.scoop_extra_args:
             cmd += list(self.config.app.scoop_extra_args)
+
+        # Allow archiving local/private IPs by overriding the default blocklist
+        cmd += ["--blocklist", ""]
 
         # Pick a free TCP port for the proxy and force localhost IPv4
         free_port = self._find_free_port()

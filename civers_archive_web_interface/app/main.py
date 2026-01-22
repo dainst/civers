@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from asgi_correlation_id import CorrelationIdMiddleware
 import os
 from dotenv import load_dotenv
@@ -15,6 +16,7 @@ from .api.artifacts import router as artifacts_router
 from .api.upload import router as upload_router
 from .api.archive_request import router as archive_request_router
 from .api.webhook import router as webhook_router
+from .api.widget import router as widget_router
 from .routes.pages import router as pages_router
 from configs import load_app_config, ConfigurationError
 from .storage import create_storage_service
@@ -65,9 +67,9 @@ async def lifespan(app: FastAPI):
         if hasattr(storage_service.provider, 'db') and isinstance(storage_service.provider.db, SQLiteManager):
             db_manager = storage_service.provider.db
             logger.info("Using storage provider's SQLite database for request status tracking")
-        elif app_config.storage.sqlite:
+        elif hasattr(_app_config.storage, 'sqlite') and _app_config.storage.sqlite:
             # Create a separate DB manager for status tracking
-            db_path = Path(app_config.storage.sqlite.db_path)
+            db_path = Path(_app_config.storage.sqlite.db_path)
             if not db_path.is_absolute():
                 db_path = Path.cwd() / db_path
             
@@ -149,6 +151,16 @@ app.add_middleware(
     SecurityHeadersMiddleware,
     debug=os.getenv("DEBUG", "False").lower() == "true"
 )  # Security headers for CSP and XSS protection
+
+# CORS configuration for the external widget
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, this should be a whitelist of authorized domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.add_middleware(CorrelationIdMiddleware)     # Correlation ID for request tracing (outermost)
 
 # Register application-level exception handlers for consistent error formatting
@@ -168,6 +180,7 @@ app.include_router(artifacts_router)
 app.include_router(upload_router)
 app.include_router(archive_request_router)
 app.include_router(webhook_router)
+app.include_router(widget_router)
 
 # Include page routers
 app.include_router(pages_router)
@@ -202,4 +215,4 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
     debug = os.getenv("DEBUG", "False").lower() == "true"
     
-    uvicorn.run("app.main:app", host=host, port=port, reload=debug)# Reload test
+    uvicorn.run("app.main:app", host=host, port=port, reload=debug)
