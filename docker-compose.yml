@@ -201,37 +201,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # ============================================================================
-  # Widget Demo - Containerized integration site
-  # ============================================================================
-  widget-demo:
-    image: nginx:alpine
-    container_name: civers-widget-demo
-    ports:
-      - "80:80"
-    volumes:
-      - ./civers_widget/src:/usr/share/nginx/html
-    networks:
-      - civers-network
-
-  # ============================================================================
-  # Arachne Frontend - External Integration Test Instance
-  # This serves as a real-world test case for the CIVERS widget integration.
-  # Using port 8081 to avoid conflict with standard web ports.
-  # ============================================================================
-  arachne-frontend:
-    build:
-      context: ./arachne4-test_instance/frontend
-      dockerfile: Dockerfile
-    container_name: arachne-frontend
-    ports:
-      - "8080:80"
-    extra_hosts:
-      - "arachne.test.dainst.org:134.76.57.8"
-      - "iipimage:127.0.0.1"
-    networks:
-      - civers-network
-
 networks:
   civers-network:
     name: civers-network
