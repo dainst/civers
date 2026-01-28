@@ -52,6 +52,12 @@
             // URL changed - update widget context
             console.log('🏛️ CiVers: URL changed, updating widget:', lastUrl, '→', currentUrl);
             widgetInstance.url = currentUrl;
+
+            // In SPAs, the title might change slightly after the URL
+            setTimeout(() => {
+                widgetInstance.title = document.title;
+            }, 100);
+
             widgetInstance.checkStatus();
             lastUrl = currentUrl;
             return;
@@ -85,8 +91,18 @@
             document.body.appendChild(container);
         }
 
+        // Use Shadow DOM for style isolation
+        let root = container;
+        if (container.attachShadow) {
+            if (!container.shadowRoot) {
+                root = container.attachShadow({ mode: 'open' });
+            } else {
+                root = container.shadowRoot;
+            }
+        }
+
         // Inject widget HTML structure
-        container.innerHTML = `
+        root.innerHTML = `
             <div x-data="civersWidget({
                 baseUrl: '${config.apiUrl}',
                 url: window.location.href,
@@ -107,7 +123,12 @@
                 <!-- Expanded State -->
                 <div x-show="expanded" class="civers-widget">
                     <div class="widget-header">
-                        <span class="flex items-center gap-2">🏛️ CiVers Archive</span>
+                        <span class="flex items-center gap-2">
+                            🏛️ CiVers Archive
+                            <template x-if="isArchiving && !workflowActive">
+                                <div class="small-progress-spinner" title="Archiving in progress..."></div>
+                            </template>
+                        </span>
                         <div class="widget-controls">
                             <button @click="toggle()" class="widget-control-btn" title="Minimize">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,8 +141,8 @@
                     <div class="widget-body">
                         <div class="mb-4">
                             <span class="text-xs uppercase tracking-wider text-gray-500 font-bold">Archaeological Object</span>
-                            <h3 class="text-sm font-bold text-gray-900" x-text="'Current Page'"></h3>
-                            <p class="text-sm text-gray-600">CiVers Integration</p>
+                            <h3 class="text-sm font-bold text-gray-900" x-text="title"></h3>
+                            <p class="text-xs text-gray-600 truncate" x-text="url" :title="url"></p>
                         </div>
 
                         <hr class="my-4">
@@ -133,6 +154,9 @@
                                     <span x-show="!isArchiving">📦 Archive This Object</span>
                                     <span x-show="isArchiving">⏳ Archiving...</span>
                                 </button>
+                                <template x-if="isArchiving && !workflowActive">
+                                    <p class="text-[10px] text-indigo-600 font-bold mt-2 animate-pulse" @click="workflowActive = true" style="cursor: pointer">⚡ View Progress</p>
+                                </template>
                             </div>
                         </template>
 
@@ -140,16 +164,16 @@
                             <div>
                                 <div class="flex items-center justify-between mb-4">
                                     <span class="archive-count-badge" x-text="entityData.archive_count + ' snapshots'"></span>
-                                    <button class="text-xs text-indigo-600 font-bold hover:underline">View All</button>
+                                    <button @click="viewAll()" class="text-xs text-indigo-600 font-bold hover:underline">View All</button>
                                 </div>
 
                                 <div class="archive-timeline space-y-4 max-h-48 overflow-y-auto pr-2">
                                     <template x-for="(archive, idx) in entityData.archives" :key="idx">
-                                        <div class="flex gap-3">
+                                        <div class="flex gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors" @click="viewReplay(archive.snapshot_id)">
                                             <div class="w-2 h-2 rounded-full mt-1.5" :class="idx === 0 ? 'bg-green-500' : 'bg-gray-300'"></div>
-                                            <div>
+                                            <div class="flex-1 min-w-0">
                                                 <p class="text-xs font-bold text-gray-800" x-text="formatDate(archive.timestamp)"></p>
-                                                <p class="text-[10px] text-indigo-500 font-mono truncate max-w-[180px]" x-text="archive.doi"></p>
+                                                <p class="text-[10px] text-indigo-500 font-mono truncate" x-text="archive.snapshot_id"></p>
                                             </div>
                                         </div>
                                     </template>
@@ -158,6 +182,9 @@
                                 <div class="mt-6 flex flex-col gap-2">
                                     <button @click="archiveNow()" class="archive-again-button">Create New Snapshot</button>
                                     <button @click="generateCitation()" class="btn-outline">📋 Citation</button>
+                                    <template x-if="isArchiving && !workflowActive">
+                                        <p class="text-[10px] text-indigo-600 font-bold mt-1 text-center animate-pulse" @click="workflowActive = true" style="cursor: pointer">⚡ Archiving in progress... Click to view.</p>
+                                    </template>
                                 </div>
                             </div>
                         </template>
@@ -165,9 +192,16 @@
                 </div>
 
                 <!-- Progress Modal -->
-                <div x-show="isArchiving && workflowActive" class="widget-progress-modal" x-cloak>
+                <div x-show="workflowActive" class="widget-progress-modal" x-cloak>
                     <div class="widget-progress-content">
-                        <h3 class="text-lg font-bold mb-4 border-b pb-2">Archiving Status</h3>
+                        <div class="flex justify-between items-center mb-4 border-b pb-2">
+                            <h3 class="text-lg font-bold">Archiving Status</h3>
+                            <button @click="workflowActive = false" class="modal-close-btn">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
 
                         <div class="mb-6">
                             <div class="progress-container">
@@ -179,7 +213,7 @@
                             </div>
                         </div>
 
-                        <div class="space-y-3">
+                        <div class="space-y-3" x-show="archiveStatus === 'running' || archiveStatus === 'idle'">
                             <template x-for="step in workflowSteps" :key="step.id">
                                 <div class="step-item" :class="{
                                     'completed': step.status === 'completed',
@@ -208,6 +242,25 @@
                                 </div>
                             </template>
                         </div>
+
+                        <!-- Success Result -->
+                        <template x-if="archiveStatus === 'success'">
+                            <div class="archive-result-success">
+                                <p class="font-bold flex items-center gap-2">✅ Success!</p>
+                                <p class="text-sm mt-1">Archive created successfully. You can now view it in the repository.</p>
+                                <a href="#" class="btn-view-replay" @click.prevent="viewReplay(lastSnapshotId)">View Replay</a>
+                                <button @click="workflowActive = false" class="btn-outline mt-3 w-full">Dismiss</button>
+                            </div>
+                        </template>
+
+                        <!-- Error Result -->
+                        <template x-if="archiveStatus === 'failed'">
+                            <div class="archive-result-failed">
+                                <p class="font-bold flex items-center gap-2">❌ Failed</p>
+                                <p class="text-sm mt-1">Archiving failed. This might be due to a timeout or backend error.</p>
+                                <button @click="workflowActive = false" class="btn-outline mt-3 w-full">Close</button>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -220,16 +273,46 @@
             alpineScript.src = 'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js';
             alpineScript.defer = true;
             alpineScript.onload = () => {
-                console.log('🏛️ CiVers: Alpine.js loaded');
+                console.log('🏛️ CiVers: Alpine.js script loaded');
                 // Store reference to widget instance
                 setTimeout(() => {
-                    const widgetEl = container.querySelector('[x-data]');
+                    if (!window.Alpine) {
+                        console.error('🏛️ CiVers: Alpine.js not found even after load');
+                        return;
+                    }
+                    const searchRoot = container.shadowRoot || container;
+
+                    // Manually initialize Alpine for the shadow root
+                    if (searchRoot instanceof ShadowRoot) {
+                        console.log('🏛️ CiVers: Initializing Alpine for Shadow Root');
+                        window.Alpine.initTree(searchRoot);
+                    }
+
+                    const widgetEl = searchRoot.querySelector('[x-data]');
                     if (widgetEl && widgetEl.__x) {
                         widgetInstance = widgetEl.__x.$data;
+                        console.log('🏛️ CiVers: Widget instance captured');
+                    } else {
+                        // Fallback: search for Alpine component data
+                        console.warn('🏛️ CiVers: Could not find widget instance, retrying...');
                     }
-                }, 100);
+                }, 200);
             };
             document.head.appendChild(alpineScript);
+        } else if (window.Alpine) {
+            // Alpine already exists, initialize immediately
+            console.log('🏛️ CiVers: Alpine.js already on page, using existing instance');
+            setTimeout(() => {
+                const searchRoot = container.shadowRoot || container;
+                if (searchRoot instanceof ShadowRoot) {
+                    window.Alpine.initTree(searchRoot);
+                }
+                const widgetEl = searchRoot.querySelector('[x-data]');
+                if (widgetEl && widgetEl.__x) {
+                    widgetInstance = widgetEl.__x.$data;
+                    console.log('🏛️ CiVers: Found widget instance (pre-existing Alpine)');
+                }
+            }, 100);
         }
 
         // Set up SPA navigation detection
@@ -291,10 +374,13 @@ function civersWidget(config) {
         expanded: false,
         isArchiving: false,
         workflowActive: false,
+        archiveStatus: 'idle', // 'idle', 'running', 'success', 'failed'
         progress: 0,
         currentStep: '',
 
         // Data State
+        title: document.title,
+        lastSnapshotId: null,
         entityData: {
             has_archives: false,
             archive_count: 0,
@@ -309,7 +395,12 @@ function civersWidget(config) {
          * Initialize the widget
          */
         init() {
-            console.log('🏛️ CiVers Widget Initialized for:', this.url);
+            // SPAs like Arachne change title after the component mounts
+            setTimeout(() => {
+                this.title = document.title;
+            }, 500);
+
+            console.log('🏛️ CiVers Widget Initialized for:', this.url, 'Title:', this.title);
             this.checkStatus();
         },
 
@@ -320,16 +411,21 @@ function civersWidget(config) {
             try {
                 const parsed = new URL(url);
                 const domain = parsed.hostname;
-                const path = parsed.pathname;
+                let path = parsed.pathname;
 
+                // Normalize domain: dots and hyphens to underscores
                 const normDomain = domain.replace(/\./g, '_').replace(/-/g, '_');
-                let normPath = path.replace(/^\/$/, 'index').replace(/\.html?$/, '').replace(/[^a-z0-9_]/gi, '_');
 
-                if (normPath === '' || normPath === '_') {
-                    normPath = 'index';
+                // Normalize path: same as backend's normalize_path
+                path = path.replace(/^\/+|\/+$/g, ''); // strip leading/trailing slashes
+                if (!path) {
+                    path = 'home';
+                } else {
+                    // Replace special characters with underscores, handle hyphens, remove repeats
+                    path = path.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/-/g, '_').replace(/_+/g, '_').toLowerCase();
                 }
 
-                return `${normDomain}${normPath}`;
+                return `${normDomain}_${path}`;
             } catch (e) {
                 console.error('Failed to parse URL:', url, e);
                 return 'unknown';
@@ -372,6 +468,7 @@ function civersWidget(config) {
 
             this.isArchiving = true;
             this.workflowActive = true;
+            this.archiveStatus = 'running';
             this.progress = 0;
             this.resetSteps();
 
@@ -495,21 +592,19 @@ function civersWidget(config) {
          * Handle workflow completion or failure
          */
         finalizeWorkflow(data) {
-            this.isArchiving = false;
             this.progress = data.status === 'completed' ? 100 : this.progress;
+            this.archiveStatus = data.status === 'completed' ? 'success' : 'failed';
+            this.lastSnapshotId = data.snapshot_id || null;
 
             setTimeout(() => {
-                this.workflowActive = false;
+                // Keep modal open, but allow it to be dismissed manually
                 if (data.status === 'completed') {
+                    this.isArchiving = false;
                     this.checkStatus(); // Refresh snapshots list
-                    const viewUrl = `${this.baseUrl}/snapshot/${data.snapshot_id || ''}`;
-                    if (confirm(`✅ Archive created successfully!\\n\\nWould you like to view the snapshot in the CiVers Repository?`)) {
-                        window.open(viewUrl, '_blank');
-                    }
                 } else {
-                    alert('❌ Archiving failed. This might be due to a timeout or backend error.');
+                    this.isArchiving = false;
                 }
-            }, 1000);
+            }, 500);
         },
 
         /**
@@ -524,8 +619,24 @@ function civersWidget(config) {
 
             const citation = `CiVers Archival Record. (Archived: ${date}). "${url}". Snapshot ID: ${latest.snapshot_id}. Retrieved from CiVers Archive.`;
 
-            alert(`--- CiVers Citation ---\\n\\n${citation}\\n\\n(Copied to console as well)`);
+            this.copyToClipboard(citation);
+            alert(`✅ Citation copied to clipboard!\n\n${citation}`);
             console.log('🏛️ CiVers Citation:', citation);
+        },
+
+        viewAll() {
+            const urlId = this.generateUrlId(this.url);
+            const cleanBaseUrl = this.baseUrl.replace(/\/+$/, '');
+            const targetUrl = `${cleanBaseUrl}/archive/${urlId}`;
+            console.log('🏛️ CiVers: Redirecting to Archive View:', targetUrl);
+            window.open(targetUrl, '_blank');
+        },
+
+        viewReplay(snapshotId) {
+            const cleanBaseUrl = this.baseUrl.replace(/\/+$/, '');
+            const targetUrl = `${cleanBaseUrl}/replay/${snapshotId}`;
+            console.log('🏛️ CiVers: Redirecting to Replay View:', targetUrl);
+            window.open(targetUrl, '_blank');
         },
 
         resetSteps() {

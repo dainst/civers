@@ -23,12 +23,12 @@ services:
     labels:
       - "traefik.enable=true"
       # HTTPS route
-      - "traefik.http.routers.civers-web.rule=Host(`test.civers.de`)"
+      - "traefik.http.routers.civers-web.rule=Host(`civers.test.dainst.de`)"
       - "traefik.http.routers.civers-web.entrypoints=websecure"
       - "traefik.http.routers.civers-web.tls.certresolver=letsencrypt"
       - "traefik.http.services.civers-web.loadbalancer.server.port=8000"
       # HTTP to HTTPS redirect
-      - "traefik.http.routers.civers-web-http.rule=Host(`test.civers.de`)"
+      - "traefik.http.routers.civers-web-http.rule=Host(`civers.test.dainst.de`)"
       - "traefik.http.routers.civers-web-http.entrypoints=web"
       - "traefik.http.routers.civers-web-http.middlewares=https-redirect"
     networks:
@@ -109,7 +109,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"  # Traefik dashboard (restrict access in production)
+      - "8080:8080" # Traefik dashboard (restrict access in production)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-certs:/letsencrypt

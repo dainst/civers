@@ -101,6 +101,7 @@ services:
       - "8000:8000"
     volumes:
       - ./configs:/shared-configs:ro
+      - ./civers_archive_web_interface/static:/app/static
       - web-archives:/app/archives
       - web-data:/app/data
     healthcheck:
@@ -227,6 +228,7 @@ services:
       - "8080:80"
     extra_hosts:
       - "arachne.test.dainst.org:134.76.57.8"
+      - "iipimage:127.0.0.1"
     networks:
       - civers-network
 
