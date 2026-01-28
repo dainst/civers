@@ -140,6 +140,10 @@ class BuildWebInterfaceUrlTransformer(DataTransformer):
                         f"Could not access config path '{config_path}': {e}. "
                         f"Using default base URL: {base_url}"
                     )
+            else:
+                logger.warning("No orchestrator_config found in context.")
+        
+        logger.info(f"🔍 Resulting base_url for transformation: {base_url}")
 
         # Apply URL template
         url_template = config.get(

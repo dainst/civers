@@ -8,6 +8,15 @@ from pydantic import BaseModel, Field, StringConstraints, field_validator, model
 NonEmptyStr = Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)]
 
 
+class MetadataConfig(BaseModel):
+    """Metadata extraction settings."""
+    
+    web_interface_url: str = Field(
+        default="http://localhost:8000",
+        description="Base URL for downloading archived HTML"
+    )
+
+
 
 class AppConfig(BaseModel):
     """Application configuration."""
@@ -15,6 +24,7 @@ class AppConfig(BaseModel):
     name: str = Field(default="civers_orchestrator", description="Application name")
     version: str = Field(default="1.0.0", description="Application version")
     environment: str = Field(default="development", description="Runtime environment")
+    metadata: MetadataConfig = Field(default_factory=MetadataConfig, description="Metadata settings")
 
 
 class KafkaConsumerConfig(BaseModel):
