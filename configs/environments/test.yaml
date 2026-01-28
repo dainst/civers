@@ -3,6 +3,11 @@
 
 environment: test
 
+app:
+  metadata:
+    web_interface_url: "${CIVERS_API_URL:-http://web-interface:8000}"
+
+
 transport:
   kafka:
     bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}"
