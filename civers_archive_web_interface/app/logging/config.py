@@ -48,6 +48,8 @@ def configure_logging(level: str = "INFO", json_format: bool = True, log_file: O
             'uvicorn.access': {'level': 'INFO'},
             'httpx': {'level': 'INFO'},
             'asgi_correlation_id': {'level': 'WARNING'},
+            'kafka': {'level': 'WARNING'},
+            'aiokafka': {'level': 'WARNING'},
         }
     }
 

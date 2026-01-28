@@ -33,6 +33,7 @@ def setup_logging(
 
     # Set third-party library log levels
     logging.getLogger("kafka").setLevel(logging.WARNING)
+    logging.getLogger("aiokafka").setLevel(logging.WARNING)
     logging.getLogger("kafka.conn").setLevel(logging.ERROR)
 
 

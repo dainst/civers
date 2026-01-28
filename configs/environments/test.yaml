@@ -25,25 +25,4 @@ storage:
       retry_attempts: 3
       verify_ssl: false
 
-# Test environment domains (includes both test and production domains)
-domains:
-  - name: arachne.test.dainst.org
-    workflow: archaeology_workflow
-    artifacts: [warc, html, screenshots, singlefile]
-    webpage_types: dynamic
-    enabled: true
-    description: "Test archaeological database"
-  
-  - name: arachne.dainst.org
-    workflow: archaeology_workflow
-    artifacts: [warc, html, screenshots, singlefile]
-    webpage_types: dynamic
-    enabled: true
-    description: "Archaeological database"
-
-  - name: field.dainst.org
-    workflow: field_data_workflow
-    artifacts: [warc, html, singlefile]
-    webpage_types: dynamic
-    enabled: true
-    description: "Field research data"
+# Domain configuration is inherited from defaults/domains.yaml

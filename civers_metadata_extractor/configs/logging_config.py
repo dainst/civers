@@ -37,6 +37,7 @@ def setup_logging(
     if suppress_kafka_logs:
         # Kafka-related loggers
         logging.getLogger("kafka").setLevel(logging.WARNING)
+        logging.getLogger("aiokafka").setLevel(logging.WARNING)
         logging.getLogger("kafka.client").setLevel(logging.WARNING) 
         logging.getLogger("kafka.producer").setLevel(logging.WARNING)
         logging.getLogger("kafka.consumer").setLevel(logging.WARNING)
