@@ -145,6 +145,24 @@ domains:
     enabled: true
     description: "HTTP testing service for integration tests"
 
+  - name: civers.test.dainst.de
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    enabled: true
+    description: "CiVers Arachne frontend Test Environment Domain"
+    input_source: html_document
+    mappings: *arachne_mappings_test
+
+  - name: "civers.test.dainst.de:8080"
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    enabled: true
+    description: "CiVers Arachne frontend Test Environment Domain (Port 8080)"
+    input_source: html_document
+    mappings: *arachne_mappings_test
+
   - name: localhost
     workflow: standard_archive_workflow
     artifacts: [warc, html, screenshots, singlefile, json]
