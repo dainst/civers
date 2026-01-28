@@ -153,17 +153,17 @@ services:
       context: ./civers_archive_generator
       dockerfile: Dockerfile
     container_name: civers-archive-generator
-    network_mode: host
     environment:
       - CONFIG_ENVIRONMENT=docker
       - CONFIG_DIR=/shared-configs
-      # Use localhost since we're on host network
-      - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
-      - CIVERS_API_URL=http://localhost:8000
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CIVERS_API_URL=http://web-interface:8000
       - LOG_LEVEL=INFO
     volumes:
       - ./configs:/shared-configs:ro
       - generator-archives:/app/archives
+    networks:
+      - civers-network
     depends_on:
       kafka:
         condition: service_healthy
@@ -183,17 +183,17 @@ services:
       context: ./civers_metadata_extractor
       dockerfile: Dockerfile
     container_name: civers-metadata-extractor
-    network_mode: host
     environment:
       - CONFIG_ENVIRONMENT=docker
       - CONFIG_DIR=/shared-configs
-      # Use localhost since we're on host network
-      - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
-      - CIVERS_API_URL=http://localhost:8000
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CIVERS_API_URL=http://web-interface:8000
       - LOG_LEVEL=INFO
     volumes:
       - ./configs:/shared-configs:ro
       - metadata-output:/app/output/metadata
+    networks:
+      - civers-network
     depends_on:
       kafka:
         condition: service_healthy

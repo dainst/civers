@@ -54,7 +54,6 @@ services:
       - LOG_LEVEL=DEBUG
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - CIVERS_API_URL=http://web-interface:8000
-    network_mode: bridge
     networks:
       - civers-network
 
@@ -68,7 +67,6 @@ services:
       - LOG_LEVEL=DEBUG
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - CIVERS_API_URL=http://web-interface:8000
-    network_mode: bridge
     networks:
       - civers-network
 
@@ -101,7 +99,7 @@ services:
       # Let's Encrypt ACME
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.letsencrypt.acme.email=it@dainst.de"
+      - "--certificatesresolvers.letsencrypt.acme.email=Ammar.Saeed@dainst.de"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       # Logging
       - "--log.level=INFO"
