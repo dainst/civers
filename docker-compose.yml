@@ -99,8 +99,6 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       # Callback URL for orchestrator (must use Docker service name)
       - CALLBACK_BASE_URL=http://web-interface:8000
-    ports:
-      - "8000:8000"
     volumes:
       - ./configs:/shared-configs:ro
       - ./civers_archive_web_interface/static:/app/static

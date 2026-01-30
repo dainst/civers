@@ -1,188 +1,95 @@
 # ==============================================================================
-# CIVERS Full Stack - Standalone Development Docker Compose
+# CIVERS Full Stack - Local Development Override
 # ==============================================================================
 #
-# This file provides a COMPLETE and ISOLATED development environment.
-# It does not depend on the base docker-compose.yml.
-#
-# Features:
-# - Local source code mounting for all services
-# - Hot-reloading for the Web Interface
-# - Debug logging enabled by default
-# - Full infrastructure (Kafka, Networks, Volumes) included
+# This compose file provides a simple local development setup:
+# - Direct port access (no Traefik/HTTPS)
+# - Standard Docker socket path
+# - Hot-reload enabled where supported
+# - Debug logging
 #
 # Usage:
-#   docker compose -f docker-compose.dev.yml up -d
+#   # Start all services for local development
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+#   # View logs
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f
+#
+#   # Stop all services
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+#
+# Access Points:
+#   - Web Interface:  http://localhost:8000
+#   - Kafka UI:       http://localhost:8080 (if enabled)
 #
 # ==============================================================================
 
 services:
   # ============================================================================
-  # Kafka Broker - Message Bus
-  # ============================================================================
-  kafka:
-    image: apache/kafka:3.7.0
-    container_name: civers-kafka-dev
-    environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:29092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
-      KAFKA_LOG4J_LOGGERS: "kafka.controller=WARN,kafka.authorizer.logger=WARN,org.apache.zookeeper=WARN"
-    ports:
-      - "29092:29092"
-    volumes:
-      - civers-kafka-data-dev:/var/lib/kafka/data
-    healthcheck:
-      test: [ "CMD-SHELL", "./opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1" ]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-    networks:
-      - civers-network-dev
-
-  # ============================================================================
-  # Web Interface - Supports hot-reload via uvicorn
+  # Web Interface - Local Development Override
   # ============================================================================
   web-interface:
-    build:
-      context: ./civers_archive_web_interface
-      dockerfile: Dockerfile
-    container_name: civers-web-interface-dev
     environment:
-      - HOST=0.0.0.0
-      - PORT=8000
+      - CONFIG_ENVIRONMENT=docker
       - LOG_LEVEL=DEBUG
       - DEBUG=true
-      - CONFIG_ENVIRONMENT=docker
-      - CONFIG_DIR=/app/shared-configs
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - CALLBACK_BASE_URL=http://web-interface:8000
-      - WATCHFILES_FORCE_POLLING=true
+      # Suppress verbose Kafka client logs
+      - KAFKA_LOG_LEVEL=WARNING
     ports:
       - "8000:8000"
-    volumes:
-      - ./civers_archive_web_interface:/app
-      - ./configs:/app/shared-configs
-      - civers-web-archives-dev:/app/archives
-      - civers-web-data-dev:/app/data
-      # Preserve image's venv
-      - /opt/venv
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-include '*.yaml' --reload-include '*.yml'
-    depends_on:
-      kafka:
-        condition: service_healthy
-    networks:
-      - civers-network-dev
+    # Mount source code for hot-reload during development (optional)
+    # Uncomment the following lines if you want live code changes:
+    # volumes:
+    #   - ./civers_archive_web_interface/app:/app/app:ro
+    #   - ./civers_archive_web_interface/static:/app/static:ro
+    #   - ./civers_archive_web_interface/templates:/app/templates:ro
 
-  # ============================================================================
-  # Orchestrator - Mounts source for fast restart
-  # ============================================================================
+    # ============================================================================
+    # Orchestrator - Local Development Override
+    # ============================================================================
   orchestrator:
-    build:
-      context: ./civers_orchestrator
-      dockerfile: Dockerfile
-    container_name: civers-orchestrator-dev
     environment:
       - CONFIG_ENVIRONMENT=docker
-      - CONFIG_DIR=/app/shared-configs
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - LOG_LEVEL=DEBUG
-      - WATCHFILES_FORCE_POLLING=true
-    volumes:
-      - ./civers_orchestrator:/app
-      - ./configs:/app/shared-configs
-      # Preserve the virtual environment built in the image
-      - /app/.venv
-    command: watchfiles --filter python "python main.py" /app
-    depends_on:
-      kafka:
-        condition: service_healthy
-    networks:
-      - civers-network-dev
+      # Suppress verbose Kafka client logs
+      - KAFKA_LOG_LEVEL=WARNING
 
   # ============================================================================
-  # Archive Generator - Mounts source for fast restart
+  # Archive Generator - Local Development Override
   # ============================================================================
   archive-generator:
-    build:
-      context: ./civers_archive_generator
-      dockerfile: Dockerfile
-    container_name: civers-archive-generator-dev
-    network_mode: host
     environment:
       - CONFIG_ENVIRONMENT=docker
-      - CONFIG_DIR=/app/shared-configs
-      - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
-      - CIVERS_API_URL=http://localhost:8000
       - LOG_LEVEL=DEBUG
-      - WATCHFILES_FORCE_POLLING=true
-    volumes:
-      - ./civers_archive_generator:/app
-      - ./configs:/app/shared-configs
-      - civers-generator-archives-dev:/app/archives
-      # Preserve node_modules and other generated files in lib/scoop
-      - /app/lib/scoop/node_modules
-      # Preserve the virtual environment built in the image
-      - /app/.venv
-    command: watchfiles --filter python "python -u main.py" /app
-    depends_on:
-      kafka:
-        condition: service_healthy
-      web-interface:
-        condition: service_healthy
+      # Suppress verbose Kafka client logs
+      - KAFKA_LOG_LEVEL=WARNING
 
   # ============================================================================
-  # Metadata Extractor - Mounts source for fast restart
+  # Metadata Extractor - Local Development Override
   # ============================================================================
   metadata-extractor:
-    build:
-      context: ./civers_metadata_extractor
-      dockerfile: Dockerfile
-    container_name: civers-metadata-extractor-dev
-    network_mode: host
     environment:
       - CONFIG_ENVIRONMENT=docker
-      - CONFIG_DIR=/app/shared-configs
-      - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
-      - CIVERS_API_URL=http://localhost:8000
       - LOG_LEVEL=DEBUG
-      - WATCHFILES_FORCE_POLLING=true
-    volumes:
-      - ./civers_metadata_extractor:/app
-      - ./configs:/app/shared-configs
-      - civers-metadata-output-dev:/app/output/metadata
-      # Preserve the virtual environment built in the image
-      - /app/.venv
-    command: watchfiles --filter python "python main.py" /app
+      # Suppress verbose Kafka client logs
+      - KAFKA_LOG_LEVEL=WARNING
+
+  # ============================================================================
+  # Optional: Kafka UI for debugging message flow
+  # ============================================================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: civers-kafka-ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: civers-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      SERVER_SERVLET_CONTEXT_PATH: /
+    ports:
+      - "8080:8080"
+    networks:
+      - civers-network
     depends_on:
       kafka:
         condition: service_healthy
-      web-interface:
-        condition: service_healthy
-
-networks:
-  civers-network-dev:
-    name: civers-network-dev
-    driver: bridge
-
-volumes:
-  civers-kafka-data-dev:
-    name: civers-kafka-data-dev
-  civers-web-archives-dev:
-    name: civers-web-archives-dev
-  civers-web-data-dev:
-    name: civers-web-data-dev
-  civers-generator-archives-dev:
-    name: civers-generator-archives-dev
-  civers-metadata-output-dev:
-    name: civers-metadata-output-dev
+    profiles:
+      - debug

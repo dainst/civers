@@ -22,15 +22,13 @@ services:
       - LOG_LEVEL=DEBUG
     labels:
       - "traefik.enable=true"
-      # HTTPS route
+      # Service definition
+      - "traefik.http.services.civers-web.loadbalancer.server.port=8000"
+      # HTTPS route (the only route needed)
       - "traefik.http.routers.civers-web.rule=Host(`civers.test.dainst.de`)"
       - "traefik.http.routers.civers-web.entrypoints=websecure"
       - "traefik.http.routers.civers-web.tls=true"
-      - "traefik.http.services.civers-web.loadbalancer.server.port=8000"
-      # HTTP to HTTPS redirect
-      - "traefik.http.routers.civers-web-http.rule=Host(`civers.test.dainst.de`)"
-      - "traefik.http.routers.civers-web-http.entrypoints=web"
-      - "traefik.http.routers.civers-web-http.middlewares=https-redirect"
+      - "traefik.http.routers.civers-web.service=civers-web"
     networks:
       - civers-network
 
@@ -96,24 +94,24 @@ services:
       # Entrypoints
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      # Self-Signed TLS (for VPN/Internal use)
-      - "--providers.docker.tls.certresolver=null"
+      - "--entrypoints.websecure.http.tls=true"
+      # Forward proxy headers to backend (for HTTPS awareness)
+      - "--entrypoints.websecure.forwardedHeaders.insecure=true"
       # Logging
       - "--log.level=INFO"
       - "--accesslog=true"
     ports:
-      - "9080:80"
-      - "9443:443"
-      - "8082:8080" # Traefik dashboard moves to 8082
+      - "8000:443" # HTTPS only
+      - "8082:8080" # Traefik dashboard
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${DOCKER_SOCKET_PATH:-/run/user/1000/docker.sock}:/var/run/docker.sock:ro
       - traefik-certs:/letsencrypt
     networks:
       - civers-network
     labels:
       # HTTPS redirect middleware
       - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.https-redirect.redirectscheme.port=9443"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.port=8000"
       - "traefik.http.middlewares.https-redirect.redirectscheme.permanent=true"
 
 volumes:

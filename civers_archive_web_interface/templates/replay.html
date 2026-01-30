@@ -3,12 +3,13 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block meta_description %}
-Replay archived snapshot from {{ snapshot.timestamp[:10] }}{% if archived_url %} for {{ archived_url.original_url }}{% endif %}
+Replay archived snapshot from {{ snapshot.timestamp[:10] }}{% if archived_url %} for {{ archived_url.original_url }}{%
+endif %}
 {% endblock %}
 
 {% block content %}
 <div x-data='replayPage("{{ snapshot_id }}", "{{ current_view }}", {{ available_views | tojson }})'
-     class="min-h-screen bg-gray-50">
+  class="min-h-screen bg-gray-50">
 
   <!-- Breadcrumb Navigation -->
   <div class="border-b bg-white">
@@ -18,10 +19,11 @@ Replay archived snapshot from {{ snapshot.timestamp[:10] }}{% if archived_url %}
           <!-- Home Link -->
           <li>
             <a href="/"
-               class="text-blue-600 hover:text-blue-800 focus:text-blue-800 focus:outline-none focus:underline transition-colors duration-200"
-               aria-label="Home">
+              class="text-blue-600 hover:text-blue-800 focus:text-blue-800 focus:outline-none focus:underline transition-colors duration-200"
+              aria-label="Home">
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                <path
+                  d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
               </svg>
               <span class="sr-only">Home</span>
             </a>
@@ -31,10 +33,12 @@ Replay archived snapshot from {{ snapshot.timestamp[:10] }}{% if archived_url %}
           <!-- Archive Link -->
           <li class="flex items-center">
             <svg class="w-4 h-4 text-gray-400 mx-2" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+              <path fill-rule="evenodd"
+                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                clip-rule="evenodd" />
             </svg>
             <a href="/archive/{{ archived_url.url_id }}"
-               class="text-blue-600 hover:text-blue-800 focus:text-blue-800 focus:outline-none focus:underline transition-colors duration-200 max-w-xs truncate">
+              class="text-blue-600 hover:text-blue-800 focus:text-blue-800 focus:outline-none focus:underline transition-colors duration-200 max-w-xs truncate">
               Archive
             </a>
           </li>
@@ -43,7 +47,9 @@ Replay archived snapshot from {{ snapshot.timestamp[:10] }}{% if archived_url %}
           <!-- Current: Replay -->
           <li class="flex items-center">
             <svg class="w-4 h-4 text-gray-400 mx-2" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+              <path fill-rule="evenodd"
+                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                clip-rule="evenodd" />
             </svg>
             <span class="text-gray-900 font-medium" aria-current="page">
               Replay
@@ -69,7 +75,8 @@ Replay archived snapshot from {{ snapshot.timestamp[:10] }}{% if archived_url %}
             <!-- Timestamp -->
             <div class="flex items-center">
               <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z"/>
+                <path fill-rule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" />
               </svg>
               <span x-text="formatDate('{{ snapshot.timestamp }}')"></span>
             </div>
@@ -86,7 +93,8 @@ Replay archived snapshot from {{ snapshot.timestamp[:10] }}{% if archived_url %}
             <!-- Snapshot ID -->
             <div class="flex items-center font-mono text-xs">
               <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"/>
+                <path fill-rule="evenodd"
+                  d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" />
               </svg>
               <span>{{ snapshot_id }}</span>
             </div>
@@ -97,13 +105,10 @@ Replay archived snapshot from {{ snapshot.timestamp[:10] }}{% if archived_url %}
         <div class="mt-5 lg:mt-0 lg:ml-4">
           <div x-show="availableViews.length > 1" class="btn-group" role="group">
             <template x-for="view in availableViews" :key="view">
-              <button @click="switchView(view)"
-                      :class="{
+              <button @click="switchView(view)" :class="{
                         'btn-primary': currentView === view,
                         'btn-secondary': currentView !== view
-                      }"
-                      class="btn"
-                      :aria-pressed="currentView === view ? 'true' : 'false'">
+                      }" class="btn" :aria-pressed="currentView === view ? 'true' : 'false'">
                 <span x-text="view.toUpperCase()"></span>
               </button>
             </template>
@@ -134,7 +139,8 @@ Replay archived snapshot from {{ snapshot.timestamp[:10] }}{% if archived_url %}
       <div class="card-body">
         <div class="flex">
           <svg class="h-5 w-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"/>
+            <path fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" />
           </svg>
           <div>
             <h3 class="text-sm font-medium">Error loading content</h3>
@@ -216,11 +222,12 @@ Replay archived snapshot from {{ snapshot.timestamp[:10] }}{% if archived_url %}
               <h4 class="form-label mb-3">Available Downloads</h4>
               <div class="space-y-2">
                 {% for artifact in snapshot.available_artifacts %}
-                <button @click="downloadArtifact('{{ snapshot_id }}', '{{ artifact.split('.')[0] }}')"
-                        class="btn btn-outline w-full justify-between text-sm">
+                <button @click="downloadArtifact('{{ snapshot_id }}', '{{ artifact }}')"
+                  class="btn btn-outline w-full justify-between text-sm">
                   <span>{{ artifact }}</span>
                   <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/>
+                    <path fill-rule="evenodd"
+                      d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" />
                   </svg>
                 </button>
                 {% endfor %}

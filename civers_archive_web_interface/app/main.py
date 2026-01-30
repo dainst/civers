@@ -28,6 +28,7 @@ from .middleware import (
 )
 from .logging import configure_logging
 from .constants import HealthStatus
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 import uvicorn
 import logging
 
@@ -161,7 +162,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(CorrelationIdMiddleware)     # Correlation ID for request tracing (outermost)
+app.add_middleware(CorrelationIdMiddleware)     # Correlation ID for request tracing
+
+# Trust proxy headers (X-Forwarded-Proto, X-Forwarded-For) from Traefik
+# This makes url_for() generate https:// URLs when behind HTTPS proxy
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
 # Register application-level exception handlers for consistent error formatting
 app.add_exception_handler(RequestValidationError, custom_validation_exception_handler)
