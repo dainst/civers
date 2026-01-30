@@ -33,6 +33,8 @@ services:
       - CONFIG_ENVIRONMENT=docker
       - LOG_LEVEL=DEBUG
       - DEBUG=true
+      # Callback URL must use localhost so orchestrator (on host network) can reach it
+      - CALLBACK_BASE_URL=http://localhost:8000
       # Suppress verbose Kafka client logs
       - KAFKA_LOG_LEVEL=WARNING
     ports:
@@ -46,31 +48,49 @@ services:
 
     # ============================================================================
     # Orchestrator - Local Development Override
+    # Uses host network so document_url uses localhost (reachable by metadata-extractor)
     # ============================================================================
   orchestrator:
+    network_mode: host
+    networks: !override [] # Clear networks from base file (mutually exclusive with network_mode)
     environment:
       - CONFIG_ENVIRONMENT=docker
       - LOG_LEVEL=DEBUG
+      # Use localhost since we're on host network
+      - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
+      - CIVERS_API_URL=http://localhost:8000
       # Suppress verbose Kafka client logs
       - KAFKA_LOG_LEVEL=WARNING
 
   # ============================================================================
   # Archive Generator - Local Development Override
+  # Uses host network to access VPN-only URLs (e.g., arachne.test.dainst.org)
   # ============================================================================
   archive-generator:
+    network_mode: host
+    networks: !override [] # Clear networks from base file (mutually exclusive with network_mode)
     environment:
       - CONFIG_ENVIRONMENT=docker
       - LOG_LEVEL=DEBUG
+      # Use localhost since we're on host network
+      - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
+      - CIVERS_API_URL=http://localhost:8000
       # Suppress verbose Kafka client logs
       - KAFKA_LOG_LEVEL=WARNING
 
   # ============================================================================
   # Metadata Extractor - Local Development Override
+  # Uses host network for consistency with archive-generator
   # ============================================================================
   metadata-extractor:
+    network_mode: host
+    networks: !override [] # Clear networks from base file (mutually exclusive with network_mode)
     environment:
       - CONFIG_ENVIRONMENT=docker
       - LOG_LEVEL=DEBUG
+      # Use localhost since we're on host network
+      - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
+      - CIVERS_API_URL=http://localhost:8000
       # Suppress verbose Kafka client logs
       - KAFKA_LOG_LEVEL=WARNING
 
