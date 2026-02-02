@@ -116,6 +116,61 @@ class ArchiveResult:
         """Add an artifact result."""
         self.artifacts.append(artifact)
     
+    def validate_required_artifacts(
+        self, 
+        required_artifacts: List[str],
+        artifact_name_mapping: Dict[str, List[str]] = None
+    ) -> tuple:
+        """
+        Validate that required archive generator artifacts were successfully created.
+        
+        Note: This only validates artifacts that the ARCHIVE GENERATOR produces.
+        Artifacts produced by other services (e.g., 'json' from metadata extractor)
+        are skipped since this validation runs before those services execute.
+        
+        Args:
+            required_artifacts: List of artifact names from domain config (e.g., ['warc', 'html', 'singlefile'])
+            artifact_name_mapping: Optional mapping from domain config names to internal artifact names.
+                                   If not provided, uses default mapping.
+        
+        Returns:
+            Tuple of (is_valid: bool, missing_artifacts: List[str])
+        """
+        # Mapping from domain config artifact names to internal artifact names
+        # ONLY includes artifacts that the archive generator produces
+        # 'json' is NOT included - it's produced by the metadata extractor
+        archive_generator_artifacts = {
+            "warc": ["warc"],
+            "html": ["dom-snapshot"],
+            "screenshots": ["screenshot"],
+            "singlefile": ["singlefile"],
+        }
+        
+        mapping = artifact_name_mapping or archive_generator_artifacts
+        missing = []
+        
+        for required in required_artifacts:
+            # Skip artifacts not produced by the archive generator
+            if required not in mapping:
+                continue
+            
+            # Get internal artifact names for this required artifact
+            internal_names = mapping.get(required)
+            
+            # Check if any of the internal names were successfully created
+            found = False
+            for internal_name in internal_names:
+                artifact = self.get_artifact(internal_name)
+                if artifact and artifact.is_success:
+                    found = True
+                    break
+            
+            if not found:
+                missing.append(required)
+        
+        is_valid = len(missing) == 0
+        return (is_valid, missing)
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization/logging."""
         return {

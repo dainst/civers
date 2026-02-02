@@ -97,7 +97,32 @@ class ArchiveService(ArchiveServiceInterface):
             logger.info(f"✅ Archive generated: {archive_result.archive_path}")
             logger.debug(f"   Artifacts: {archive_result.artifacts_created}")
             
-            # Step 4: Store archive
+            # Step 4: Validate required artifacts from domain config
+            required_artifacts = domain_config.artifacts or []
+            is_valid, missing_artifacts = archive_result.validate_required_artifacts(required_artifacts)
+            
+            if not is_valid:
+                processing_time = time.time() - start_time
+                error_msg = f"Missing required artifacts: {', '.join(missing_artifacts)}"
+                logger.warning(f"⚠️ Artifact validation failed: {error_msg}")
+                return {
+                    'success': False,
+                    'request_id': request_id,
+                    'url': url,
+                    'archive_path': archive_result.archive_path,
+                    'error': error_msg,
+                    'error_type': 'missing_required_artifacts',
+                    'artifacts_created': archive_result.artifacts_created,
+                    'missing_artifacts': missing_artifacts,
+                    'failed_artifacts': [a.name for a in archive_result.failed_artifacts],
+                    'processing_time_seconds': processing_time,
+                    'scoop_exit_code': archive_result.scoop_exit_code,
+                    'priority': priority
+                }
+            
+            logger.info(f"✅ Artifact validation passed")
+            
+            # Step 5: Store archive
             storage_result = await self._store_archive(
                 archive_result.archive_path, url, domain_config, request_id
             )
