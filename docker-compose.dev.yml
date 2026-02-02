@@ -61,6 +61,13 @@ services:
       - CIVERS_API_URL=http://localhost:8000
       # Suppress verbose Kafka client logs
       - KAFKA_LOG_LEVEL=WARNING
+    # Hot-reload: Mount source code and use watchfiles to auto-restart
+    volumes:
+      - ./civers_orchestrator/orchestrator_services:/app/orchestrator_services:ro
+      - ./civers_orchestrator/transport_services:/app/transport_services:ro
+      - ./civers_orchestrator/configs:/app/configs:ro
+      - ./civers_orchestrator/main.py:/app/main.py:ro
+    command: [ "bash", "-c", ". /app/.venv/bin/activate && watchfiles --filter python 'python main.py' ." ]
 
   # ============================================================================
   # Archive Generator - Local Development Override
@@ -77,6 +84,14 @@ services:
       - CIVERS_API_URL=http://localhost:8000
       # Suppress verbose Kafka client logs
       - KAFKA_LOG_LEVEL=WARNING
+    # Hot-reload: Mount source code and use watchfiles to auto-restart
+    volumes:
+      - ./civers_archive_generator/archive_generators:/app/archive_generators:ro
+      - ./civers_archive_generator/archive_services:/app/archive_services:ro
+      - ./civers_archive_generator/transport_services:/app/transport_services:ro
+      - ./civers_archive_generator/configs:/app/configs:ro
+      - ./civers_archive_generator/main.py:/app/main.py:ro
+    command: [ "bash", "-c", ". /app/.venv/bin/activate && watchfiles --filter python 'python main.py' ." ]
 
   # ============================================================================
   # Metadata Extractor - Local Development Override
@@ -93,6 +108,15 @@ services:
       - CIVERS_API_URL=http://localhost:8000
       # Suppress verbose Kafka client logs
       - KAFKA_LOG_LEVEL=WARNING
+    # Hot-reload: Mount source code and use watchfiles to auto-restart
+    volumes:
+      - ./civers_metadata_extractor/metadata_extractors:/app/metadata_extractors:ro
+      - ./civers_metadata_extractor/metadata_extraction_services:/app/metadata_extraction_services:ro
+      - ./civers_metadata_extractor/transport_services:/app/transport_services:ro
+      - ./civers_metadata_extractor/configs:/app/configs:ro
+      - ./civers_metadata_extractor/models:/app/models:ro
+      - ./civers_metadata_extractor/main.py:/app/main.py:ro
+    command: [ "bash", "-c", ". /app/.venv/bin/activate && watchfiles --filter python 'python main.py' ." ]
 
   # ============================================================================
   # Optional: Kafka UI for debugging message flow

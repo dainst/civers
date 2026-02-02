@@ -72,13 +72,35 @@ class ArchiveService(ArchiveServiceInterface):
             generator = self._create_archive_generator(domain_config)
             logger.info(f"🔧 Initialized {domain_config.webpage_types} archive generator")
             
-            # Step 3: Generate archive
+            # Step 3: Generate archive - now returns ArchiveResult
             logger.info(f"📦 Generating archive for {url}")
-            archive_path = await generator.generate_archive(url, request_id)
-            logger.info(f"✅ Archive generated: {archive_path}")
+            archive_result = await generator.generate_archive(url, request_id)
+            
+            # Check if archive generation succeeded
+            if not archive_result.success:
+                processing_time = time.time() - start_time
+                logger.warning(f"⚠️ Archive generation failed: {archive_result.error_message}")
+                return {
+                    'success': False,
+                    'request_id': request_id,
+                    'url': url,
+                    'archive_path': archive_result.archive_path,
+                    'error': archive_result.error_message,
+                    'error_type': archive_result.error_type or 'archive_generation_failed',
+                    'artifacts_created': archive_result.artifacts_created,
+                    'failed_artifacts': [a.name for a in archive_result.failed_artifacts],
+                    'processing_time_seconds': processing_time,
+                    'scoop_exit_code': archive_result.scoop_exit_code,
+                    'priority': priority
+                }
+            
+            logger.info(f"✅ Archive generated: {archive_result.archive_path}")
+            logger.debug(f"   Artifacts: {archive_result.artifacts_created}")
             
             # Step 4: Store archive
-            storage_result = await self._store_archive(archive_path, url, domain_config, request_id)
+            storage_result = await self._store_archive(
+                archive_result.archive_path, url, domain_config, request_id
+            )
             logger.info(f"💾 Archive stored successfully")
             
             # Step 5: Calculate processing time and return success
@@ -88,14 +110,17 @@ class ArchiveService(ArchiveServiceInterface):
                 'success': True,
                 'request_id': request_id,
                 'url': url,
-                'archive_path': archive_path,
+                'archive_path': archive_result.archive_path,
+                'snapshot_id': archive_result.snapshot_id,
                 'storage_result': storage_result,
+                'artifacts_created': archive_result.artifacts_created,
                 'domain_config': {
                     'name': domain_config.name,
                     'webpage_types': domain_config.webpage_types,
                     'artifacts': domain_config.artifacts
                 },
                 'processing_time_seconds': processing_time,
+                'scoop_exit_code': archive_result.scoop_exit_code,
                 'priority': priority
             }
             
