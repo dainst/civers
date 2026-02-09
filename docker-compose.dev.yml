@@ -30,7 +30,7 @@ services:
   # ============================================================================
   web-interface:
     environment:
-      - CONFIG_ENVIRONMENT=docker
+      - CONFIG_ENVIRONMENT=${CONFIG_ENVIRONMENT:-docker}
       - LOG_LEVEL=DEBUG
       - DEBUG=true
       # Callback URL must use localhost so orchestrator (on host network) can reach it
@@ -39,13 +39,12 @@ services:
       - KAFKA_LOG_LEVEL=WARNING
     ports:
       - "8000:8000"
-    # Mount source code for hot-reload during development (optional)
-    # Uncomment the following lines if you want live code changes:
-    # volumes:
-    #   - ./civers_archive_web_interface/app:/app/app:ro
-    #   - ./civers_archive_web_interface/static:/app/static:ro
-    #   - ./civers_archive_web_interface/templates:/app/templates:ro
-
+    # Hot-reload: Mount source code and use watchfiles to auto-restart
+    volumes:
+      - ./civers_archive_web_interface/app:/app/app:ro
+      - ./civers_archive_web_interface/static:/app/static:ro
+      - ./civers_archive_web_interface/templates:/app/templates:ro
+    command: [ "bash", "-c", ". /opt/venv/bin/activate && exec watchfiles 'uvicorn app.main:app --host 0.0.0.0 --port 8000' app static templates /shared-configs" ]
     # ============================================================================
     # Orchestrator - Local Development Override
     # Uses host network so document_url uses localhost (reachable by metadata-extractor)
@@ -54,7 +53,7 @@ services:
     network_mode: host
     networks: !override [] # Clear networks from base file (mutually exclusive with network_mode)
     environment:
-      - CONFIG_ENVIRONMENT=docker
+      - CONFIG_ENVIRONMENT=${CONFIG_ENVIRONMENT:-docker}
       - LOG_LEVEL=DEBUG
       # Use localhost since we're on host network
       - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
@@ -67,7 +66,7 @@ services:
       - ./civers_orchestrator/transport_services:/app/transport_services:ro
       - ./civers_orchestrator/configs:/app/configs:ro
       - ./civers_orchestrator/main.py:/app/main.py:ro
-    command: [ "bash", "-c", ". /app/.venv/bin/activate && watchfiles --filter python 'python main.py' ." ]
+    command: [ "bash", "-c", ". /app/.venv/bin/activate && exec watchfiles 'python main.py' main.py orchestration_services transport_services models /shared-configs" ]
 
   # ============================================================================
   # Archive Generator - Local Development Override
@@ -77,7 +76,7 @@ services:
     network_mode: host
     networks: !override [] # Clear networks from base file (mutually exclusive with network_mode)
     environment:
-      - CONFIG_ENVIRONMENT=docker
+      - CONFIG_ENVIRONMENT=${CONFIG_ENVIRONMENT:-docker}
       - LOG_LEVEL=DEBUG
       # Use localhost since we're on host network
       - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
@@ -91,7 +90,7 @@ services:
       - ./civers_archive_generator/transport_services:/app/transport_services:ro
       - ./civers_archive_generator/configs:/app/configs:ro
       - ./civers_archive_generator/main.py:/app/main.py:ro
-    command: [ "bash", "-c", ". /app/.venv/bin/activate && watchfiles --filter python 'python main.py' ." ]
+    command: [ "bash", "-c", ". /app/.venv/bin/activate && exec watchfiles 'python main.py' main.py archive_generators archive_services transport_services storage_layer /shared-configs" ]
 
   # ============================================================================
   # Metadata Extractor - Local Development Override
@@ -101,7 +100,7 @@ services:
     network_mode: host
     networks: !override [] # Clear networks from base file (mutually exclusive with network_mode)
     environment:
-      - CONFIG_ENVIRONMENT=docker
+      - CONFIG_ENVIRONMENT=${CONFIG_ENVIRONMENT:-docker}
       - LOG_LEVEL=DEBUG
       # Use localhost since we're on host network
       - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
@@ -116,7 +115,7 @@ services:
       - ./civers_metadata_extractor/configs:/app/configs:ro
       - ./civers_metadata_extractor/models:/app/models:ro
       - ./civers_metadata_extractor/main.py:/app/main.py:ro
-    command: [ "bash", "-c", ". /app/.venv/bin/activate && watchfiles --filter python 'python main.py' ." ]
+    command: [ "bash", "-c", ". /app/.venv/bin/activate && exec watchfiles 'python main.py' main.py metadata_extraction_services metadata_extractors transport_services storage_layer models /shared-configs" ]
 
   # ============================================================================
   # Optional: Kafka UI for debugging message flow

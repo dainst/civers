@@ -72,8 +72,8 @@ name = "civers-orchestrator"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "aiokafka" },
     { name = "httpx" },
-    { name = "kafka-python" },
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
@@ -91,10 +91,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiokafka", specifier = ">=0.10.0" },
     { name = "aiokafka", marker = "extra == 'dev'", specifier = ">=0.12.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28.0" },
-    { name = "kafka-python", specifier = ">=2.2.10" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.11.5" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.5" },
@@ -167,15 +167,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f2/97/ebf4da567aa6827c909642694d71c9fcf53e5b504f2d96afea02718862f3/iniconfig-2.1.0.tar.gz", hash = "sha256:3abbd2e30b36733fee78f9c7f7308f2d0050e88f0087fd25c2645f63c773e1c7", size = 4793, upload-time = "2025-03-19T20:09:59.721Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2c/e1/e6716421ea10d38022b952c159d5161ca1193197fb744506875fbb87ea7b/iniconfig-2.1.0-py3-none-any.whl", hash = "sha256:9deba5723312380e77435581c6bf4935c94cbfab9b1ed33ef8d238ea168eb760", size = 6050, upload-time = "2025-03-19T20:10:01.071Z" },
-]
-
-[[package]]
-name = "kafka-python"
-version = "2.2.15"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/da/67/1434436f3cb409443f72a4843b877ac2d9bf586a31a0e966cf1dc4dc9a94/kafka_python-2.2.15.tar.gz", hash = "sha256:e0f480a45f3814cb0eb705b8b4f61069e1be61dae0d8c69d0f1f2da33eea1bd5", size = 347870, upload-time = "2025-07-01T17:37:53.686Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e6/35/e8bfed5425e8fe685bd03ec3f5135ee8b88c11558baa59c0d12fbd2a20ae/kafka_python-2.2.15-py2.py3-none-any.whl", hash = "sha256:84c0993cd4f7f2f01e92d8104ea9bdf631aff72fc5e6ea62eb3bdf1d56528fc3", size = 309751, upload-time = "2025-07-01T17:37:51.87Z" },
 ]
 
 [[package]]
