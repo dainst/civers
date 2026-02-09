@@ -8,6 +8,13 @@ class DomainConfig(BaseModel):
     name: str
     artifacts: List[str]
     webpage_types: Literal["dynamic", "static"]
+    enabled: bool = True
+    description: str = ""
+
+    @property
+    def is_wildcard(self) -> bool:
+        """Check if this is a wildcard domain pattern."""
+        return "*" in self.name
 
     @field_validator("artifacts")
     def check_artifacts(cls, v):

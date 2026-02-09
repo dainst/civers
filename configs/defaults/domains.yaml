@@ -16,7 +16,7 @@ domains:
     enabled: true
     description: "iDAI.objects/Arachne - Archaeological object database"
     input_source: html_document
-    mappings:
+    mappings: &arachne_mappings
       "name": "Title.title"
       "description": "Description.description|description_type=Abstract"
       "@id": "AlternateIdentifier.alternate_identifier"
@@ -48,7 +48,7 @@ domains:
     enabled: true
     description: "Arachne test environment"
     input_source: html_document
-    mappings:
+    mappings: &arachne_mappings_test
       "name": "Title.title"
       "description": "Description.description|description_type=Abstract"
       "@id": "AlternateIdentifier.alternate_identifier"
@@ -130,6 +130,13 @@ domains:
     enabled: true
     description: "Default fallback for unknown domains"
 
+  - name: civers.widget.demo
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile]
+    webpage_types: dynamic
+    enabled: true
+    description: "CIVERS Widget Demo Domain"
+
   # Integration test domain
   - name: httpbin.org
     workflow: simple_archive_only
@@ -137,4 +144,49 @@ domains:
     webpage_types: dynamic
     enabled: true
     description: "HTTP testing service for integration tests"
+
+  - name: civers.test.dainst.de
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    enabled: true
+    description: "CiVers Arachne frontend Test Environment Domain"
+    input_source: html_document
+    mappings: *arachne_mappings_test
+
+  - name: "civers.test.dainst.de:8080"
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    enabled: true
+    description: "CiVers Arachne frontend Test Environment Domain (Port 8080)"
+    input_source: html_document
+    mappings: *arachne_mappings_test
+
+  - name: localhost
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    enabled: true
+    description: "Local Development Host"
+    input_source: html_document
+    mappings: *arachne_mappings_test
+
+  - name: 127.0.0.1
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    enabled: true
+    description: "Local Development IP"
+    input_source: html_document
+    mappings: *arachne_mappings_test
+
+  - name: arachne_local_demo
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    enabled: true
+    description: "Arachne Local Demo Instance"
+    input_source: html_document
+    mappings: *arachne_mappings
 

@@ -1,6 +1,7 @@
 """Logging configuration using asgi-correlation-id pattern."""
 
 import logging
+import os
 from logging.config import dictConfig
 from typing import Optional
 from asgi_correlation_id import CorrelationIdFilter
@@ -15,6 +16,8 @@ def configure_logging(level: str = "INFO", json_format: bool = True, log_file: O
         json_format: Use JSON formatter for structured logging
         log_file: Optional file path for file logging
     """
+    # Get Kafka log level from environment (controllable via docker-compose)
+    kafka_log_level = os.getenv("KAFKA_LOG_LEVEL", "WARNING").upper()
 
     config = {
         'version': 1,
@@ -48,6 +51,14 @@ def configure_logging(level: str = "INFO", json_format: bool = True, log_file: O
             'uvicorn.access': {'level': 'INFO'},
             'httpx': {'level': 'INFO'},
             'asgi_correlation_id': {'level': 'WARNING'},
+            # Kafka loggers - suppress all verbose sub-loggers
+            'kafka': {'level': kafka_log_level},
+            'aiokafka': {'level': kafka_log_level},
+            'aiokafka.conn': {'level': kafka_log_level},
+            'aiokafka.consumer': {'level': kafka_log_level},
+            'aiokafka.producer': {'level': kafka_log_level},
+            'aiokafka.fetcher': {'level': kafka_log_level},
+            'aiokafka.cluster': {'level': kafka_log_level},
         }
     }
 

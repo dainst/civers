@@ -102,8 +102,12 @@ def parse_url(url: str) -> Tuple[str, str, str]:
     """
     parsed = urlparse(url)
 
-    # Extract domain
-    domain = parsed.netloc
+    # Extract domain (hostname excludes port)
+    domain = parsed.hostname
+    if not domain:
+        # Fallback to netloc if hostname fails (e.g. invalid URL)
+        domain = parsed.netloc.split(':')[0] if ':' in parsed.netloc else parsed.netloc
+        
     if not domain:
         raise ValueError(f"Invalid URL: {url} - no domain found")
 

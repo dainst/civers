@@ -72,13 +72,60 @@ class ArchiveService(ArchiveServiceInterface):
             generator = self._create_archive_generator(domain_config)
             logger.info(f"🔧 Initialized {domain_config.webpage_types} archive generator")
             
-            # Step 3: Generate archive
+            # Step 3: Generate archive - now returns ArchiveResult
             logger.info(f"📦 Generating archive for {url}")
-            archive_path = await generator.generate_archive(url, request_id)
-            logger.info(f"✅ Archive generated: {archive_path}")
+            archive_result = await generator.generate_archive(url, request_id)
             
-            # Step 4: Store archive
-            storage_result = await self._store_archive(archive_path, url, domain_config, request_id)
+            # Check if archive generation succeeded
+            if not archive_result.success:
+                processing_time = time.time() - start_time
+                logger.warning(f"⚠️ Archive generation failed: {archive_result.error_message}")
+                return {
+                    'success': False,
+                    'request_id': request_id,
+                    'url': url,
+                    'archive_path': archive_result.archive_path,
+                    'error': archive_result.error_message,
+                    'error_type': archive_result.error_type or 'archive_generation_failed',
+                    'artifacts_created': archive_result.artifacts_created,
+                    'failed_artifacts': [a.name for a in archive_result.failed_artifacts],
+                    'processing_time_seconds': processing_time,
+                    'scoop_exit_code': archive_result.scoop_exit_code,
+                    'priority': priority
+                }
+            
+            logger.info(f"✅ Archive generated: {archive_result.archive_path}")
+            logger.debug(f"   Artifacts: {archive_result.artifacts_created}")
+            
+            # Step 4: Validate required artifacts from domain config
+            required_artifacts = domain_config.artifacts or []
+            is_valid, missing_artifacts = archive_result.validate_required_artifacts(required_artifacts)
+            
+            if not is_valid:
+                processing_time = time.time() - start_time
+                error_msg = f"Missing required artifacts: {', '.join(missing_artifacts)}"
+                logger.warning(f"⚠️ Artifact validation failed: {error_msg}")
+                return {
+                    'success': False,
+                    'request_id': request_id,
+                    'url': url,
+                    'archive_path': archive_result.archive_path,
+                    'error': error_msg,
+                    'error_type': 'missing_required_artifacts',
+                    'artifacts_created': archive_result.artifacts_created,
+                    'missing_artifacts': missing_artifacts,
+                    'failed_artifacts': [a.name for a in archive_result.failed_artifacts],
+                    'processing_time_seconds': processing_time,
+                    'scoop_exit_code': archive_result.scoop_exit_code,
+                    'priority': priority
+                }
+            
+            logger.info(f"✅ Artifact validation passed")
+            
+            # Step 5: Store archive
+            storage_result = await self._store_archive(
+                archive_result.archive_path, url, domain_config, request_id
+            )
             logger.info(f"💾 Archive stored successfully")
             
             # Step 5: Calculate processing time and return success
@@ -88,14 +135,17 @@ class ArchiveService(ArchiveServiceInterface):
                 'success': True,
                 'request_id': request_id,
                 'url': url,
-                'archive_path': archive_path,
+                'archive_path': archive_result.archive_path,
+                'snapshot_id': archive_result.snapshot_id,
                 'storage_result': storage_result,
+                'artifacts_created': archive_result.artifacts_created,
                 'domain_config': {
                     'name': domain_config.name,
                     'webpage_types': domain_config.webpage_types,
                     'artifacts': domain_config.artifacts
                 },
                 'processing_time_seconds': processing_time,
+                'scoop_exit_code': archive_result.scoop_exit_code,
                 'priority': priority
             }
             
@@ -131,6 +181,9 @@ class ArchiveService(ArchiveServiceInterface):
         try:
             parsed_url = urlparse(url)
             domain = parsed_url.netloc
+            # Remove port if present for comparison
+            if ":" in domain:
+                domain = domain.split(":")[0]
             
             # If domain is empty, URL is invalid
             if not domain:
@@ -140,10 +193,10 @@ class ArchiveService(ArchiveServiceInterface):
             logger.debug(f"🔍 Looking for domain config for: {domain}")
             
             for domain_config in self.config.domains:
-                # Check if domain config name matches or is contained in the URL domain
-                if (domain_config.name in domain or 
-                    domain in domain_config.name or 
-                    domain_config.name.lower() in domain.lower()):
+                config_name = domain_config.name.lower()
+                # Check if domain config name matches
+                if (config_name == domain.lower() or 
+                    (domain_config.is_wildcard and domain.lower().endswith(config_name.replace("*", "")))):
                     
                     logger.debug(f"✅ Found matching domain config: {domain_config.name}")
                     return domain_config

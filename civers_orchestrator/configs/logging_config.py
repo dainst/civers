@@ -1,6 +1,7 @@
 """Logging configuration for CiVers Orchestrator."""
 
 import logging
+import os
 import sys
 from typing import Optional
 
@@ -31,8 +32,11 @@ def setup_logging(
         ],
     )
 
-    # Set third-party library log levels
-    logging.getLogger("kafka").setLevel(logging.WARNING)
+    # Set third-party library log levels (controllable via env)
+    kafka_log_level = os.getenv("KAFKA_LOG_LEVEL", "WARNING").upper()
+    kafka_level = getattr(logging, kafka_log_level, logging.WARNING)
+    logging.getLogger("kafka").setLevel(kafka_level)
+    logging.getLogger("aiokafka").setLevel(kafka_level)
     logging.getLogger("kafka.conn").setLevel(logging.ERROR)
 
 

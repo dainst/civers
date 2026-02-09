@@ -1,0 +1,124 @@
+# ==============================================================================
+# CIVERS Test Environment - Docker Compose Override
+# ==============================================================================
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
+#
+# This file extends the base docker-compose.yml for test server deployment
+# (test.civers.de). It adds:
+#   - Traefik reverse proxy with automatic SSL via Let's Encrypt
+#   - Test-specific environment variables
+#   - Proper Docker networking for server deployment
+#
+# ==============================================================================
+
+services:
+  # ============================================================================
+  # Web Interface - Override for test environment
+  # ============================================================================
+  web-interface:
+    environment:
+      - CONFIG_ENVIRONMENT=test
+      - LOG_LEVEL=DEBUG
+    labels:
+      - "traefik.enable=true"
+      # Service definition
+      - "traefik.http.services.civers-web.loadbalancer.server.port=8000"
+      # HTTPS route (the only route needed)
+      - "traefik.http.routers.civers-web.rule=Host(`civers.test.dainst.de`)"
+      - "traefik.http.routers.civers-web.entrypoints=websecure"
+      - "traefik.http.routers.civers-web.tls=true"
+      - "traefik.http.routers.civers-web.service=civers-web"
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Orchestrator - Override for test environment
+  # ============================================================================
+  orchestrator:
+    environment:
+      - CONFIG_ENVIRONMENT=test
+      - LOG_LEVEL=DEBUG
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Archive Generator - Override for test environment
+  # Use Docker networking instead of host network for server deployment
+  # ============================================================================
+  archive-generator:
+    environment:
+      - CONFIG_ENVIRONMENT=test
+      - LOG_LEVEL=DEBUG
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CIVERS_API_URL=http://web-interface:8000
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Metadata Extractor - Override for test environment
+  # Use Docker networking instead of host network for server deployment
+  # ============================================================================
+  metadata-extractor:
+    environment:
+      - CONFIG_ENVIRONMENT=test
+      - LOG_LEVEL=DEBUG
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CIVERS_API_URL=http://web-interface:8000
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Kafka - Ensure it's on the shared network
+  # ============================================================================
+  kafka:
+    networks:
+      - civers-network
+
+  # ============================================================================
+  # Traefik Reverse Proxy
+  # Handles SSL termination with automatic Let's Encrypt certificates
+  # ============================================================================
+  traefik:
+    image: traefik:v2.11
+    container_name: civers-traefik
+    restart: always
+    command:
+      # API & Dashboard (disable insecure in production)
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      # Docker provider
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=civers-network"
+      # Entrypoints
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls=true"
+      # Forward proxy headers to backend (for HTTPS awareness)
+      - "--entrypoints.websecure.forwardedHeaders.insecure=true"
+      # Logging
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    ports:
+      - "8000:443" # HTTPS only
+      - "8082:8080" # Traefik dashboard
+    volumes:
+      - ${DOCKER_SOCKET_PATH:-/run/user/1000/docker.sock}:/var/run/docker.sock:ro
+      - traefik-certs:/letsencrypt
+    networks:
+      - civers-network
+    labels:
+      # HTTPS redirect middleware
+      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.port=8000"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.permanent=true"
+
+volumes:
+  traefik-certs:
+    name: civers-traefik-certs
+
+networks:
+  civers-network:
+    name: civers-network
+    external: true

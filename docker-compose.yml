@@ -45,6 +45,8 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=WARN,kafka.authorizer.logger=WARN,org.apache.zookeeper=WARN"
     ports:
       - "29092:29092"
     volumes:
@@ -97,10 +99,9 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       # Callback URL for orchestrator (must use Docker service name)
       - CALLBACK_BASE_URL=http://web-interface:8000
-    ports:
-      - "8000:8000"
     volumes:
       - ./configs:/shared-configs:ro
+      - ./civers_archive_web_interface/static:/app/static
       - web-archives:/app/archives
       - web-data:/app/data
     healthcheck:
@@ -152,17 +153,17 @@ services:
       context: ./civers_archive_generator
       dockerfile: Dockerfile
     container_name: civers-archive-generator
-    network_mode: host
     environment:
       - CONFIG_ENVIRONMENT=docker
       - CONFIG_DIR=/shared-configs
-      # Use localhost since we're on host network
-      - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
-      - CIVERS_API_URL=http://localhost:8000
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CIVERS_API_URL=http://web-interface:8000
       - LOG_LEVEL=INFO
     volumes:
       - ./configs:/shared-configs:ro
       - generator-archives:/app/archives
+    networks:
+      - civers-network
     depends_on:
       kafka:
         condition: service_healthy
@@ -182,17 +183,17 @@ services:
       context: ./civers_metadata_extractor
       dockerfile: Dockerfile
     container_name: civers-metadata-extractor
-    network_mode: host
     environment:
       - CONFIG_ENVIRONMENT=docker
       - CONFIG_DIR=/shared-configs
-      # Use localhost since we're on host network
-      - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
-      - CIVERS_API_URL=http://localhost:8000
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CIVERS_API_URL=http://web-interface:8000
       - LOG_LEVEL=INFO
     volumes:
       - ./configs:/shared-configs:ro
       - metadata-output:/app/output/metadata
+    networks:
+      - civers-network
     depends_on:
       kafka:
         condition: service_healthy

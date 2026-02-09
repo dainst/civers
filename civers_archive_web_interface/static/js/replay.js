@@ -11,7 +11,7 @@ function replayPage(snapshotId, initialView, availableViews) {
         availableViews: availableViews,
         loading: false,
         error: null,
-        
+
         /**
          * Initialize the component
          */
@@ -19,7 +19,7 @@ function replayPage(snapshotId, initialView, availableViews) {
             console.log('Initializing Replay page for snapshot:', this.snapshotId);
             console.log('Available views:', this.availableViews);
             console.log('Initial view:', this.currentView);
-            
+
             // Set default view if none provided
             if (!this.currentView && this.availableViews.length > 0) {
                 this.currentView = this.availableViews.includes('wacz') ? 'wacz' : this.availableViews[0];
@@ -50,36 +50,39 @@ function replayPage(snapshotId, initialView, availableViews) {
         async downloadArtifact(snapshotId, artifactType) {
             try {
                 console.log(`Downloading ${artifactType} for snapshot:`, snapshotId);
-                
+
                 // Map display type back to actual artifact type for API
                 const typeMapping = {
                     'wacz': 'archive.wacz',
-                    'singlefile': 'singlefile.html', 
+                    'singlefile': 'singlefile.html',
                     'screenshot': 'screenshot.png',
-                    'metadata': 'metadata.json'
+                    'metadata': 'metadata.json',
+                    'dom-snapshot': 'dom-snapshot.html',
+                    'gen-metadata': 'archive_generator_metadata.json',
+                    'document': 'document.html'
                 };
-                
+
                 const actualType = typeMapping[artifactType] || artifactType;
                 const url = `/api/artifacts/serve?snapshot_id=${encodeURIComponent(snapshotId)}&type=${encodeURIComponent(actualType)}`;
-                
+
                 // Create a temporary link and click it to trigger download
                 const link = document.createElement('a');
                 link.href = url;
                 link.download = ''; // Let browser determine filename
                 link.style.display = 'none';
-                
+
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                
+
                 // Show success toast
                 if (typeof showToast === 'function') {
                     showToast(`Downloading ${artifactType.toUpperCase()} file...`);
                 }
-                
+
             } catch (error) {
                 console.error('Download error:', error);
-                
+
                 if (typeof showToast === 'function') {
                     showToast(`Failed to download ${artifactType} file`);
                 }
@@ -91,7 +94,7 @@ function replayPage(snapshotId, initialView, availableViews) {
          */
         formatDate(timestamp) {
             if (!timestamp) return '';
-            
+
             try {
                 const date = new Date(timestamp);
                 return date.toLocaleDateString('en-US', {
@@ -113,7 +116,7 @@ function replayPage(snapshotId, initialView, availableViews) {
          */
         getStatusBadgeClass(statusCode) {
             if (!statusCode) return 'bg-gray-100 text-gray-800';
-            
+
             if (statusCode >= 200 && statusCode < 300) {
                 return 'bg-green-100 text-green-800';
             } else if (statusCode >= 300 && statusCode < 400) {

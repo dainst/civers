@@ -56,6 +56,11 @@ class UrlListSummary(BaseModel):
             date_range=archived_url.date_range
         )
 
+
+class UrlDetail(UrlListSummary):
+    """Detailed URL information including snapshots."""
+    snapshots: list[SnapshotSummary] = []
+
 @router.get(
     "/urls",
     response_model=PaginatedResponse[UrlListSummary],
@@ -137,6 +142,46 @@ async def list_urls(
         success=True,
         data=url_summaries,
         pagination=pagination
+    )
+
+
+@router.get(
+    "/url/{url_id}",
+    response_model=UrlDetail,
+    responses={
+        404: {"model": ErrorResponse, "description": "URL not found"},
+        500: {"model": ErrorResponse, "description": "Internal server error"}
+    },
+    summary="Get summary for a specific URL",
+    description="Retrieve summary information for a specific archived URL by its ID"
+)
+async def get_url_summary(
+    request: Request,
+    url_id: str
+):
+    """
+    Get summary for a specific archived URL including snapshots.
+    
+    Returns:
+        UrlDetail containing URL details and a list of snapshots
+    """
+    storage_service = request.app.state.storage_service
+    archived_url = storage_service.get_url_by_id(url_id)
+    
+    if not archived_url:
+        raise ResourceNotFoundError("URL", url_id)
+        
+    # Convert snapshots to summary format
+    snapshots = [SnapshotSummary.from_snapshot(s) for s in archived_url.snapshots]
+    
+    # Sort snapshots newest first
+    snapshots.sort(key=lambda s: s.timestamp, reverse=True)
+    
+    summary = UrlListSummary.from_archived_url(archived_url)
+    
+    return UrlDetail(
+        **summary.model_dump(),
+        snapshots=snapshots
     )
 
 

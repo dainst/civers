@@ -3,6 +3,7 @@ Centralized logging configuration for the Archive Generator system.
 Provides consistent logging setup with Kafka log suppression.
 """
 import logging
+import os
 import sys
 from typing import Optional
 
@@ -38,16 +39,26 @@ def setup_logging(
         force=True  # Override any existing configuration
     )
     
-    # Suppress verbose third-party logging
+    # Suppress verbose third-party logging (level controllable via env)
     if suppress_kafka_logs:
-        # Kafka-related loggers
-        logging.getLogger("kafka").setLevel(logging.WARNING)
-        logging.getLogger("kafka.client").setLevel(logging.WARNING) 
-        logging.getLogger("kafka.producer").setLevel(logging.WARNING)
-        logging.getLogger("kafka.consumer").setLevel(logging.WARNING)
-        logging.getLogger("kafka.conn").setLevel(logging.WARNING)
-        logging.getLogger("kafka.coordinator").setLevel(logging.WARNING)
-        logging.getLogger("kafka.cluster").setLevel(logging.WARNING)
+        kafka_log_level = os.getenv("KAFKA_LOG_LEVEL", "WARNING").upper()
+        kafka_level = getattr(logging, kafka_log_level, logging.WARNING)
+        
+        # Kafka-related loggers - suppress all verbose logging
+        logging.getLogger("kafka").setLevel(kafka_level)
+        logging.getLogger("aiokafka").setLevel(kafka_level)
+        logging.getLogger("aiokafka.conn").setLevel(kafka_level)
+        logging.getLogger("aiokafka.consumer").setLevel(kafka_level)
+        logging.getLogger("aiokafka.consumer.fetcher").setLevel(kafka_level)
+        logging.getLogger("aiokafka.consumer.group_coordinator").setLevel(kafka_level)
+        logging.getLogger("aiokafka.producer").setLevel(kafka_level)
+        logging.getLogger("aiokafka.cluster").setLevel(kafka_level)
+        logging.getLogger("kafka.client").setLevel(kafka_level) 
+        logging.getLogger("kafka.producer").setLevel(kafka_level)
+        logging.getLogger("kafka.consumer").setLevel(kafka_level)
+        logging.getLogger("kafka.conn").setLevel(kafka_level)
+        logging.getLogger("kafka.coordinator").setLevel(kafka_level)
+        logging.getLogger("kafka.cluster").setLevel(kafka_level)
         
         # Other potentially verbose loggers
         logging.getLogger("urllib3").setLevel(logging.WARNING)

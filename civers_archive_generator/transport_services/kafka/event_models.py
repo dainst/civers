@@ -62,3 +62,9 @@ class ArchiveCompletedEvent(EventBaseModel):
 class ArchiveFailedEvent(EventBaseModel):
     """Event when archive creation fails."""
     error_message: str
+    error_type: Optional[str] = None  # e.g., 'missing_required_artifacts', 'configuration_not_found'
+    archive_path: Optional[str] = None  # Path to partial archive (if any)
+    artifacts_created: List[str] = Field(default_factory=list)  # Successful artifacts
+    failed_artifacts: List[str] = Field(default_factory=list)  # Failed artifacts
+    missing_artifacts: List[str] = Field(default_factory=list)  # Required but not created
+    processing_time_seconds: Optional[float] = None

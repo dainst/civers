@@ -1,0 +1,563 @@
+/**
+ * CiVers Widget Styles
+ * 
+ * Clean, modern styles for the CiVers external widget.
+ */
+
+/* Container & Overlay */
+.civers-widget-overlay {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.civers-widget-overlay.minimized {
+    width: 64px;
+    height: 64px;
+}
+
+.civers-widget-overlay.expanded {
+    width: 320px;
+}
+
+/* Floating Icon */
+.widget-minimized-icon {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 10px 25px -5px rgba(30, 27, 75, 0.4);
+    transition: transform 0.2s ease;
+    position: relative;
+}
+
+.widget-minimized-icon:hover {
+    transform: scale(1.05);
+}
+
+.widget-icon {
+    font-size: 28px;
+}
+
+.widget-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: #ef4444;
+    color: white;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 2px solid white;
+}
+
+/* Expanded Card */
+.civers-widget {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border: 1px solid #e5e7eb;
+}
+
+.widget-header {
+    background: #1e1b4b;
+    color: white;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+}
+
+.widget-controls button {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    padding: 4px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.widget-body {
+    padding: 20px;
+}
+
+/* Timeline */
+.archive-timeline {
+    border-left: 2px solid #f3f4f6;
+    padding-left: 16px;
+}
+
+.archive-count-badge {
+    background: #e0e7ff;
+    color: #3730a3;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* Buttons */
+.archive-button {
+    width: 100%;
+    background: #312e81;
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.archive-button:hover:not(:disabled) {
+    background: #3730a3;
+}
+
+.archive-button:disabled {
+    opacity: 0.5;
+}
+
+.btn-outline {
+    width: 100%;
+    background: white;
+    color: #3730a3;
+    border: 2px solid #e0e7ff;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.archive-again-button {
+    width: 100%;
+    background: #f5f3ff;
+    color: #5b21b6;
+    border: none;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* Modal Overlay */
+.widget-progress-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+}
+
+.widget-progress-content {
+    background: white;
+    width: 100%;
+    max-width: 440px;
+    padding: 32px;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Progress bar styles */
+.progress-container {
+    width: 100%;
+    background-color: #e5e7eb;
+    border-radius: 9999px;
+    height: 8px;
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #4f46e5;
+    border-radius: 9999px;
+    transition: width 0.5s ease;
+}
+
+/* Step styles */
+.step-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 12px;
+    transition: all 0.2s;
+}
+
+.step-item.completed {
+    background-color: #ecfdf5;
+    border-color: #10b981;
+}
+
+.step-item.in-progress {
+    background-color: #eff6ff;
+    border-color: #3b82f6;
+}
+
+.step-item.pending {
+    background-color: #f9fafb;
+    color: #9ca3af;
+}
+
+.step-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.step-label {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Utility classes used in HTML */
+.text-lg {
+    font-size: 18px;
+}
+
+.text-sm {
+    font-size: 14px;
+}
+
+.text-xs {
+    font-size: 12px;
+}
+
+.text-\[10px\] {
+    font-size: 10px;
+}
+
+.font-bold {
+    font-weight: 700;
+}
+
+.font-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.mb-4 {
+    margin-bottom: 16px;
+}
+
+.mb-6 {
+    margin-bottom: 24px;
+}
+
+.pb-2 {
+    padding-bottom: 8px;
+}
+
+.mt-2 {
+    margin-top: 8px;
+}
+
+.mt-6 {
+    margin-top: 24px;
+}
+
+.border-b {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.flex {
+    display: flex;
+}
+
+.flex-1 {
+    flex: 1 1 0%;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.gap-2 {
+    gap: 8px;
+}
+
+.gap-3 {
+    gap: 12px;
+}
+
+.space-y-4>*+* {
+    margin-top: 16px;
+}
+
+.w-full {
+    width: 100%;
+}
+
+.w-2 {
+    width: 8px;
+}
+
+.w-3 {
+    width: 12px;
+}
+
+.w-4 {
+    width: 16px;
+}
+
+.h-2 {
+    height: 8px;
+}
+
+.h-3 {
+    height: 12px;
+}
+
+.h-4 {
+    height: 16px;
+}
+
+.rounded-full {
+    border-radius: 9999px;
+}
+
+.rounded {
+    border-radius: 4px;
+}
+
+.bg-gray-50 {
+    background-color: #f9fafb;
+}
+
+.bg-gray-200 {
+    background-color: #e5e7eb;
+}
+
+.bg-gray-300 {
+    background-color: #d1d5db;
+}
+
+.bg-indigo-600 {
+    background-color: #4f46e5;
+}
+
+.bg-blue-500 {
+    background-color: #3b82f6;
+}
+
+.bg-green-500 {
+    background-color: #10b981;
+}
+
+.bg-green-600 {
+    background-color: #059669;
+}
+
+.text-gray-500 {
+    color: #6b7280;
+}
+
+.text-gray-600 {
+    color: #4b5563;
+}
+
+.text-gray-700 {
+    color: #374151;
+}
+
+.text-gray-800 {
+    color: #1f2937;
+}
+
+.text-gray-900 {
+    color: #111827;
+}
+
+.text-indigo-500 {
+    color: #6366f1;
+}
+
+.text-indigo-600 {
+    color: #4f46e5;
+}
+
+.text-green-600 {
+    color: #059669;
+}
+
+.hover\:bg-gray-50:hover {
+    background-color: #f9fafb;
+}
+
+.hover\:underline:hover {
+    text-decoration: underline;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.transition-colors {
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.min-w-0 {
+    min-width: 0;
+}
+
+.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.max-h-48 {
+    max-height: 12rem;
+}
+
+.overflow-y-auto {
+    overflow-y: auto;
+}
+
+.pr-2 {
+    padding-right: 8px;
+}
+
+/* Animations */
+@keyframes civers-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: .5;
+    }
+}
+
+.animate-pulse {
+    animation: civers-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes civers-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.small-progress-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: civers-spin 0.8s linear infinite;
+}
+
+.modal-close-btn {
+    background: none !important;
+    border: none !important;
+    color: #9ca3af !important;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.modal-close-btn:hover {
+    background: #f3f4f6 !important;
+    color: #4b5563 !important;
+}
+
+.archive-result-success {
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    padding: 16px;
+    border-radius: 12px;
+    margin-top: 16px;
+}
+
+.archive-result-failed {
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    padding: 16px;
+    border-radius: 12px;
+    margin-top: 16px;
+}
+
+.btn-view-replay {
+    display: block;
+    width: 100%;
+    background: #10b981;
+    color: white;
+    text-align: center;
+    padding: 10px;
+    border-radius: 8px;
+    font-weight: 700;
+    text-decoration: none;
+    margin-top: 12px;
+    transition: background 0.2s;
+}
+
+.btn-view-replay:hover {
+    background: #059669;
+}
+
+.text-gray-400 {
+    color: #9ca3af;
+}
+
+.hover\:text-gray-600:hover {
+    color: #4b5563;
+}
+
+.bg-green-50 {
+    background-color: #f0fdf4;
+}
+
+.border-green-200 {
+    border-color: #bbf7d0;
+}
+
+.text-green-800 {
+    color: #166534;
+}
+
+.bg-red-50 {
+    background-color: #fef2f2;
+}
+
+.border-red-200 {
+    border-color: #fecaca;
+}
+
+.text-red-800 {
+    color: #991b1b;
+}

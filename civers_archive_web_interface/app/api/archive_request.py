@@ -130,13 +130,30 @@ async def create_archive_request(
                 detail="Kafka service temporarily unavailable. Please try again later."
             )
             
-        logger.info(f"Successfully published archive request {request_id} to Kafka")
+        # Find workflow definition in config to include steps in response
+        workflow_steps = []
+        # Workflows are managed by the orchestrator, not the web interface
+        # workflow_name = domain_info.workflow
+        workflow_def = None
+        # Commenting out workflow lookup since domain_info doesn't have workflow attribute
+        # for wf in request.app.state.app_config.workflows:
+        #     if wf.name == workflow_name:
+        #         workflow_def = wf
+        #         break
         
+        if workflow_def:
+            for step in workflow_def.steps:
+                workflow_steps.append({
+                    "id": step.name,
+                    "display": step.description or step.name.replace('_', ' ').title()
+                })
+
         return {
             "status": RequestStatus.SUBMITTED,
             "message": "Archive request successfully submitted and sent to orchestrator.",
             "request_id": request_id,
-            "url": form_data.url
+            "url": form_data.url,
+            "workflow_steps": workflow_steps
         }
         
     except KafkaProducerError as e:
@@ -177,6 +194,7 @@ async def get_request_status(
         JSON with status, current_step, completed_steps, error_message, snapshot_id, url_id
     """
     status_service = request.app.state.request_status_service
+    domain_service = request.app.state.domain_service
     
     record = status_service.get_request(request_id)
     
@@ -198,6 +216,10 @@ async def get_request_status(
         logger.debug(f"Technical error for {request_id}: {raw_error}")
         user_error = f"Failed to archive this page. Please try again or contact support."
     
+    # Workflow steps are managed by the orchestrator
+    workflow_steps = []
+
+
     return {
         "request_id": record.get("request_id"),
         "status": record.get("status", RequestStatus.UNKNOWN),
@@ -206,6 +228,7 @@ async def get_request_status(
         "domain": record.get("domain"),
         "current_step": record.get("current_step"),
         "completed_steps": record.get("completed_steps", []),
+        "workflow_steps": workflow_steps,
         "error_message": user_error,
         "snapshot_id": record.get("snapshot_id"),
         "created_at": record.get("created_at"),

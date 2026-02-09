@@ -174,12 +174,18 @@ class KafkaTransportService(TransportServiceInterface):
                 logger.info(f"✅ Archive {request_id} finished")
                 
             else:
-                # Handle failure
+                # Handle failure - include detailed error information
                 error_msg = result.get('error', 'Unknown error')
                 await self.event_publisher.publish_archive_failed(ArchiveFailedEvent(
                     request_id=request_id,
                     url=url,
-                    error_message=error_msg
+                    error_message=error_msg,
+                    error_type=result.get('error_type'),
+                    archive_path=result.get('archive_path'),
+                    artifacts_created=result.get('artifacts_created', []),
+                    failed_artifacts=result.get('failed_artifacts', []),
+                    missing_artifacts=result.get('missing_artifacts', []),
+                    processing_time_seconds=result.get('processing_time_seconds')
                 ))
                 
                 await self.event_publisher.publish_status_update(ArchiveStatusEvent(

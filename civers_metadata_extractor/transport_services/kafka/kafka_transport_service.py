@@ -10,6 +10,7 @@ from configs.models import ConfigDataModel
 from .kafka_connection_manager import KafkaConnectionManager
 from .event_publisher import EventPublisher
 from metadata_extraction_services.metadata_extraction_service_interface import MetadataExtractionServiceInterface
+from metadata_extraction_services.extraction_result import ExtractionResult
 from transport_services.transport_service_interface import TransportServiceInterface
 from .event_models import (
     MetadataExtractionRequestEvent,
@@ -221,7 +222,25 @@ class KafkaTransportService(TransportServiceInterface):
         
         try:
             # Parse request
-            extraction_request = MetadataExtractionRequestEvent(**message_data)
+            try:
+                extraction_request = MetadataExtractionRequestEvent(**message_data)
+            except Exception as e:
+                logger.error(f"❌ Failed to parse metadata extraction request: {e}")
+                # Try to extract minimal info to report failure
+                rid = message_data.get("request_id") or (message.key.decode('utf-8') if message.key and isinstance(message.key, bytes) else str(message.key)) if message.key else "unknown"
+                url = message_data.get("url") or "unknown"
+                
+                failure_event = MetadataExtractionFailedEvent(
+                    request_id=rid,
+                    url=url,
+                    error_message=f"Request validation failed: {str(e)}",
+                    error_type="ValidationError",
+                    failed_stage="request_parsing",
+                    processing_time_seconds=time.time() - start_time
+                )
+                await self.event_publisher.publish_extraction_failed(failure_event)
+                return
+
             logger.info(f"🚀 Processing request {extraction_request.request_id}: {extraction_request.url}")
             
             # Delegate EVERYTHING to the metadata extraction service
@@ -260,8 +279,9 @@ class KafkaTransportService(TransportServiceInterface):
                     extraction_request,
                     result.error_message or "Unknown error",
                     result.error_type or "MetadataExtractionError",
-                    result.failed_stage or "metadata_extraction",
-                    time.time() - start_time
+                    result.failed_stage or "content_processing",
+                    time.time() - start_time,
+                    extraction_result=result
                 )
                 self._requests_processed += 1
                 
@@ -282,7 +302,8 @@ class KafkaTransportService(TransportServiceInterface):
         error_message: str,
         error_type: str,
         failed_stage: str,
-        processing_time: float
+        processing_time: float,
+        extraction_result: Optional[ExtractionResult] = None
     ) -> None:
         """
         Publish a metadata extraction failure event.
@@ -295,6 +316,17 @@ class KafkaTransportService(TransportServiceInterface):
             processing_time: Time spent processing before failure
         """
         try:
+            details = {'original_request': extraction_request.model_dump()}
+            if extraction_result:
+                details['extraction_result'] = extraction_result.to_dict()
+                # Remove large fields that are already in the top-level event to save space
+                if 'error_message' in details['extraction_result']:
+                    del details['extraction_result']['error_message']
+                if 'error_type' in details['extraction_result']:
+                    del details['extraction_result']['error_type']
+                if 'failed_stage' in details['extraction_result']:
+                    del details['extraction_result']['failed_stage']
+
             failure_event = MetadataExtractionFailedEvent(
                 request_id=extraction_request.request_id,
                 url=extraction_request.url,
@@ -302,7 +334,7 @@ class KafkaTransportService(TransportServiceInterface):
                 error_type=error_type,
                 failed_stage=failed_stage,
                 processing_time_seconds=processing_time,
-                details={'original_request': extraction_request.model_dump()}
+                details=details
             )
             await self.event_publisher.publish_extraction_failed(failure_event)
             logger.error(

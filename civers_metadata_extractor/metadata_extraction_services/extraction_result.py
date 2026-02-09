@@ -41,6 +41,7 @@ class ExtractionResult:
     missing_fields: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     recommendations: List[str] = field(default_factory=list)
+    raw_data: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format for Kafka transport compatibility."""
@@ -58,7 +59,8 @@ class ExtractionResult:
             'quality_score': self.quality_score,
             'completeness_score': self.completeness_score,
             'warnings': self.warnings,
-            'recommendations': self.recommendations
+            'recommendations': self.recommendations,
+            'raw_data': self.raw_data
         }
     
     @classmethod
@@ -92,7 +94,8 @@ class ExtractionResult:
         error_message: str,
         error_type: str = "UnknownError",
         failed_stage: str = "unknown",
-        source_url: str = None
+        source_url: str = None,
+        raw_data: Dict[str, Any] = None
     ) -> 'ExtractionResult':
         """Create failed extraction result."""
         return cls(
@@ -102,6 +105,6 @@ class ExtractionResult:
             error_message=error_message,
             error_type=error_type,
             failed_stage=failed_stage,
-            source_url=source_url
-
+            source_url=source_url,
+            raw_data=raw_data or {}
         )

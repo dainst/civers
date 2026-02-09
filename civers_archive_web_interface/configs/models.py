@@ -355,10 +355,24 @@ class DomainConfig(BaseModel):
         return self.name.lower() == "default"
 
 
+class WorkflowStepConfig(BaseModel):
+    """Configuration for a single workflow step."""
+    model_config = ConfigDict(extra='ignore')
+    name: str
+    description: Optional[str] = None
+    depends_on: List[str] = Field(default_factory=list)
+
+class WorkflowConfig(BaseModel):
+    """Configuration for a complete workflow."""
+    model_config = ConfigDict(extra='ignore')
+    name: str
+    description: str
+    steps: List[WorkflowStepConfig]
+
 class AppConfig(BaseModel):
     """Top-level application configuration."""
     
-    model_config = ConfigDict(validate_assignment=True)
+    model_config = ConfigDict(validate_assignment=True, extra='ignore')
     
     app: AppInfoConfig = Field(default_factory=AppInfoConfig)
     api: ApiConfig = Field(default_factory=ApiConfig)
@@ -369,6 +383,7 @@ class AppConfig(BaseModel):
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
     transport: TransportConfig = Field(default_factory=TransportConfig)
     domains: List[DomainConfig] = Field(default_factory=list, description="Domain-to-workflow mappings")
+    workflows: List[WorkflowConfig] = Field(default_factory=list, description="Workflow definitions")
 
     @property
     def kafka(self) -> KafkaConfig:
