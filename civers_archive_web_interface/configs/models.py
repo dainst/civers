@@ -23,6 +23,7 @@ class AppInfoConfig(BaseModel):
         description="Service name for health checks and monitoring"
     )
     environment: str = Field(default="development", description="Runtime environment")
+    logging: "LoggingConfig" = Field(default_factory=lambda: LoggingConfig())
 
 
 class PaginationConfig(BaseModel):
@@ -42,6 +43,19 @@ class ApiConfig(BaseModel):
     """API behavior configuration."""
     pagination: PaginationConfig = Field(default_factory=PaginationConfig)
     kafka: KafkaApiConfig = Field(default_factory=KafkaApiConfig)
+    callback_base_url: Optional[str] = Field(
+        default=None,
+        description="Base URL for orchestrator callbacks (e.g. http://web-interface:8000)"
+    )
+    trusted_proxy_hosts: List[str] = Field(
+        default=["127.0.0.1"],
+        description="Trusted proxy hosts for X-Forwarded-For headers"
+    )
+    max_upload_size_mb: int = Field(
+        default=100, 
+        ge=1, 
+        description="Maximum file upload size in MB"
+    )
 
 
 class DatabaseConfig(BaseModel):
@@ -355,19 +369,27 @@ class DomainConfig(BaseModel):
         return self.name.lower() == "default"
 
 
-class WorkflowStepConfig(BaseModel):
-    """Configuration for a single workflow step."""
-    model_config = ConfigDict(extra='ignore')
-    name: str
-    description: Optional[str] = None
-    depends_on: List[str] = Field(default_factory=list)
 
-class WorkflowConfig(BaseModel):
-    """Configuration for a complete workflow."""
-    model_config = ConfigDict(extra='ignore')
-    name: str
-    description: str
-    steps: List[WorkflowStepConfig]
+class LoggingConfig(BaseModel):
+    """Logging configuration."""
+    level: str = Field(default="INFO", description="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
+    correlation_id_log_level: str = Field(default="INFO", description="Log level for correlation ID middleware")
+    file: Optional[str] = Field(default=None, description="Path to log file")
+    json_enabled: bool = Field(default=True, description="Enable JSON logging format")
+    kafka_log_level: str = Field(default="WARNING", description="Log level for Kafka library")
+    access_log_level: str = Field(default="INFO", description="Log level for request access logs (uvicorn.access)")
+
+
+class ServerConfig(BaseModel):
+    """Server configuration (host, port, debug)."""
+    host: str = Field(default="0.0.0.0", description="Server host")
+    port: int = Field(default=8000, description="Server port")
+    debug: bool = Field(default=False, description="Enable debug mode")
+    cors_origins: List[str] = Field(
+        default=["http://localhost:8000", "http://localhost:8080"],
+        description="Allowed CORS origins"
+    )
+
 
 class AppConfig(BaseModel):
     """Top-level application configuration."""
@@ -375,6 +397,8 @@ class AppConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra='ignore')
     
     app: AppInfoConfig = Field(default_factory=AppInfoConfig)
+    server: ServerConfig = Field(default_factory=ServerConfig)
+    # logging moved to app.logging
     api: ApiConfig = Field(default_factory=ApiConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     directories: DirectoriesConfig = Field(default_factory=DirectoriesConfig)
@@ -383,7 +407,6 @@ class AppConfig(BaseModel):
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
     transport: TransportConfig = Field(default_factory=TransportConfig)
     domains: List[DomainConfig] = Field(default_factory=list, description="Domain-to-workflow mappings")
-    workflows: List[WorkflowConfig] = Field(default_factory=list, description="Workflow definitions")
 
     @property
     def kafka(self) -> KafkaConfig:

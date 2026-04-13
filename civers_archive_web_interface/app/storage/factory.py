@@ -66,6 +66,8 @@ def create_storage_provider(app_config: AppConfig) -> StorageProviderInterface:
         else:
             raise StorageConfigurationError(f"Unknown storage provider type: {config.type}")
 
+    except StorageConfigurationError:
+        raise
     except Exception as e:
         raise StorageConfigurationError(f"Provider creation failed: {e}") from e
 
@@ -92,7 +94,7 @@ def _create_filesystem_provider(
     
     logger.debug(f"Creating filesystem storage provider: path={storage_path}, timeout={fs_config.timeout_seconds}s")
     
-    return FilesystemStorageProvider(storage_path, fs_config.timeout_seconds, validation_config)
+    return FilesystemStorageProvider(storage_path, validation_config, fs_config.timeout_seconds)
 
 
 def _create_sqlite_provider(
@@ -130,14 +132,16 @@ def _create_sqlite_provider(
     db_manager.initialize_schema(get_schema_sql())
     logger.debug("Database schema initialized")
 
-    # Rebuild index from filesystem
-    # TODO: Consider making this conditional based on sqlite_config.auto_rebuild
-    # and checking if database is empty first for better startup performance
-    logger.info("Rebuilding index from filesystem")
-    fs_provider = FilesystemStorageProvider(storage_path, validation_config=validation_config)
-    indexer = FilesystemIndexer(db_manager, fs_provider)
-    stats = indexer.rebuild_index()
-    logger.info(f"Index rebuilt: {stats}")
+    # Rebuild index from filesystem only if database is empty
+    url_count = db_manager.fetch_one("SELECT COUNT(*) as cnt FROM urls")
+    if url_count and url_count['cnt'] > 0:
+        logger.info(f"Database already has {url_count['cnt']} URLs, skipping index rebuild")
+    else:
+        logger.info("Empty database, rebuilding index from filesystem")
+        fs_provider = FilesystemStorageProvider(storage_path, validation_config)
+        indexer = FilesystemIndexer(db_manager, fs_provider)
+        stats = indexer.rebuild_index()
+        logger.info(f"Index rebuilt: {stats}")
 
     # Create SQLite provider
     return SQLiteStorageProvider(db_manager, storage_path, validation_config)

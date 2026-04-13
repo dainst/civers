@@ -7,7 +7,8 @@ import tempfile
 import pytest
 from pathlib import Path
 from app.storage import FilesystemStorageProvider, StorageService, create_storage_provider, create_storage_service
-from app.config import StorageConfig, FilesystemConfig, CacheConfig,AppConfig
+from configs import StorageConfig, FilesystemConfig, CacheConfig, AppConfig
+from configs.models import ValidationConfig
 from app.models import Snapshot, ArchivedUrl
 
 
@@ -50,13 +51,13 @@ class TestFilesystemStorageProvider:
 
     def test_provider_initialization(self, temp_archives):
         """Test provider initialization."""
-        provider = FilesystemStorageProvider(temp_archives)
+        provider = FilesystemStorageProvider(temp_archives, ValidationConfig())
         assert provider.storage_path == temp_archives
         assert provider.timeout_seconds == 10
 
     def test_get_all_urls(self, temp_archives):
         """Test getting all URLs from storage."""
-        provider = FilesystemStorageProvider(temp_archives)
+        provider = FilesystemStorageProvider(temp_archives, ValidationConfig())
         urls = provider.get_all_urls()
         
         assert len(urls) == 1
@@ -70,7 +71,7 @@ class TestFilesystemStorageProvider:
 
     def test_get_url_by_id(self, temp_archives):
         """Test getting specific URL by ID."""
-        provider = FilesystemStorageProvider(temp_archives)
+        provider = FilesystemStorageProvider(temp_archives, ValidationConfig())
         
         # Test existing URL
         archived_url = provider.get_url_by_id("example_com_home_page")
@@ -83,7 +84,7 @@ class TestFilesystemStorageProvider:
 
     def test_get_snapshot_by_id(self, temp_archives):
         """Test getting specific snapshot by ID."""
-        provider = FilesystemStorageProvider(temp_archives)
+        provider = FilesystemStorageProvider(temp_archives, ValidationConfig())
         
         # Test existing snapshot
         snapshot = provider.get_snapshot_by_id("req_test-1_20250904_120000")
@@ -98,7 +99,7 @@ class TestFilesystemStorageProvider:
 
     def test_artifact_operations(self, temp_archives):
         """Test artifact-related operations."""
-        provider = FilesystemStorageProvider(temp_archives)
+        provider = FilesystemStorageProvider(temp_archives, ValidationConfig())
         snapshot_id = "req_test-1_20250904_120000"
         
         # Test artifact exists
@@ -120,7 +121,7 @@ class TestFilesystemStorageProvider:
 
     def test_snapshot_pydantic_model(self, temp_archives):
         """Test that snapshots are properly created as Pydantic models."""
-        provider = FilesystemStorageProvider(temp_archives)
+        provider = FilesystemStorageProvider(temp_archives, ValidationConfig())
         snapshot = provider.get_snapshot_by_id("req_test-1_20250904_120000")
         
         assert isinstance(snapshot, Snapshot)
@@ -164,7 +165,7 @@ class TestStorageService:
 
     def test_service_initialization(self, temp_archives):
         """Test service initialization with provider."""
-        provider = FilesystemStorageProvider(temp_archives)
+        provider = FilesystemStorageProvider(temp_archives, ValidationConfig())
         service = StorageService(provider, cache_ttl_seconds=30)
         
         assert service.provider == provider
@@ -172,7 +173,7 @@ class TestStorageService:
 
     def test_service_caching(self, temp_archives):
         """Test service caching functionality."""
-        provider = FilesystemStorageProvider(temp_archives)
+        provider = FilesystemStorageProvider(temp_archives, ValidationConfig())
         service = StorageService(provider, cache_ttl_seconds=60)
         
         # First call should populate cache
@@ -190,7 +191,7 @@ class TestStorageService:
 
     def test_service_cache_disabled(self, temp_archives):
         """Test service with caching disabled."""
-        provider = FilesystemStorageProvider(temp_archives)
+        provider = FilesystemStorageProvider(temp_archives, ValidationConfig())
         service = StorageService(provider, cache_ttl_seconds=0)
         
         urls = service.get_all_urls()
@@ -198,6 +199,90 @@ class TestStorageService:
         
         stats = service.get_cache_stats()
         assert stats["cache_disabled"] is True
+
+    def test_find_url_by_original_url_no_partial_match(self, temp_archives):
+        """Test that find_url_by_original_url does not match substrings.
+        
+        Fix 1: https://example.com should NOT match https://example.com/page.
+        Trailing slash differences should still match.
+        """
+        provider = FilesystemStorageProvider(temp_archives, ValidationConfig())
+        service = StorageService(provider, cache_ttl_seconds=60)
+        
+        # Exact match (with trailing slash normalization) should work
+        found = service.find_url_by_original_url("https://example.com")
+        assert found is not None
+        
+        found_with_slash = service.find_url_by_original_url("https://example.com/")
+        assert found_with_slash is not None
+        
+        # Partial/substring match should NOT work
+        longer_url = service.find_url_by_original_url("https://example.com/page/subpage")
+        assert longer_url is None
+        
+        # Completely different URL should not match
+        different = service.find_url_by_original_url("https://other-site.org")
+        assert different is None
+
+    def test_service_thread_safety(self, temp_archives):
+        """Test that concurrent cache access doesn't raise exceptions.
+        
+        Fix 5: Multiple threads accessing get_all_urls concurrently
+        should not corrupt cache state.
+        """
+        import threading
+        
+        provider = FilesystemStorageProvider(temp_archives, ValidationConfig())
+        service = StorageService(provider, cache_ttl_seconds=60)
+        
+        errors = []
+        
+        def worker():
+            try:
+                for _ in range(10):
+                    urls = service.get_all_urls()
+                    assert len(urls) == 2
+                    service.clear_cache()
+            except Exception as e:
+                errors.append(e)
+        
+        threads = [threading.Thread(target=worker) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        
+        assert len(errors) == 0, f"Thread safety errors: {errors}"
+
+    def test_parse_timestamp_with_underscore_request_id(self, temp_archives):
+        """Test timestamp parsing handles request IDs containing underscores.
+        
+        Fix 7: Folder names like req_my_complex_id_20250101_120000
+        should correctly extract 20250101_120000 as the timestamp.
+        """
+        provider = FilesystemStorageProvider(temp_archives, ValidationConfig())
+        
+        # Simple request ID
+        ts1 = provider._parse_timestamp("req_test-1_20250904_120000")
+        assert ts1 is not None
+        assert ts1.year == 2025
+        assert ts1.month == 9
+        assert ts1.day == 4
+        assert ts1.hour == 12
+        
+        # Complex request ID with underscores
+        ts2 = provider._parse_timestamp("req_my_complex_id_20250101_120000")
+        assert ts2 is not None
+        assert ts2.year == 2025
+        assert ts2.month == 1
+        assert ts2.day == 1
+        
+        # UUID-style request ID with underscores
+        ts3 = provider._parse_timestamp("req_a1b2_c3d4_e5f6_20231225_235959")
+        assert ts3 is not None
+        assert ts3.year == 2023
+        assert ts3.month == 12
+        assert ts3.day == 25
 
 
 class TestStorageFactory:

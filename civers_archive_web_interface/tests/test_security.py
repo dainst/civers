@@ -18,7 +18,7 @@ from app.utils import (
     validate_request_parameters,
     SecurityValidationError
 )
-from app.config.models import ValidationConfig
+from configs.models import ValidationConfig
 
 
 @pytest.fixture

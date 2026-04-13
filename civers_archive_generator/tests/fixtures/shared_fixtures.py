@@ -3,37 +3,21 @@ Shared test fixtures for the archive generator test suite.
 """
 import asyncio
 import logging
-import os
-import subprocess
 import tempfile
-import time
 from pathlib import Path
-from typing import Generator, Optional
+from typing import Generator
 import pytest
 import shutil
 
-from kafka import KafkaAdminClient
-from kafka.errors import KafkaError
-
+import importlib.util
 from configs.loaders import YamlFileConfigLoader
-from configs.models import ConfigDataModel, AppConfig, DomainConfig, KafkaConfig, TransportConfig, StorageConfig
+from configs.models import ConfigDataModel
 
-# Import unified Docker fixtures
-from .docker_fixtures import (
-    test_kafka_only, 
-    main_kafka_only, 
-    full_stack, 
-    reuse_containers,
-    smart_kafka,
-    kafka_for_development,
-    kafka_for_ci
-)
-
+HAS_KAFKA_PYTHON = importlib.util.find_spec("kafka") is not None
 
 # Test configuration paths
 TEST_DIR = Path(__file__).parent.parent
 CONFIG_PATH = TEST_DIR / "integration" / "test_app_config.yaml"
-DOCKER_COMPOSE_FILE = TEST_DIR / "test-docker-compose.yml"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -43,12 +27,6 @@ logger = logging.getLogger(__name__)
 def test_config_path() -> Path:
     """Path to the test configuration file."""
     return CONFIG_PATH
-
-
-@pytest.fixture(scope="session")
-def docker_compose_file() -> Path:
-    """Path to the test Docker Compose file."""
-    return DOCKER_COMPOSE_FILE
 
 
 @pytest.fixture
@@ -75,31 +53,6 @@ def config_with_temp_dir(config: ConfigDataModel, temp_archive_dir: Path) -> Con
         if 'local_file' in config.app.storage.backends:
             config.app.storage.backends['local_file']['base_path'] = str(temp_archive_dir)
     return config
-
-
-def wait_for_kafka_ready(bootstrap_servers: str, timeout: int = 30) -> bool:
-    """Wait for Kafka broker to be ready."""
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        try:
-            admin_client = KafkaAdminClient(bootstrap_servers=bootstrap_servers)
-            admin_client.list_topics()
-            admin_client.close()
-            return True
-        except KafkaError:
-            time.sleep(2)
-    return False
-
-
-@pytest.fixture(scope="session")
-def kafka_container():
-    """
-    DEPRECATED: Use docker_fixtures instead.
-    Provides test_kafka_only for backward compatibility.
-    """
-    pytest.deprecated_call(lambda: None, "kafka_container fixture is deprecated. Use test_kafka_only or main_kafka_only from docker_fixtures.")
-    with test_kafka_only():
-        yield
 
 
 @pytest.fixture
@@ -153,12 +106,12 @@ def sample_config():
         domains=[
             DomainConfig(
                 name="example.com",
-                artifacts=["warc", "screenshot"],
+                generators=[{"name": "scoop", "artifacts": ["warc", "screenshot"]}],
                 webpage_types="dynamic"
             ),
             DomainConfig(
                 name="static-site.org",
-                artifacts=["warc"],
+                generators=[{"name": "scoop", "artifacts": ["warc"]}],
                 webpage_types="static"
             )
         ],
@@ -192,7 +145,7 @@ def kafka_config():
         domains=[
             DomainConfig(
                 name="example.com",
-                artifacts=["warc", "screenshot"],
+                generators=[{"name": "scoop", "artifacts": ["warc", "screenshot"]}],
                 webpage_types="dynamic"
             )
         ],
@@ -234,22 +187,4 @@ def mock_kafka_producer():
     return producer
 
 
-# Pytest collection hooks for better test organization
-def pytest_collection_modifyitems(config, items):
-    """Automatically mark tests based on their location."""
-    for item in items:
-        # Add markers based on test file location
-        if "integration" in str(item.fspath):
-            item.add_marker(pytest.mark.integration)
-        elif "unit" in str(item.fspath):
-            item.add_marker(pytest.mark.unit)
-        
-        # Add specific markers based on test names
-        if "kafka" in item.name.lower():
-            item.add_marker(pytest.mark.kafka)
-        if "playwright" in item.name.lower():
-            item.add_marker(pytest.mark.playwright)
-        if "end_to_end" in item.name.lower() or "e2e" in item.name.lower():
-            item.add_marker(pytest.mark.e2e)
-        if "docker" in item.name.lower():
-            item.add_marker(pytest.mark.docker)
+# End of file

@@ -25,14 +25,15 @@ class FilesystemIndexer:
     def __init__(
         self,
         db_manager: SQLiteManager,
-        fs_provider
+        fs_provider=None
     ):
         """
         Initialize filesystem indexer.
 
         Args:
             db_manager: SQLite database manager
-            fs_provider: Filesystem storage provider for scanning
+            fs_provider: Filesystem storage provider for scanning (optional,
+                         required only for rebuild_index)
         """
         self.db = db_manager
         self.fs_provider = fs_provider
@@ -82,6 +83,9 @@ class FilesystemIndexer:
         """
         logger.info("Starting full index rebuild")
         stats = {'urls': 0, 'snapshots': 0, 'artifacts': 0, 'errors': 0}
+
+        if self.fs_provider is None:
+            raise RuntimeError("Cannot rebuild index without a filesystem provider")
 
         try:
             # Clear existing data

@@ -40,6 +40,7 @@ class HealthStatus(StrEnum):
 # to prevent SQL injection attacks
 ALLOWED_REQUEST_STATUS_FIELDS: Final[frozenset] = frozenset({
     "status",
+    "workflow_name",
     "current_step",
     "completed_steps",
     "error_message",

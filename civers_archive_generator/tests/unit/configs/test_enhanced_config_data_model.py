@@ -1,6 +1,5 @@
 # tests/unit/configs/test_enhanced_config_data_model.py
 import pytest
-from typing import Dict, Any
 
 from configs.models import (
     ConfigDataModel, 
@@ -264,7 +263,7 @@ class TestConfigDataModelIntegration:
             "domains": [
                 {
                     "name": "example.com",
-                    "artifacts": ["warc", "html"],
+                    "generators": [{"name": "scoop", "artifacts": ["warc", "html"]}],
                     "webpage_types": "dynamic"
                 }
             ],
@@ -297,7 +296,7 @@ class TestConfigDataModelIntegration:
             "domains": [
                 {
                     "name": "example.com",
-                    "artifacts": ["warc", "html"],
+                    "generators": [{"name": "scoop", "artifacts": ["warc", "html"]}],
                     "webpage_types": "dynamic"
                 }
             ],
@@ -340,7 +339,7 @@ class TestConfigDataModelIntegration:
             "domains": [
                 {
                     "name": "example.com",
-                    "artifacts": ["warc", "html"],
+                    "generators": [{"name": "scoop", "artifacts": ["warc", "html"]}],
                     "webpage_types": "dynamic"
                 }
             ],
@@ -395,7 +394,7 @@ class TestConfigDataModelIntegration:
             "domains": [
                 {
                     "name": "example.com",
-                    "artifacts": ["warc", "html"],
+                    "generators": [{"name": "scoop", "artifacts": ["warc", "html"]}],
                     "webpage_types": "dynamic"
                 }
             ],

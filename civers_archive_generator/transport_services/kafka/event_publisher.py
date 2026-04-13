@@ -6,7 +6,7 @@ to Kafka topics using the asynchronous connection manager.
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from .event_models import (
     ArchiveCompletedEvent,

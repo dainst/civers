@@ -10,18 +10,13 @@ from starlette.requests import Request
 from starlette.responses import Response
 from fastapi import HTTPException
 from fastapi.templating import Jinja2Templates
-from asgi_correlation_id.context import correlation_id
 import logging
 from ...storage import StorageError
 from ...utils.security import SecurityValidationError
+from ...utils.correlation import get_correlation_id
 
 
 logger = logging.getLogger(__name__)
-
-
-def _get_correlation_id() -> str:
-    """Get correlation ID from asgi-correlation-id context."""
-    return correlation_id.get('unknown')
 
 
 class PageErrorHandler:
@@ -69,7 +64,7 @@ class PageErrorHandler:
         }
 
         response = self.templates.TemplateResponse("404.html", context, status_code=404)
-        response.headers["X-Request-ID"] = _get_correlation_id()
+        response.headers["X-Request-ID"] = get_correlation_id()
         return response
 
     async def _handle_http_exception(self, request: Request, exc: HTTPException) -> Response:
@@ -95,7 +90,7 @@ class PageErrorHandler:
                 "title": "Page Not Found - Civers Archive"
             }
             response = self.templates.TemplateResponse("404.html", context, status_code=404)
-            response.headers["X-Request-ID"] = _get_correlation_id()
+            response.headers["X-Request-ID"] = get_correlation_id()
             return response
 
         elif exc.status_code == 403:
@@ -107,7 +102,7 @@ class PageErrorHandler:
             }
             # Could create a 403.html template in the future
             response = self.templates.TemplateResponse("404.html", context, status_code=403)
-            response.headers["X-Request-ID"] = _get_correlation_id()
+            response.headers["X-Request-ID"] = get_correlation_id()
             return response
 
         elif exc.status_code >= 500:
@@ -119,7 +114,7 @@ class PageErrorHandler:
             }
             # Could create a 500.html template in the future
             response = self.templates.TemplateResponse("404.html", context, status_code=exc.status_code)
-            response.headers["X-Request-ID"] = _get_correlation_id()
+            response.headers["X-Request-ID"] = get_correlation_id()
             return response
 
         else:
@@ -131,7 +126,7 @@ class PageErrorHandler:
                 "error_code": exc.status_code
             }
             response = self.templates.TemplateResponse("404.html", context, status_code=exc.status_code)
-            response.headers["X-Request-ID"] = _get_correlation_id()
+            response.headers["X-Request-ID"] = get_correlation_id()
             return response
 
     async def _handle_storage_error(self, request: Request, exc: StorageError) -> Response:
@@ -176,7 +171,7 @@ class PageErrorHandler:
         }
 
         response = self.templates.TemplateResponse("404.html", context, status_code=status_code)
-        response.headers["X-Request-ID"] = _get_correlation_id()
+        response.headers["X-Request-ID"] = get_correlation_id()
         return response
 
     async def _handle_security_error(self, request: Request, exc: SecurityValidationError) -> Response:
@@ -198,7 +193,7 @@ class PageErrorHandler:
         }
 
         response = self.templates.TemplateResponse("404.html", context, status_code=400)
-        response.headers["X-Request-ID"] = _get_correlation_id()
+        response.headers["X-Request-ID"] = get_correlation_id()
         return response
 
     async def _handle_general_error(self, request: Request, exc: Exception) -> Response:
@@ -219,5 +214,5 @@ class PageErrorHandler:
         }
 
         response = self.templates.TemplateResponse("404.html", context, status_code=500)
-        response.headers["X-Request-ID"] = _get_correlation_id()
+        response.headers["X-Request-ID"] = get_correlation_id()
         return response

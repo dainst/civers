@@ -15,6 +15,11 @@ class EventBaseModel(BaseModel):
     def validate_request_id(cls, v: str) -> str:
         if not v or v.strip() == "":
             raise ValueError("Input should be a valid string non-empty request_id")
+        
+        # Strict alphanumeric validation to prevent path traversal
+        if not re.match(r"^[a-zA-Z0-9\-_]+$", v):
+            raise ValueError("request_id must contain only alphanumeric characters, hyphens, and underscores")
+            
         return v
 
     @field_validator("created_at", mode="before")
@@ -29,6 +34,14 @@ class EventBaseModel(BaseModel):
     def validate_url(cls, v: str) -> str:
         if not v or v.strip() == "":
             raise ValueError("Input should be a valid string non-empty url")
+        
+        # Ensure it's a valid HTTP/HTTPS URL and prevent common injection patterns
+        if not re.match(r"^https?://[^\s/$.?#].[^\s]*$", v):
+            raise ValueError("URL must be a valid http or https address")
+
+        if any(char in v for char in ['\n', '\r', '\t', '<', '>', '"', "'"]):
+            raise ValueError("URL contains prohibited characters")
+
         return v
     
 class ArchiveRequestEvent(EventBaseModel):

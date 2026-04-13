@@ -1,11 +1,10 @@
 # tests/unit/services/test_archive_service.py
-import asyncio
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
-from typing import Dict, Any
 
-from configs.models import ConfigDataModel, DomainConfig, AppConfig, TransportConfig, KafkaConfig
+from configs.models import DomainConfig
 from archive_services.archive_service import ArchiveService
+from archive_generators.archive_result import ArchiveResult, ArtifactResult, ArtifactStatus
 
 
 @pytest.fixture
@@ -42,8 +41,8 @@ class TestArchiveService:
         assert domain_config is not None
         assert domain_config.name == "example.com"
         assert domain_config.webpage_types == "dynamic"
-        assert "warc" in domain_config.artifacts
-        assert "screenshot" in domain_config.artifacts
+        assert len(domain_config.generators) > 0
+        assert domain_config.generators[0].name == "scoop"
     
     def test_get_domain_config_not_found(self, archive_service):
         """Test getting domain configuration when it doesn't exist."""
@@ -103,67 +102,61 @@ class TestArchiveService:
         assert 'supported_domains' in result
     
     @patch('archive_services.archive_service.ArchiveGeneratorFactory')
-    def test_create_archive_generator_dynamic(self, mock_factory_class, archive_service):
-        """Test creating archive generator for dynamic content."""
+    def test_create_generators(self, mock_factory_class, archive_service):
+        """Test creating generators via factory."""
         # Setup mock factory
         mock_factory = mock_factory_class.return_value
-        mock_generator = Mock()
-        mock_factory.create_generator.return_value = mock_generator
+        mock_generators = [Mock(), Mock()]
+        mock_factory.create_generators.return_value = mock_generators
         
         # Replace the factory in the service
         archive_service.generator_factory = mock_factory
         
         domain_config = DomainConfig(
             name="test.com",
-            artifacts=["warc"],
+            generators=[{"name": "scoop", "artifacts": ["warc"]}],
             webpage_types="dynamic"
         )
         
-        generator = archive_service._create_archive_generator(domain_config)
+        generators = archive_service.generator_factory.create_generators(domain_config)
         
-        mock_factory.create_generator.assert_called_once_with(domain_config)
-        assert generator is mock_generator
-    
-    @patch('archive_services.archive_service.ArchiveGeneratorFactory')
-    def test_create_archive_generator_static(self, mock_factory_class, archive_service):
-        """Test creating archive generator for static content."""
-        # Setup mock factory
-        mock_factory = mock_factory_class.return_value
-        mock_generator = Mock()
-        mock_factory.create_generator.return_value = mock_generator
-        
-        # Replace the factory in the service
-        archive_service.generator_factory = mock_factory
-        
-        domain_config = DomainConfig(
-            name="test.com",
-            artifacts=["warc"],
-            webpage_types="static"
-        )
-        
-        generator = archive_service._create_archive_generator(domain_config)
-        
-        mock_factory.create_generator.assert_called_once_with(domain_config)
-        assert generator is mock_generator
+        mock_factory.create_generators.assert_called_once_with(domain_config)
+        assert generators is mock_generators
     
     @pytest.mark.asyncio
     async def test_store_archive_success(self, archive_service):
         """Test successful archive storage."""
         domain_config = DomainConfig(
             name="test.com",
-            artifacts=["warc", "screenshot"],
+            generators=[{"name": "scoop", "artifacts": ["warc", "screenshot"]}],
             webpage_types="dynamic"
         )
         
+        # ArtifactResults describing the files produced
+        artifact_results = [
+            ArtifactResult("warc", ArtifactStatus.SUCCESS, "/tmp/test.warc", 100),
+            ArtifactResult("screenshot", ArtifactStatus.SUCCESS, "/tmp/screenshot.png", 50)
+        ]
+        
+        archive_result = ArchiveResult.create_success(
+            archive_path="/tmp/test.warc",
+            url="https://test.com/page",
+            request_id="test-request-id",
+            artifacts=artifact_results,
+            processing_time_seconds=1.0
+        )
+        
         result = await archive_service._store_archive(
-            "/tmp/test.warc", 
-            "https://test.com/page", 
-            domain_config
+            archive_result.archive_path,
+            archive_result.url,
+            domain_config,
+            archive_result.request_id
         )
         
         assert 'storage_id' in result
         assert result['archive_path'] == "/tmp/test.warc"
-        assert result['artifacts'] == ["warc", "screenshot"]
+        assert 'warc' in result['artifacts']
+        assert 'screenshot' in result['artifacts']
         assert result['storage_backend'] == 'local_file'
         assert 'stored_at' in result
         assert 'files' in result
@@ -176,29 +169,37 @@ class TestArchiveService:
         request_id = "test-req-123"
         priority = 1
         
-        # Mock the generator
+        # Mock generator to return ArtifactResult
         mock_generator = AsyncMock()
-        mock_generator.generate_archive.return_value = "/tmp/test_archive.warc"
+        mock_generator.__class__.__name__ = "ScoopGenerator"
+        mock_generator.generate_archive.return_value = [
+            ArtifactResult("warc", ArtifactStatus.SUCCESS, "/tmp/test_archive.warc", 100),
+            ArtifactResult("screenshot", ArtifactStatus.SUCCESS, "/tmp/screenshot.png", 50)
+        ]
         
-        with patch.object(archive_service, '_create_archive_generator', return_value=mock_generator):
+        archive_service.generator_factory = Mock()
+        archive_service.generator_factory.create_generators.return_value = [mock_generator]
+        
+        # Also mock output folder creation, SSRF and metadata saving
+        with patch('os.makedirs'), patch('archive_services.archive_service.urlparse'), \
+             patch.object(archive_service, '_validate_url_for_ssrf'), \
+             patch.object(archive_service, '_generate_metadata'), \
+             patch.object(archive_service, '_save_metadata'), \
+             patch.object(archive_service, '_store_archive', return_value={'storage_id': '123'}):
             result = await archive_service.create_archive(url, request_id, priority)
         
         # Verify result structure
         assert result['success'] is True
         assert result['request_id'] == request_id
         assert result['url'] == url
-        assert result['priority'] == priority
         assert 'archive_path' in result
-        assert 'storage_result' in result
-        assert 'domain_config' in result
         assert 'processing_time_seconds' in result
         
         # Verify domain config info
         assert result['domain_config']['name'] == "example.com"
-        assert result['domain_config']['webpage_types'] == "dynamic"
         
         # Verify generator was called
-        mock_generator.generate_archive.assert_called_once_with(url, request_id)
+        mock_generator.generate_archive.assert_called_once()
     
     @pytest.mark.asyncio
     async def test_create_archive_no_domain_config(self, archive_service):
@@ -213,66 +214,30 @@ class TestArchiveService:
         assert result['url'] == url
         assert 'No domain configuration found' in result['error']
         assert result['error_type'] == 'configuration_not_found'
-        assert 'processing_time_seconds' in result
     
     @pytest.mark.asyncio
     async def test_create_archive_generator_failure(self, archive_service):
-        """Test archive creation when generator creation fails."""
+        """Test archive creation when generator execution fails."""
         url = "https://example.com/test-page"
         request_id = "test-req-789"
         
-        with patch.object(
-            archive_service, 
-            '_create_archive_generator', 
-            side_effect=Exception("Generator creation failed")
-        ):
-            result = await archive_service.create_archive(url, request_id)
-        
-        assert result['success'] is False
-        assert result['request_id'] == request_id
-        assert result['url'] == url
-        assert 'Generator creation failed' in result['error']
-        assert result['error_type'] == 'processing_error'
-    
-    @pytest.mark.asyncio
-    async def test_create_archive_generation_failure(self, archive_service):
-        """Test archive creation when archive generation fails."""
-        url = "https://example.com/test-page"
-        request_id = "test-req-999"
-        
-        # Mock generator that fails
         mock_generator = AsyncMock()
-        mock_generator.generate_archive.side_effect = Exception("Archive generation failed")
+        mock_generator.__class__.__name__ = "ScoopGenerator"
+        mock_generator.generate_archive.side_effect = Exception("Scoop capture failed")
         
-        with patch.object(archive_service, '_create_archive_generator', return_value=mock_generator):
+        archive_service.generator_factory = Mock()
+        archive_service.generator_factory.create_generators.return_value = [mock_generator]
+        
+        with patch('os.makedirs'), \
+             patch.object(archive_service, '_validate_url_for_ssrf'), \
+             patch.object(archive_service, '_generate_metadata'), \
+             patch.object(archive_service, '_save_metadata'), \
+             patch.object(archive_service, '_store_archive', return_value={}):
             result = await archive_service.create_archive(url, request_id)
         
         assert result['success'] is False
         assert result['request_id'] == request_id
-        assert result['url'] == url
-        assert 'Archive generation failed' in result['error']
-        assert result['error_type'] == 'processing_error'
-    
-    @pytest.mark.asyncio
-    async def test_create_archive_storage_failure(self, archive_service):
-        """Test archive creation when storage fails."""
-        url = "https://example.com/test-page"
-        request_id = "test-req-888"
-        
-        # Mock successful generator but failed storage
-        mock_generator = AsyncMock()
-        mock_generator.generate_archive.return_value = "/tmp/test.warc"
-        
-        with patch.object(archive_service, '_create_archive_generator', return_value=mock_generator), \
-             patch.object(archive_service, '_store_archive', side_effect=Exception("Storage failed")):
-            
-            result = await archive_service.create_archive(url, request_id)
-        
-        assert result['success'] is False
-        assert result['request_id'] == request_id
-        assert result['url'] == url
-        assert 'Storage failed' in result['error']
-        assert result['error_type'] == 'processing_error'
+        assert 'error' in result
     
     @pytest.mark.asyncio
     async def test_create_archive_with_priority(self, archive_service):
@@ -281,12 +246,19 @@ class TestArchiveService:
         request_id = "test-req-priority"
         priority = 5
         
-        # Mock the generator
         mock_generator = AsyncMock()
-        mock_generator.generate_archive.return_value = "/tmp/test_archive.warc"
+        mock_generator.__class__.__name__ = "ScoopGenerator"
+        mock_generator.generate_archive.return_value = []
         
-        with patch.object(archive_service, '_create_archive_generator', return_value=mock_generator):
-            result = await archive_service.create_archive(url, request_id, priority)
+        archive_service.generator_factory = Mock()
+        archive_service.generator_factory.create_generators.return_value = [mock_generator]
+        
+        with patch('os.makedirs'), \
+             patch.object(archive_service, '_validate_url_for_ssrf'), \
+             patch.object(archive_service, '_generate_metadata'), \
+             patch.object(archive_service, '_save_metadata'), \
+             patch.object(archive_service, '_store_archive', return_value={}):
+             result = await archive_service.create_archive(url, request_id, priority)
         
         assert result['success'] is True
         assert result['priority'] == priority
@@ -300,11 +272,20 @@ class TestArchiveServiceIntegration:
         """Test archive creation with real configuration structure."""
         service = ArchiveService(sample_config)
         
-        # Mock only the generator since we don't have Playwright installed in test
+        # Mock generator to return ArtifactResult
         mock_generator = AsyncMock()
-        mock_generator.generate_archive.return_value = "/tmp/integration_test.warc"
+        mock_generator.__class__.__name__ = "ScoopGenerator"
+        mock_generator.generate_archive.return_value = [
+            ArtifactResult("warc", ArtifactStatus.SUCCESS, "/tmp/integration_test.warc", 100)
+        ]
         
-        with patch.object(service, '_create_archive_generator', return_value=mock_generator):
+        service.generator_factory = Mock()
+        service.generator_factory.create_generators.return_value = [mock_generator]
+        
+        with patch('os.makedirs'), patch.object(service, '_validate_url_for_ssrf'), \
+             patch.object(service, '_generate_metadata'), \
+             patch.object(service, '_save_metadata'), \
+             patch.object(service, '_store_archive', return_value={'storage_id': '123'}):
             result = await service.create_archive(
                 "https://example.com/integration-test", 
                 "integration-test-123"

@@ -1,6 +1,6 @@
 # transport_services/transport_service_interface.py
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Callable, Optional
+from typing import Dict, Any, Callable
 
 
 class TransportServiceInterface(ABC):

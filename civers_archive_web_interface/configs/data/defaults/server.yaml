@@ -1,0 +1,13 @@
+# =============================================================================
+# Civers Archive Web Interface - Server Configuration
+# =============================================================================
+# Server settings for host, port, debug mode, and CORS origins.
+# These values are used by uvicorn and CORS middleware in app/main.py.
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+  cors_origins:
+    - "http://localhost:8000"
+    - "http://localhost:8080"

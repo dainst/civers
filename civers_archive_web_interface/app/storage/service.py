@@ -7,8 +7,10 @@ between APIs and storage providers, with centralized caching and business logic.
 
 import logging
 import time
+import threading
 from typing import Dict, Optional, IO
 from pathlib import Path
+from urllib.parse import urlparse
 
 from ..models.url import ArchivedUrl
 from ..models.snapshot import Snapshot
@@ -38,6 +40,7 @@ class StorageService:
         self.cache_ttl_seconds = cache_ttl_seconds
         self._cached_urls: Optional[Dict[str, ArchivedUrl]] = None
         self._cache_timestamp = 0.0
+        self._cache_lock = threading.Lock()
         
     def _is_cache_expired(self) -> bool:
         """Check if cache has expired based on TTL."""
@@ -52,8 +55,11 @@ class StorageService:
             cache_start_time = time.time()
             logger.debug("Refreshing storage cache from provider")
 
-            self._cached_urls = self.provider.get_all_urls()
-            self._cache_timestamp = time.time()
+            urls = self.provider.get_all_urls()
+            
+            with self._cache_lock:
+                self._cached_urls = urls
+                self._cache_timestamp = time.time()
 
             # Log cache operation timing separately
             cache_duration_ms = round((self._cache_timestamp - cache_start_time) * 1000, 2)
@@ -71,23 +77,25 @@ class StorageService:
     
     def clear_cache(self) -> None:
         """Clear the cache manually and reset timestamp."""
-        self._cached_urls = None
-        self._cache_timestamp = 0.0
+        with self._cache_lock:
+            self._cached_urls = None
+            self._cache_timestamp = 0.0
         logger.debug("Storage cache manually cleared")
     
     def get_cache_stats(self) -> dict:
         """Get cache statistics for monitoring."""
-        current_time = time.time()
-        cache_age = current_time - self._cache_timestamp
-        
-        return {
-            "cache_age_seconds": round(cache_age, 2),
-            "ttl_seconds": self.cache_ttl_seconds,
-            "cache_expired": self._is_cache_expired(),
-            "cache_disabled": self.cache_ttl_seconds <= 0,
-            "cached_urls_count": len(self._cached_urls) if self._cached_urls else 0,
-            "last_refresh_timestamp": self._cache_timestamp
-        }
+        with self._cache_lock:
+            current_time = time.time()
+            cache_age = current_time - self._cache_timestamp
+            
+            return {
+                "cache_age_seconds": round(cache_age, 2),
+                "ttl_seconds": self.cache_ttl_seconds,
+                "cache_expired": self._is_cache_expired(),
+                "cache_disabled": self.cache_ttl_seconds <= 0,
+                "cached_urls_count": len(self._cached_urls) if self._cached_urls else 0,
+                "last_refresh_timestamp": self._cache_timestamp
+            }
     
     def get_all_urls(self) -> Dict[str, ArchivedUrl]:
         """
@@ -171,10 +179,15 @@ class StorageService:
             # Get all URLs and find the one with matching original URL
             all_urls = self.get_all_urls()
             
+            # Normalize the search URL: strip query params and trailing slashes
+            parsed_search = urlparse(original_url)
+            normalized_search = f"{parsed_search.scheme}://{parsed_search.netloc}{parsed_search.path}".rstrip('/')
+            
             for _, archived_url in all_urls.items():
-                #TODO: improve the search to avoid partial matches, may be strip url parameters in both variables
-                archived_original_url = str(archived_url.original_url)
-                if archived_original_url in original_url:
+                # Normalize the archived URL the same way for comparison
+                parsed_archived = urlparse(str(archived_url.original_url))
+                normalized_archived = f"{parsed_archived.scheme}://{parsed_archived.netloc}{parsed_archived.path}".rstrip('/')
+                if normalized_archived == normalized_search:
                     return archived_url
                     
             return None
@@ -337,3 +350,16 @@ class StorageService:
             logger.error(f"Error creating snapshot for URL '{url}': {e}")
             # Re-raise as-is (provider already wrapped errors appropriately)
             raise
+
+    def get_db_manager(self):
+        """
+        Get the database manager if the provider supports it.
+        
+        Returns the underlying SQLiteManager from the provider if available,
+        or None if the provider doesn't use a database backend.
+        This avoids callers needing to reach into provider internals.
+        
+        Returns:
+            SQLiteManager instance or None
+        """
+        return getattr(self.provider, 'db', None)

@@ -4,7 +4,7 @@ This directory contains the complete configuration management system for the CIV
 
 ## 📁 Directory Structure
 
-```
+```text
 config/
 ├── README.md                 # This documentation
 ├── __init__.py              # Package exports and public API
@@ -85,8 +85,17 @@ Kafka transport settings:
 Domain-specific archiving rules:
 
 - `name`: Domain name (e.g., "example.com") - **required**
-- `artifacts`: List of artifact types to generate - **required, non-empty**
+- `generators`: List of specialized generators (`GeneratorConfig`) - **required, non-empty**
 - `webpage_types`: Type of web content ("dynamic" or "static") - **required**
+- `enabled`: Enable/disable this domain (default: `true`)
+- `description`: Optional documentation for this domain
+
+#### `GeneratorConfig`
+
+Individual generator settings within a domain:
+
+- `name`: Generator type (e.g., `scoop`, `singlefile`) - **required**
+- `artifacts`: List of specific artifacts to produce (e.g., `["warc", "screenshot"]`) - **required**
 
 #### `StorageConfig`
 
@@ -108,74 +117,43 @@ storage_config = StorageConfig(
 
 ## 🔧 Configuration Loading (`loaders.py`)
 
-### `ConfigLoaderFactory`
-
-The single entry point for configuration loading. Automatically selects the appropriate loader based on environment detection.
-
-```python
-from config import ConfigLoaderFactory
-
-# Automatic loader selection
-loader = ConfigLoaderFactory.create()
-config = loader.load()
-
-print(f"Environment: {loader.environment}")
-```
-
-#### Loader Selection Logic
-
-1. **Docker Detection**: If running in Docker (`.dockerenv` or `DOCKER_ENV`), uses `EnvironmentConfigLoader`
-2. **Container-like Environment**: If `KAFKA_BOOTSTRAP_SERVERS` and `ARCHIVE_ENV` are set, uses `EnvironmentConfigLoader`
-3. **Default**: Uses `YamlFileConfigLoader` for local development/testing
-
 ### `YamlFileConfigLoader`
 
-The main configuration loader for local and test environments.
+The primary configuration loader that manages the hierarchical loading and merging process.
 
 #### Environment Detection
 
-Automatic environment detection follows this priority:
+The system automatically detects the environment using this priority:
 
-1. **Explicit Environment Variable**: `ARCHIVE_ENV=production`
-2. **Docker Detection**: Presence of `/.dockerenv` or `DOCKER_ENV` variable
-3. **Test Detection**: Running under pytest
-4. **Default**: Falls back to `development`
+1. **`CONFIG_ENVIRONMENT` environment variable**: Explicitly set to `development`, `testing`, `docker`, or `production`.
+2. **Docker Detection**: Presence of the `/.dockerenv` file.
+3. **Pytest Detection**: Automatically detected when running under `pytest`.
+4. **Default**: Falls back to `development`.
 
-#### Usage Examples
+#### Environment Variable Expansion
 
-```python
-from config import ConfigLoaderFactory
+The loader supports dynamic environment variable substitution within YAML files using the following syntax:
 
-# Automatic environment detection (recommended)
-loader = ConfigLoaderFactory.create()
-config = loader.load()
-print(f"Environment: {loader.environment}")
+- `${VAR_NAME}`: Simple variable substitution.
+- `${VAR_NAME:-default}`: Substitution with a default value if the variable is not set.
 
-# Using environment variable
-import os
-os.environ["ARCHIVE_ENV"] = "testing"
-loader = ConfigLoaderFactory.create()
-config = loader.load()  # Uses testing environment
+Example in `app.yaml`:
+
+```yaml
+app:
+  archive_directory: ${ARCHIVE_DIRECTORY:-archives}
 ```
 
-### `EnvironmentConfigLoader`
+#### Usage Example
 
-Used in Docker/container environments where configuration comes from environment variables.
+```python
+from configs.loaders import YamlFileConfigLoader
 
-#### Storage Environment Variables
+# Initialize and load
+loader = YamlFileConfigLoader()
+config = loader.load()
 
-```bash
-# Storage backends (comma-separated or JSON array)
-STORAGE_ENABLED="local_file,civers_rest_api"
-
-# Local File Backend
-STORAGE_LOCAL_BASE_PATH="/archives"
-STORAGE_LOCAL_CREATE_SUBDIRS="true"
-
-# CIVERS REST API Backend
-STORAGE_API_UPLOAD_URL="http://localhost:8000/api/upload"
-STORAGE_API_TIMEOUT="30"
-STORAGE_API_RETRIES="3"
+print(f"Detected Environment: {loader.environment}")
 ```
 
 ## 📊 Environment Configurations
@@ -291,6 +269,30 @@ test_config = ConfigDataModel(
     ]
 )
 ```
+
+## 🏗️ Modular Generator Configuration
+
+ The archive generator uses a **Factory-based modular architecture** for its generation logic. This allows for mixing and matching different tools while maintaining strict control over the output.
+
+### 🌟 Benefits of the New Configuration
+
+ 1. **Strict Artifact Control**: You can specify EXACTLY which files a generator should keep. For example, if you use `scoop` but only want the `warc`, the system will automatically purge unrequested screenshots, DOM snapshots, and logs.
+ 2. **Modularity**: Multiple generators can be chained together for a single domain (e.g., using `scoop` for WACZ and `singlefile` for a standalone HTML file).
+ 3. **Reduced Noise**: Centralized cleanup ensures that the archive directory contains only requested artifacts and essential metadata (`metadata.json`, `summary.json`), eliminating log clutter.
+ 4. **Flexibility**: New generators can be added by implementing the `ArchiveGeneratorStrategyInterface` without changing the core service logic.
+
+### Example Configuration (`domains.yaml`)
+
+ ```yaml
+ domains:
+   - name: example.com
+     generators:
+       - name: scoop
+         artifacts: [warc, dom-snapshot]  # Screenshot will be purged even if Scoop takes it
+       - name: singlefile
+         artifacts: [singlefile]
+     webpage_types: dynamic
+ ```
 
 ## 🔨 Usage Patterns
 
@@ -441,21 +443,6 @@ Configuration objects are lightweight and designed for minimal memory footprint.
 - Use different Kafka clusters/topics per environment
 - Implement proper access controls for configuration files
 
-## 📚 Related Documentation
-
-- **API Documentation**: See docstrings in each module
-- **Testing Guide**: `tests/README.md`
-- **Deployment Guide**: `docs/user-guide.md`
-- **Architecture Overview**: `docs/architecture.md`
-
-## 🤝 Contributing
-
-When modifying the configuration system:
-
-1. **Run Tests**: Ensure all configuration tests pass
-2. **Update Documentation**: Update this README for significant changes  
-3. **Validate All Environments**: Test changes across all environments
-4. **Performance**: Consider impact on application startup time
 
 ---
 

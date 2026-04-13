@@ -7,19 +7,13 @@ This module provides HTML page endpoints that render templates for the web inter
 import logging
 import json
 from fastapi import APIRouter, HTTPException, Request, Query
-from fastapi.templating import Jinja2Templates
+from fastapi import APIRouter, HTTPException, Request, Query
 from fastapi.responses import HTMLResponse, Response
 
 from ..constants import RequestStatus
 
 logger = logging.getLogger(__name__)
 
-# Import config loader to initialize templates correctly at module level
-from configs import load_app_config
-_tmp_config = load_app_config()
-
-# Initialize templates using config
-templates = Jinja2Templates(directory=_tmp_config.directories.templates)
 
 # Create router for page routes
 router = APIRouter(tags=["Pages"])
@@ -70,7 +64,7 @@ async def archive_page(request: Request, url_id: str):
     
     logger.debug(f"Archive page context: {context}")
     
-    return templates.TemplateResponse("url_archive.html", context)
+    return request.app.state.templates.TemplateResponse("url_archive.html", context)
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -96,7 +90,7 @@ async def home_page(request: Request):
         "domains_json": json.dumps(domains)
     }
     
-    return templates.TemplateResponse("index.html", context)
+    return request.app.state.templates.TemplateResponse("index.html", context)
 
 
 @router.get("/archive-request", response_class=HTMLResponse)
@@ -113,7 +107,7 @@ async def archive_request_page(request: Request):
         "domains_json": json.dumps(domains)
     }
     
-    return templates.TemplateResponse("archive_request.html", context)
+    return request.app.state.templates.TemplateResponse("archive_request.html", context)
 
 
 @router.get("/status/{request_id}", response_class=HTMLResponse)
@@ -129,7 +123,7 @@ async def status_page(request: Request, request_id: str):
         "request_id": request_id
     }
     
-    return templates.TemplateResponse("status.html", context)
+    return request.app.state.templates.TemplateResponse("status.html", context)
 
 
 @router.get("/my-requests", response_class=HTMLResponse)
@@ -145,7 +139,7 @@ async def my_requests_page(request: Request):
         "title": "My Archive Requests"
     }
     
-    return templates.TemplateResponse("my_requests.html", context)
+    return request.app.state.templates.TemplateResponse("my_requests.html", context)
 
 
 @router.get("/replay/{snapshot_id}", response_class=HTMLResponse)
@@ -228,7 +222,7 @@ async def replay_page(request: Request, snapshot_id: str, view_type: str = Query
 
     logger.debug(f"Replay page context: {context}")
 
-    return templates.TemplateResponse("replay.html", context)
+    return request.app.state.templates.TemplateResponse("replay.html", context)
 
 
 

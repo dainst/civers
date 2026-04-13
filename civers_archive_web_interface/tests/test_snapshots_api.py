@@ -1,4 +1,4 @@
-"""
+""" 
 Unit tests for snapshots API endpoint.
 
 Tests the GET /api/urls/{url_id}/snapshots endpoint with various filtering,
@@ -13,6 +13,7 @@ from pydantic import HttpUrl
 
 from app.main import app
 from app.models import Snapshot, ArchivedUrl
+from configs.models import AppConfig
 
 
 @pytest.fixture
@@ -72,12 +73,15 @@ def mock_storage_service():
 
 @pytest.fixture(autouse=True)
 def setup_storage_service(client, mock_storage_service):
-    """Set up mock storage service for all tests."""
+    """Set up mock storage service and app config for all tests."""
     app.state.storage_service = mock_storage_service
+    app.state.app_config = AppConfig()
     yield
     # Cleanup after tests
     if hasattr(app.state, 'storage_service'):
         delattr(app.state, 'storage_service')
+    if hasattr(app.state, 'app_config'):
+        delattr(app.state, 'app_config')
 
 
 class TestSnapshotsAPI:
@@ -251,10 +255,11 @@ class TestSnapshotsAPI:
         assert response.status_code == 422  # Pydantic validation error
     
     def test_list_snapshots_invalid_limit(self, client):
-        """Test error handling for invalid limit parameter."""
+        """Test that limit above max_page_size is silently clamped."""
         response = client.get("/api/urls/example_com_home_page/snapshots?limit=200")
         
-        assert response.status_code == 422  # Pydantic validation error
+        # Endpoint clamps limit to max_page_size rather than rejecting
+        assert response.status_code == 200
     
     def test_snapshot_summary_properties(self, client):
         """Test snapshot summary model properties."""

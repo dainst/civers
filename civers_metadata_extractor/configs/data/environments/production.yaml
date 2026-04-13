@@ -3,25 +3,26 @@
 
 environment: production
 
-transport:
-  kafka:
-    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}"
-    consumer_group: "${KAFKA_CONSUMER_GROUP_ID:-metadata-extractor-prod}"
-    health_check_enabled: true
-    monitoring_enabled: true
+app:
+  transport:
+    kafka:
+      bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}"
+      consumer_group: "${KAFKA_CONSUMER_GROUP_ID:-metadata-extractor-prod}"
+      health_check_enabled: true
+      monitoring_enabled: true
 
-storage:
-  enabled:
-    - local_file
-    - civers_rest_api
-  backends:
-    local_file:
-      base_path: "${METADATA_OUTPUT_DIR:-/data/metadata}"
-    civers_rest_api:
-      upload_url: "${CIVERS_API_URL}/api/upload"
-      timeout_seconds: 60
-      retry_attempts: 5
-      verify_ssl: true
+  storage:
+    enabled:
+      - local_file
+      - civers_rest_api
+    backends:
+      local_file:
+        base_path: "${METADATA_OUTPUT_DIR:-/data/metadata}"
+      civers_rest_api:
+        upload_url: "${CIVERS_API_URL}/api/upload"
+        timeout_seconds: 60
+        retry_attempts: 5
+        verify_ssl: true
 
 logging:
   level: "${LOG_LEVEL:-INFO}"

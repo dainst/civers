@@ -5,11 +5,11 @@ Copied from: civers_archive_generator/transport_services/kafka/event_models.py
 These models define the events exchanged with the archive_generator service.
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+import re
+from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
-import re
 
 
 class EventBaseModel(BaseModel):
@@ -17,14 +17,15 @@ class EventBaseModel(BaseModel):
 
     request_id: str = Field(..., description="Unique identifier for the request")
     created_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z"),
+        default_factory=lambda: (
+            datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        ),
         description="The timestamp when the event was created, in ISO 8601 UTC format",
     )
     url: str = Field(..., description="The URL associated with the event")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional request metadata")
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional request metadata"
+    )
 
     @field_validator("request_id")
     @classmethod
@@ -81,9 +82,9 @@ class ArchiveCompletedEvent(EventBaseModel):
     """Event model for successful archive generation completion."""
 
     archive_path: str = Field(..., description="Path to the generated archive file")
-    artifacts_created: List[str] = Field(..., description="List of created artifact types")
+    artifacts_created: list[str] = Field(..., description="List of created artifact types")
     processing_time_seconds: float = Field(..., description="Time taken to create archive")
-    snapshot_id: Optional[str] = Field(None, description="Optional snapshot ID from storage")
+    snapshot_id: str | None = Field(None, description="Optional snapshot ID from storage")
 
 
 class ArchiveFailedEvent(EventBaseModel):

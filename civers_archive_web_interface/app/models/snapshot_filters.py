@@ -5,7 +5,7 @@ This module provides Pydantic models for filtering snapshots by various criteria
 including date ranges, artifact availability, and sorting options.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -80,7 +80,6 @@ class SnapshotFilters(BaseModel):
                     parsed = datetime.strptime(v, fmt)
                     # Make timezone aware if it's not already
                     if parsed.tzinfo is None:
-                        from datetime import timezone
                         parsed = parsed.replace(tzinfo=timezone.utc)
                     return parsed
                 except ValueError:
@@ -107,7 +106,6 @@ class SnapshotFilters(BaseModel):
             
             # Ensure both are timezone-aware or both are naive
             if snapshot_dt.tzinfo is not None and filter_dt.tzinfo is None:
-                from datetime import timezone
                 filter_dt = filter_dt.replace(tzinfo=timezone.utc)
             elif snapshot_dt.tzinfo is None and filter_dt.tzinfo is not None:
                 filter_dt = filter_dt.replace(tzinfo=None)
@@ -121,7 +119,6 @@ class SnapshotFilters(BaseModel):
             
             # Ensure both are timezone-aware or both are naive
             if snapshot_dt.tzinfo is not None and filter_dt.tzinfo is None:
-                from datetime import timezone
                 filter_dt = filter_dt.replace(tzinfo=timezone.utc)
             elif snapshot_dt.tzinfo is None and filter_dt.tzinfo is not None:
                 filter_dt = filter_dt.replace(tzinfo=None)

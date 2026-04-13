@@ -7,7 +7,7 @@ using aiokafka for asynchronous messaging.
 
 import json
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Optional, List
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 from aiokafka.errors import KafkaError
 
@@ -80,6 +80,10 @@ class KafkaConnectionManager:
             self._connection_status['consumer_started'] = False
             logger.error(f"❌ Failed to initialize async Kafka consumer: {e}")
             raise KafkaError(f"Consumer setup failed: {e}")
+            
+    def get_connection_status(self) -> Dict[str, bool]:
+        """Return the current connection status."""
+        return self._connection_status
     
     async def cleanup(self) -> None:
         """Clean up Kafka connections."""
@@ -110,5 +114,6 @@ class KafkaConnectionManager:
         try:
             return json.loads(message_bytes.decode('utf-8'))
         except Exception as e:
-            logger.warning(f"⚠️ Failed to deserialize message as JSON: {e}")
+            content_preview = message_bytes[:50] if message_bytes else "None"
+            logger.warning(f"⚠️ Failed to deserialize message as JSON: {e}. Content preview: {content_preview}")
             return message_bytes

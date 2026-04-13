@@ -3,23 +3,24 @@
 
 environment: docker
 
-transport:
-  kafka:
-    # Use localhost since we're on host network mode for VPN compatibility
-    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
-    consumer_group: "${KAFKA_CONSUMER_GROUP_ID:-metadata-extractor-docker}"
+app:
+  transport:
+    kafka:
+      # Use localhost since we're on host network mode for VPN compatibility
+      bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
+      consumer_group: "${KAFKA_CONSUMER_GROUP_ID:-metadata-extractor-docker}"
 
-storage:
-  enabled:
-    - local_file
-    - civers_rest_api
-  backends:
-    local_file:
-      base_path: "${METADATA_OUTPUT_DIR:-/app/output/metadata}"
-    civers_rest_api:
-      # Use localhost since we're on host network mode
-      upload_url: "${CIVERS_API_URL:-http://localhost:8000}/api/upload"
-      verify_ssl: false
+  storage:
+    enabled:
+      - local_file
+      - civers_rest_api
+    backends:
+      local_file:
+        base_path: "${METADATA_OUTPUT_DIR:-/app/output/metadata}"
+      civers_rest_api:
+        # Use localhost since we're on host network mode
+        upload_url: "${CIVERS_API_URL:-http://localhost:8000}/api/upload"
+        verify_ssl: false
 
 logging:
   level: "${LOG_LEVEL:-INFO}"

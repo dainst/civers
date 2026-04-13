@@ -1,0 +1,206 @@
+# Merged Domain Configuration
+# Single source of truth for all CIVERS components
+#
+# Each domain entry contains attributes used by different components:
+# - workflow: Used by Orchestrator to route to appropriate workflow
+# - artifacts: Used by Generator to determine what to archive
+# - webpage_types: Used by Generator for archiving strategy
+# - input_source/mappings: Used by Metadata Extractor for parsing logic
+
+domains:
+  # Production domains
+  - name: arachne.dainst.org
+    workflow: simple_archive_only
+    artifacts: [warc, html, screenshots, singlefile]
+    webpage_types: dynamic
+    enabled: true
+    description: "iDAI.objects/Arachne - Archaeological object database"
+    input_source: html_document
+    extractor: jsonld
+    mappings: &arachne_mappings
+      "name": "Title.title"
+      "description": "Description.description|description_type=Abstract"
+      "@id": "AlternateIdentifier.alternate_identifier"
+      "author[*].name": "Creator[*].creator_name|name_type=Organizational"
+      "author[*].identifier.value": "Creator[*].name_identifiers[NameIdentifier].identifier"
+      "author[*].identifier.propertyID": "Creator[*].name_identifiers[NameIdentifier].name_identifier_scheme"
+      "publisher[*].name": "Publisher[*].publisher"
+      "publisher[*].identifier.value": "Publisher[*].publisher_identifier"
+      "publisher[*].identifier.propertyID": "Publisher[*].publisher_identifier_scheme"
+      "datePublished": "publication_year|transform=extract_year"
+      "dateModified": "Date.date|date_type=Updated"
+      "@type": "ResourceType.resource_type_general|constant=Dataset"
+      "spatialCoverage[*].name": "GeoLocation.geo_location_place"
+      "spatialCoverage[*].geo.latitude": "GeoLocation.geo_location_point.point_latitude"
+      "spatialCoverage[*].geo.longitude": "GeoLocation.geo_location_point.point_longitude"
+      "temporalCoverage[0].name": "Subject.subject"
+      "temporalCoverage[0].identifier.value": "AlternateIdentifier.alternate_identifier"
+      "isPartOf.name": "AlternateIdentifier.alternate_identifier"
+      "isPartOf.url": "AlternateIdentifier.alternate_identifier"
+      "citation[*].name": "Description.description|description_type=Other"
+      "citation[*].identifier.value": "AlternateIdentifier.alternate_identifier"
+      "image[*]": "AlternateIdentifier.alternate_identifier|alternate_identifier_type=URL"
+
+  # Test/Staging domains
+  - name: arachne.test.dainst.org
+    workflow: archaeology_workflow
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    enabled: true
+    description: "Arachne test environment"
+    input_source: html_document
+    extractor: jsonld
+    mappings: &arachne_mappings_test
+      "name": "Title.title"
+      "description": "Description.description|description_type=Abstract"
+      "@id": "AlternateIdentifier.alternate_identifier"
+      "author[*].name": "Creator[*].creator_name|name_type=Organizational"
+      "author[*].identifier.value": "Creator[*].name_identifiers[NameIdentifier].identifier"
+      "author[*].identifier.propertyID": "Creator[*].name_identifiers[NameIdentifier].name_identifier_scheme"
+      "publisher[*].name": "Publisher[*].publisher"
+      "publisher[*].identifier.value": "Publisher[*].publisher_identifier"
+      "publisher[*].identifier.propertyID": "Publisher[*].publisher_identifier_scheme"
+      "datePublished": "publication_year|transform=extract_year"
+      "dateModified": "Date.date|date_type=Updated"
+      "@type": "ResourceType.resource_type_general|constant=Dataset"
+      "spatialCoverage[*].name": "GeoLocation.geo_location_place"
+      "spatialCoverage[*].geo.latitude": "GeoLocation.geo_location_point.point_latitude"
+      "spatialCoverage[*].geo.longitude": "GeoLocation.geo_location_point.point_longitude"
+      "temporalCoverage[0].name": "Subject.subject"
+      "temporalCoverage[0].identifier.value": "AlternateIdentifier.alternate_identifier"
+      "isPartOf.name": "AlternateIdentifier.alternate_identifier"
+      "isPartOf.url": "AlternateIdentifier.alternate_identifier"
+      "citation[*].name": "Description.description|description_type=Other"
+      "citation[*].identifier.value": "AlternateIdentifier.alternate_identifier"
+      "image[*]": "AlternateIdentifier.alternate_identifier|alternate_identifier_type=URL"
+
+  - name: field.idai.world
+    workflow: simple_archive_only
+    artifacts: [warc, html, singlefile]
+    webpage_types: dynamic
+    enabled: true
+    description: "iDAI.field - Field documentation"
+
+  - name: sempub.ub.uni-heidelberg.de
+    workflow: simple_archive_only
+    artifacts: [warc, html, singlefile]
+    webpage_types: dynamic
+    enabled: true
+    description: "SemPub - Semantic Publishing"
+
+  - name: publications.dainst.org
+    workflow: simple_archive_only
+    artifacts: [warc, html, screenshots]
+    webpage_types: dynamic
+    enabled: true
+    description: "DAINST Publications"
+    input_source: html_document
+    extractor: jsonld
+    mappings:
+      "DC.Title": "Title.title"
+      "DC.Title.Alternative": "Title.title"
+      "DC.Creator.PersonalName": "Creator.creator_name"
+      "DC.Date.created": "Date.date"
+      "DC.Date.dateSubmitted": "Date.date"
+      "DC.Date.modified": "Date.date"
+      "DC.Description": "Description.description"
+      "DC.Identifier": "AlternateIdentifier.alternate_identifier"
+      "DC.Identifier.DOI": "AlternateIdentifier.alternate_identifier"
+      "DC.Identifier.URI": "AlternateIdentifier.alternate_identifier"
+      "DC.Language": "Title.lang"
+      "DC.Rights": "Rights.rights"
+      "DC.Source": "Publisher.publisher"
+      "DC.Source.URI": "AlternateIdentifier.alternate_identifier"
+      "DC.Type": "ResourceType.resource_type_general|constant=Dataset"
+      "citation_title": "Title.title"
+      "citation_language": "Description.lang"
+      "citation_publication_date": "publication_year|transform=extract_year"
+      "citation_author": "Creator.creator_name"
+      "citation_abstract": "Description.description"
+      "citation_doi": "AlternateIdentifier.alternate_identifier"
+      "citation_pdf_url": "AlternateIdentifier.alternate_identifier"
+      "citation_publisher": "Publisher.publisher"
+      "title": "Title.title"
+      "generator": "Description.description"
+      "gs_meta_revision": "AlternateIdentifier.alternate_identifier"
+
+  # Wildcard pattern for other DAI domains
+  - name: "*.dainst.org"
+    workflow: simple_archive_only
+    artifacts: [warc, html, screenshots]
+    webpage_types: dynamic
+    enabled: true
+    description: "Default pattern for DAI domains"
+
+  # Default fallback
+  - name: default
+    workflow: simple_archive_only
+    artifacts: [warc, html]
+    webpage_types: dynamic
+    enabled: true
+    description: "Default fallback for unknown domains"
+
+  - name: civers.widget.demo
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile]
+    webpage_types: dynamic
+    enabled: true
+    description: "CIVERS Widget Demo Domain"
+
+  # Integration test domain
+  - name: httpbin.org
+    workflow: simple_archive_only
+    artifacts: [warc, html, screenshots]
+    webpage_types: dynamic
+    enabled: true
+    description: "HTTP testing service for integration tests"
+
+  - name: civers.test.dainst.de
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    enabled: true
+    description: "CiVers Arachne frontend Test Environment Domain"
+    input_source: html_document
+    extractor: jsonld
+    mappings: *arachne_mappings_test
+
+  - name: "civers.test.dainst.de:8080"
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    enabled: true
+    description: "CiVers Arachne frontend Test Environment Domain (Port 8080)"
+    input_source: html_document
+    extractor: jsonld
+    mappings: *arachne_mappings_test
+
+  - name: localhost
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    enabled: true
+    description: "Local Development Host"
+    input_source: html_document
+    extractor: jsonld
+    mappings: *arachne_mappings_test
+
+  - name: 127.0.0.1
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    enabled: true
+    description: "Local Development IP"
+    input_source: html_document
+    extractor: jsonld
+    mappings: *arachne_mappings_test
+
+  - name: arachne_local_demo
+    workflow: standard_archive_workflow
+    artifacts: [warc, html, screenshots, singlefile, json]
+    webpage_types: dynamic
+    enabled: true
+    description: "Arachne Local Demo Instance"
+    input_source: html_document
+    extractor: jsonld
+    mappings: *arachne_mappings

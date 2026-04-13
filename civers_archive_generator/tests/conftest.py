@@ -3,11 +3,7 @@
 Pytest configuration and shared fixtures for the archive generator test suite.
 This file imports shared fixtures and configures the test environment.
 """
-import pytest
-import tempfile
-import os
 import sys
-import logging
 from pathlib import Path
 
 # Add the project root to Python path for imports
@@ -15,33 +11,17 @@ project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-# Import shared fixtures from the fixtures package
-from tests.fixtures.shared_fixtures import *
+# Import shared fixtures from the fixtures package after sys.path is updated
+from tests.fixtures.shared_fixtures import *  # noqa: E402, F401, F403
+import pytest  # noqa: E402
+import tempfile  # noqa: E402
+import logging  # noqa: E402
 
 # Configure test logging
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-
-# Pytest markers configuration
-def pytest_configure(config):
-    """Configure custom pytest markers."""
-    config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests"
-    )
-    config.addinivalue_line(
-        "markers", "e2e: marks tests as end-to-end tests"
-    )
-    config.addinivalue_line(
-        "markers", "slow: marks tests as slow running"
-    )
-    config.addinivalue_line(
-        "markers", "browser: marks tests that require browser automation"
-    )
-    config.addinivalue_line(
-        "markers", "kafka: marks tests that require Kafka infrastructure"
-    )
 
 def pytest_addoption(parser):
     """Add custom command line options."""
@@ -81,18 +61,14 @@ def pytest_collection_modifyitems(config, items):
         
         # Skip browser tests if playwright not available
         if "browser" in item.keywords:
-            try:
-                import playwright
-            except ImportError:
+            import importlib.util
+            if importlib.util.find_spec("playwright") is None:
                 item.add_marker(pytest.mark.skip(reason="Playwright not installed"))
 
 @pytest.fixture(scope="session")
 def test_data_dir():
     """
     Session-scoped fixture providing a test data directory.
-    
-    This directory can be used to store test fixtures, sample files,
-    and other test-related data that needs to persist across tests.
     """
     test_dir = Path(__file__).parent / "test_data"
     test_dir.mkdir(exist_ok=True)
@@ -102,15 +78,7 @@ def test_data_dir():
 def temp_dir():
     """
     Function-scoped fixture providing a temporary directory.
-    
-    This directory is automatically cleaned up after each test.
     """
-    with tempfile.TemporaryDirectory() as temp_dir:
-        yield temp_dir
-
-@pytest.fixture
-def temp_archive_dir():
-    """Create temporary directory for archive testing."""
     with tempfile.TemporaryDirectory() as temp_dir:
         yield temp_dir
 
@@ -146,7 +114,7 @@ def mock_config_dict():
         "domains": [
             {
                 "name": "example.com",
-                "artifacts": ["warc", "html"],
+                "generators": [{"name": "scoop", "artifacts": ["warc", "html"]}],
                 "webpage_types": "dynamic"
             }
         ]
@@ -159,12 +127,12 @@ def valid_config_dict():
         "domains": [
             {
                 "name": "example.com",
-                "artifacts": ["warc", "html"],
+                "generators": [{"name": "scoop", "artifacts": ["warc", "html"]}],
                 "webpage_types": "dynamic"
             },
             {
                 "name": "test.org", 
-                "artifacts": ["warc"],
+                "generators": [{"name": "scoop", "artifacts": ["warc"]}],
                 "webpage_types": "static"
             }
         ],
@@ -192,22 +160,6 @@ def valid_config_dict():
             }
         }
     }
-
-@pytest.fixture
-def mock_config(temp_archive_dir, mock_config_dict):
-    """Create a proper ConfigDataModel instance for testing."""
-    try:
-        from configs.models import ConfigDataModel
-        
-        # Update paths to use temp directory
-        mock_config_dict["app"]["archive_directory"] = temp_archive_dir
-        mock_config_dict["app"]["sqlite"]["db_path"] = os.path.join(temp_archive_dir, "test.db")
-        
-        # Create config from dict
-        config = ConfigDataModel(**mock_config_dict)
-        return config
-    except ImportError as e:
-        pytest.skip(f"Could not import ConfigDataModel: {e}")
 
 @pytest.fixture
 def sample_http_entries():
@@ -246,4 +198,3 @@ def mock_singlefile_binary(temp_dir):
     mock_binary.write_text("#!/bin/bash\necho 'Mock SingleFile'\n")
     mock_binary.chmod(0o755)
     return str(mock_binary)
-

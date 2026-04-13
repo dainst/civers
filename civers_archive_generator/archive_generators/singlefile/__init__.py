@@ -1,0 +1,1 @@
+from .singlefile_generator import SingleFileGenerator

@@ -14,7 +14,7 @@ from app.database.sqlite_manager import SQLiteManager
 from app.database.models import get_schema_sql
 from app.database.indexer import FilesystemIndexer
 from app.storage.providers.filesystem import FilesystemStorageProvider
-from app.config.models import ValidationConfig
+from configs.models import ValidationConfig
 from app.models.snapshot import Snapshot
 from app.models.url import ArchivedUrl
 

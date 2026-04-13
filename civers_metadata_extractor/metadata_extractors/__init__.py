@@ -19,17 +19,13 @@ See DEVELOPMENT_ROADMAP.md for implementation timeline.
 # Import error handling for incomplete implementation
 try:
     from .base_extractor import BaseExtractor, ExtractionResult
-    from .html_parser import HTMLParser
     from .extractor_factory import ExtractorFactory
-    
-    __all__ = [
-        'BaseExtractor',
-        'ExtractionResult', 
-        'ExtractorFactory',
-        'HTMLParser'
-    ]
+    from .html_parser import HTMLParser
+
+    __all__ = ["BaseExtractor", "ExtractionResult", "ExtractorFactory", "HTMLParser"]
 except ImportError as e:
     # During development, some modules might not be complete
     __all__ = []
     import logging
+
     logging.getLogger(__name__).debug(f"Import error in metadata_extractors: {e}")

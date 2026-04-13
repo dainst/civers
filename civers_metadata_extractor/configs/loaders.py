@@ -7,11 +7,11 @@ This is the hierarchical configuration loader that supports:
 - External config directory via CONFIG_DIR
 """
 
+import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Optional
-import logging
+from typing import Any
 
 import yaml
 
@@ -33,8 +33,8 @@ class YamlFileConfigLoader:
 
     def __init__(
         self,
-        config_dir: Optional[Path] = None,
-        environment: Optional[str] = None,
+        config_dir: Path | None = None,
+        environment: str | None = None,
     ) -> None:
         """
         Initialize the configuration loader.
@@ -85,7 +85,7 @@ class YamlFileConfigLoader:
         # Default to development
         return "development"
 
-    def _load_yaml_file(self, file_path: Path) -> Dict[str, Any]:
+    def _load_yaml_file(self, file_path: Path) -> dict[str, Any]:
         """
         Load a single YAML file.
 
@@ -98,7 +98,7 @@ class YamlFileConfigLoader:
         if not file_path.exists():
             return {}
 
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             data = yaml.safe_load(f)
             if data is None:
                 return {}
@@ -107,7 +107,7 @@ class YamlFileConfigLoader:
                 return {}
             return data
 
-    def _deep_merge(self, base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    def _deep_merge(self, base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
         """
         Deep merge two dictionaries.
 
@@ -128,14 +128,14 @@ class YamlFileConfigLoader:
 
         return result
 
-    def _load_defaults(self) -> Dict[str, Any]:
+    def _load_defaults(self) -> dict[str, Any]:
         """
         Load all default configuration files.
 
         Returns:
             Merged default configuration
         """
-        config: Dict[str, Any] = {}
+        config: dict[str, Any] = {}
 
         # Load all YAML files from defaults directory
         if self.defaults_dir.exists():
@@ -146,7 +146,7 @@ class YamlFileConfigLoader:
 
         return config
 
-    def _load_environment_overrides(self) -> Dict[str, Any]:
+    def _load_environment_overrides(self) -> dict[str, Any]:
         """
         Load environment-specific configuration overrides.
 
@@ -164,15 +164,18 @@ class YamlFileConfigLoader:
         if not env_file.exists():
             if explicitly_set:
                 # Environment was explicitly requested but file doesn't exist - this is an error
-                available_envs = [
-                    f.stem for f in self.environments_dir.glob("*.yaml")
-                ] if self.environments_dir.exists() else []
+                available_envs = (
+                    [f.stem for f in self.environments_dir.glob("*.yaml")]
+                    if self.environments_dir.exists()
+                    else []
+                )
 
                 raise FileNotFoundError(
                     f"Environment file '{env_file}' not found. "
                     f"Environment '{self.environment}' was explicitly set via CONFIG_ENVIRONMENT "
-                    f"but no corresponding configuration file exists. "
-                    f"Available environments: {', '.join(available_envs) if available_envs else 'none'}"
+                    "but no corresponding configuration file exists. "
+                    "Available environments: "
+                    f"{', '.join(available_envs) if available_envs else 'none'}"
                 )
             else:
                 # Environment was auto-detected but file doesn't exist - just warn
@@ -183,7 +186,7 @@ class YamlFileConfigLoader:
 
         return self._load_yaml_file(env_file)
 
-    def _expand_env_vars(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _expand_env_vars(self, config: dict[str, Any]) -> dict[str, Any]:
         """
         Expand environment variables in configuration values.
 
@@ -200,10 +203,11 @@ class YamlFileConfigLoader:
             Configuration with expanded environment variables
         """
         # Pattern matches ${VAR} or ${VAR:-default}
-        env_var_pattern = re.compile(r'\$\{([^}:]+)(?::-([^}]*))?\}')
+        env_var_pattern = re.compile(r"\$\{([^}:]+)(?::-([^}]*))?\}")
 
         def expand_value(value: str) -> str:
             """Expand all environment variables in a string value."""
+
             def replace_match(match: re.Match) -> str:
                 var_name = match.group(1)
                 default_value = match.group(2)  # None if no default specified
@@ -212,10 +216,10 @@ class YamlFileConfigLoader:
                 if env_value is not None:
                     return env_value
                 elif default_value is not None:
-                    return default_value
+                    return str(default_value)
                 else:
                     # Return original placeholder if no value and no default
-                    return match.group(0)
+                    return str(match.group(0))
 
             return env_var_pattern.sub(replace_match, value)
 
@@ -230,7 +234,7 @@ class YamlFileConfigLoader:
             else:
                 return value
 
-        return process_value(config)
+        return process_value(config)  # type: ignore[no-any-return]
 
     def load(self) -> ConfigDataModel:
         """
@@ -252,7 +256,7 @@ class YamlFileConfigLoader:
         """
         logger.info(f"🔧 Loading configuration for environment: {self.environment}")
         logger.debug(f"   Config directory: {self.config_dir}")
-        
+
         # Load defaults
         config = self._load_defaults()
         logger.debug(f"   Loaded {len(config)} top-level keys from defaults")
@@ -270,5 +274,5 @@ class YamlFileConfigLoader:
         # Validate and return
         result = ConfigDataModel(**expanded_config)
         logger.info(f"✅ Configuration loaded successfully for environment: {self.environment}")
-        
+
         return result

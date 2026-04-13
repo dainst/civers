@@ -7,56 +7,51 @@ This package contains all data models used throughout the application:
 """
 
 from .intermediate_metadata import (
-    # Main model
-    IntermediateMetadata,
-    
+    Affiliation,
+    AlternateIdentifier,
+    # Base interface
+    BaseMetadata,
+    Contributor,
+    ContributorType,
     # Component models
     Creator,
-    Title, 
-    Publisher,
-    ResourceType,
-    Subject,
-    Contributor,
+    DataCiteMetadata,
     Date,
-    Identifier,
-    AlternateIdentifier,
-    RelatedIdentifier,
-    Rights,
+    DateType,
     Description,
-    GeoLocation,
-    GeoLocationPoint,
-    GeoLocationBox,
+    DescriptionType,
+    FunderIdentifierType,
     FundingReference,
+    GeoLocation,
+    GeoLocationBox,
+    GeoLocationPoint,
+    Identifier,
+    IdentifierType,
+    # Main model
+    IntermediateMetadata,
+    IntermediateModel,
     NameIdentifier,
-    Affiliation,
-    
     # Enumerations
     NameType,
-    ResourceTypeGeneral,
-    IdentifierType,
-    ContributorType,
-    DateType,
-    DescriptionType,
+    Publisher,
+    RelatedIdentifier,
     RelationType,
-    FunderIdentifierType,
-    
+    ResourceType,
+    ResourceTypeGeneral,
+    Rights,
+    Subject,
+    Title,
     # Aliases
     UniversalMetadata,
-    IntermediateModel,
-    DataCiteMetadata,
-    
-    # Base interface
-    BaseMetadata
 )
 
 __all__ = [
     # Main model
     "IntermediateMetadata",
-    
-    # Component models  
+    # Component models
     "Creator",
     "Title",
-    "Publisher", 
+    "Publisher",
     "ResourceType",
     "Subject",
     "Contributor",
@@ -67,27 +62,24 @@ __all__ = [
     "Rights",
     "Description",
     "GeoLocation",
-    "GeoLocationPoint", 
+    "GeoLocationPoint",
     "GeoLocationBox",
     "FundingReference",
     "NameIdentifier",
     "Affiliation",
-    
     # Enumerations
     "NameType",
     "ResourceTypeGeneral",
-    "IdentifierType", 
+    "IdentifierType",
     "ContributorType",
     "DateType",
     "DescriptionType",
     "RelationType",
     "FunderIdentifierType",
-    
     # Aliases
     "UniversalMetadata",
-    "IntermediateModel", 
+    "IntermediateModel",
     "DataCiteMetadata",
-    
     # Base interface
-    "BaseMetadata"
+    "BaseMetadata",
 ]

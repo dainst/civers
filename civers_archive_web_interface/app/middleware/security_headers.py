@@ -107,12 +107,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         """CSP for API documentation (Swagger UI / ReDoc)."""
         csp_directives = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",  # Swagger UI scripts
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",   # Swagger UI styles
-            "img-src 'self' data: https://fastapi.tiangolo.com",           # FastAPI favicon and images
-            "font-src 'self' https://fonts.gstatic.com",                   # Web fonts if used
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",  # Swagger UI scripts from CDN
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",   # Swagger UI styles from CDN
+            "img-src 'self' data: https://fastapi.tiangolo.com",  # FastAPI favicon and images
+            "font-src 'self' https://fonts.gstatic.com",          # Web fonts if used
             "connect-src 'self'",
-            "frame-ancestors 'none'",                                       # Prevent embedding
+            "frame-ancestors 'none'",                              # Prevent embedding
             "object-src 'none'",
             "base-uri 'self'"
         ]
@@ -121,9 +121,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     def _add_page_csp(self, response: Response) -> None:
         """CSP for web pages (HTML responses)."""
-        # TODO: Download and host Tailwind CSS locally instead of using CDN
-        # This would improve security by removing external dependencies
-        # and eliminate the need for https://cdn.tailwindcss.com in CSP
         # TODO: Consider implementing nonce-based CSP for scripts to eliminate 'unsafe-inline'
         # This would require template modifications to inject nonces into script tags
         # Base connect-src - add WebSocket in debug mode
@@ -133,12 +130,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         csp_directives = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.tailwindcss.com",  # Alpine.js + Tailwind CDN
-            "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com",  # Tailwind CDN + inline styles
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",    # Alpine.js requires unsafe-eval for expression evaluation
+            "style-src 'self' 'unsafe-inline'",            # Tailwind CSS (pre-built, self-hosted) + inline styles
             "img-src 'self' data:",
             "font-src 'self'",
             f"connect-src {connect_src}",
             "frame-src 'self'",                   # Allow iframes from same origin (SingleFile viewer)
+            "frame-ancestors 'self'",             # Prevent clickjacking (ZAP finding)
             "object-src 'none'",
             "base-uri 'self'",
             "form-action 'self'"

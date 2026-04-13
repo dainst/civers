@@ -5,7 +5,6 @@ Coordinates storage operations across multiple enabled storage backends,
 aggregating results and handling failures gracefully.
 """
 
-import asyncio
 from typing import Dict, Any, List
 from configs.models import StorageConfig
 from configs.logging_config import get_logger
@@ -90,8 +89,7 @@ class StorageManager:
                 # Create strategy instance
                 strategy = self._create_strategy_instance(
                     strategy_class=strategy_class,
-                    backend_name=backend_name,
-                    config=backend_config
+                    config=backend_config,
                 )
                 
                 self.strategies[backend_name] = strategy
@@ -105,62 +103,13 @@ class StorageManager:
     def _create_strategy_instance(
         self,
         strategy_class: type[StorageStrategy],
-        backend_name: str,
-        config: Dict[str, Any]
+        config: Dict[str, Any],
     ) -> StorageStrategy:
         """
-        Create a storage strategy instance with backend-specific configuration.
-        
-        Args:
-            strategy_class: Class type to instantiate
-            backend_name: Name of the backend (for logging/debugging)
-            config: Backend-specific configuration dictionary
-            
-        Returns:
-            Initialized storage strategy instance
-            
-        Raises:
-            TypeError: If strategy_class cannot be instantiated with the config
+        Create a storage strategy instance by delegating to the strategy's
+        own from_config classmethod. Each strategy owns its construction logic.
         """
-        # Create instance based on backend type
-        if backend_name == "local_file":
-            return strategy_class(
-                base_path=config.get("base_path", "output/metadata"),
-                create_subdirectories=config.get("create_subdirectories", True)
-            )
-        
-        elif backend_name == "civers_rest_api":
-            return strategy_class(
-                upload_url=config["upload_url"],  # Required
-                timeout_seconds=config.get("timeout_seconds", 30),
-                retry_attempts=config.get("retry_attempts", 3),
-                verify_ssl=config.get("verify_ssl", True),
-                auth=config.get("auth")
-            )
-        
-        # Placeholder for future backends
-        # elif backend_name == "s3":
-        #     return strategy_class(
-        #         bucket=config["bucket"],
-        #         region=config.get("region", "us-east-1"),
-        #         access_key=config.get("access_key"),
-        #         secret_key=config.get("secret_key")
-        #     )
-        # elif backend_name == "azure_blob":
-        #     return strategy_class(
-        #         container=config["container"],
-        #         connection_string=config["connection_string"]
-        #     )
-        
-        else:
-            # Generic fallback - try passing config as kwargs
-            try:
-                return strategy_class(**config)
-            except TypeError as e:
-                raise TypeError(
-                    f"Cannot create strategy for '{backend_name}' with provided config. "
-                    f"Error: {e}"
-                )
+        return strategy_class.from_config(config)
     
     async def store_metadata(
         self,

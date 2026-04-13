@@ -13,7 +13,6 @@ Example:
 
 import re
 from dataclasses import dataclass
-from typing import List, Optional, Union
 
 
 @dataclass(frozen=True)
@@ -32,8 +31,9 @@ class PathSegment:
         PathSegment('author', '*', True)    # author[*]
         PathSegment('name', None, False)    # name
     """
+
     name: str
-    index: Optional[Union[int, str]]
+    index: int | str | None
     is_array: bool
 
     def __post_init__(self):
@@ -47,7 +47,7 @@ class PathSegment:
         if not self.is_array and self.index is not None:
             raise ValueError("Non-array segment cannot have an index")
 
-        if isinstance(self.index, str) and self.index != '*':
+        if isinstance(self.index, str) and self.index != "*":
             # Check if it's a valid class name (starts with uppercase usually, but let's be lenient)
             # The regex already enforces [a-zA-Z][a-zA-Z0-9_]*
             pass
@@ -58,6 +58,7 @@ class PathSegment:
 
 class KeyParseError(Exception):
     """Raised when a key cannot be parsed due to invalid syntax."""
+
     pass
 
 
@@ -81,11 +82,11 @@ class KeyParser:
     # Group 2: complete bracket notation [...]
     # Group 3: index inside brackets (number or *)
     SEGMENT_PATTERN = re.compile(
-        r'^([a-zA-Z@_][a-zA-Z0-9@_\-]*)'  # Field name (starts with letter, @, or _)
-        r'(?:\[([0-9]+|\*|[a-zA-Z][a-zA-Z0-9_]*)\])?$'  # Optional [index], [*], or [ClassName]
+        r"^([a-zA-Z@_][a-zA-Z0-9@_\-]*)"  # Field name (starts with letter, @, or _)
+        r"(?:\[([0-9]+|\*|[a-zA-Z][a-zA-Z0-9_]*)\])?$"  # Optional [index], [*], or [ClassName]
     )
 
-    def parse(self, key: str) -> List[PathSegment]:
+    def parse(self, key: str) -> list[PathSegment]:
         """
         Parse a flattened key into path segments.
 
@@ -116,7 +117,7 @@ class KeyParser:
             raise KeyParseError("Key cannot be empty")
 
         key = key.strip()
-        segments: List[PathSegment] = []
+        segments: list[PathSegment] = []
 
         # Split by dots, but need to be careful with brackets
         parts = self._split_key(key)
@@ -130,7 +131,7 @@ class KeyParser:
 
         return segments
 
-    def _split_key(self, key: str) -> List[str]:
+    def _split_key(self, key: str) -> list[str]:
         """
         Split key by dots, handling brackets correctly.
 
@@ -139,23 +140,23 @@ class KeyParser:
             'author[0].name' → ['author[0]', 'name']
             'a.b[5].c[*].d' → ['a', 'b[5]', 'c[*]', 'd']
         """
-        parts: List[str] = []
+        parts: list[str] = []
         current = []
         bracket_depth = 0
 
         for char in key:
-            if char == '[':
+            if char == "[":
                 bracket_depth += 1
                 current.append(char)
-            elif char == ']':
+            elif char == "]":
                 bracket_depth -= 1
                 if bracket_depth < 0:
                     raise KeyParseError(f"Unmatched closing bracket in: '{key}'")
                 current.append(char)
-            elif char == '.' and bracket_depth == 0:
+            elif char == "." and bracket_depth == 0:
                 # Dot outside brackets - segment separator
                 if current:
-                    parts.append(''.join(current))
+                    parts.append("".join(current))
                     current = []
             else:
                 current.append(char)
@@ -164,7 +165,7 @@ class KeyParser:
             raise KeyParseError(f"Unmatched opening bracket in: '{key}'")
 
         if current:
-            parts.append(''.join(current))
+            parts.append("".join(current))
 
         return parts
 
@@ -198,8 +199,8 @@ class KeyParser:
             return PathSegment(name=name, index=None, is_array=False)
 
         # Parse index
-        if index_str == '*':
-            index: Union[int, str] = '*'
+        if index_str == "*":
+            index: int | str = "*"
         elif index_str.isdigit():
             index = int(index_str)
         else:
@@ -247,7 +248,7 @@ class KeyParser:
             return False
 
         # Check each segment
-        for key_seg, pat_seg in zip(key_segments, pattern_segments):
+        for key_seg, pat_seg in zip(key_segments, pattern_segments, strict=False):
             # Names must match exactly
             if key_seg.name != pat_seg.name:
                 return False
@@ -259,8 +260,8 @@ class KeyParser:
             # If both are arrays, check index compatibility
             if key_seg.is_array:
                 # Wildcard in pattern matches any numeric index in key
-                if pat_seg.index == '*':
-                    if not isinstance(key_seg.index, int) and key_seg.index != '*':
+                if pat_seg.index == "*":
+                    if not isinstance(key_seg.index, int) and key_seg.index != "*":
                         return False
                 # Exact index match
                 elif key_seg.index != pat_seg.index:
@@ -268,7 +269,7 @@ class KeyParser:
 
         return True
 
-    def extract_indices(self, key: str) -> List[Optional[int]]:
+    def extract_indices(self, key: str) -> list[int | None]:
         """
         Extract numeric array indices from a key.
 
@@ -288,10 +289,9 @@ class KeyParser:
             [None]
         """
         segments = self.parse(key)
-        return [seg.index if isinstance(seg.index, int) else None
-                for seg in segments]
+        return [seg.index if isinstance(seg.index, int) else None for seg in segments]
 
-    def get_max_indices(self, keys: List[str], pattern: str) -> List[Optional[int]]:
+    def get_max_indices(self, keys: list[str], pattern: str) -> list[int | None]:
         """
         Find maximum index at each array level for keys matching a pattern.
 
@@ -311,7 +311,7 @@ class KeyParser:
             [2, None]  # Max index is 2 for author, name is not an array
         """
         pattern_segments = self.parse(pattern)
-        max_indices: List[Optional[int]] = [None] * len(pattern_segments)
+        max_indices: list[int | None] = [None] * len(pattern_segments)
 
         for key in keys:
             if not self.matches_pattern(key, pattern):
@@ -320,11 +320,13 @@ class KeyParser:
             key_segments = self.parse(key)
             for i, seg in enumerate(key_segments):
                 if isinstance(seg.index, int):
-                    if max_indices[i] is None or seg.index > max_indices[i]:
+                    current_max = max_indices[i]
+                    if current_max is None or seg.index > current_max:
                         max_indices[i] = seg.index
 
         return max_indices
-    def segments_to_string(self, segments: List[PathSegment]) -> str:
+
+    def segments_to_string(self, segments: list[PathSegment]) -> str:
         """
         Convert a list of PathSegments back to a string representation.
         """

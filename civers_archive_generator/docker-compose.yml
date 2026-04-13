@@ -58,7 +58,7 @@ services:
     container_name: archive-generator
     environment:
       # Environment variables will be set by override files
-      ARCHIVE_ENV: ${ARCHIVE_ENV:-docker}
+      CONFIG_ENVIRONMENT: ${CONFIG_ENVIRONMENT:-docker}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       KAFKA_TOPIC_REQUESTS: ${KAFKA_TOPIC_REQUESTS:-archive.requests}
       KAFKA_TOPIC_STATUS: ${KAFKA_TOPIC_STATUS:-archive.status}

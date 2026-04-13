@@ -542,14 +542,7 @@ from typing import Dict, Any
 from configs.logging_config import get_logger
 from .storage_strategy import StorageStrategy, StorageResult
 
-# Conditional import for HTTP functionality
-try:
-    import httpx
-    HTTPX_AVAILABLE = True
-except ImportError:
-    HTTPX_AVAILABLE = False
-    import warnings
-    warnings.warn("httpx not available - CIVERS REST API storage disabled")
+import httpx
 
 class CiversRestApiStorageStrategy(StorageStrategy):
     """CIVERS REST API storage strategy for cloud uploads"""
@@ -562,8 +555,6 @@ class CiversRestApiStorageStrategy(StorageStrategy):
         verify_ssl: bool = True,
         auth: Dict[str, Any] = None
     ):
-        if not HTTPX_AVAILABLE:
-            raise ImportError("httpx required for CIVERS REST API storage. Install with: uv sync --extra http")
         
         self.upload_url = upload_url
         self.timeout_seconds = timeout_seconds
@@ -668,9 +659,6 @@ class CiversRestApiStorageStrategy(StorageStrategy):
     
     async def is_available(self) -> bool:
         """Check if CIVERS REST API is available"""
-        if not HTTPX_AVAILABLE:
-            return False
-        
         try:
             # Simple health check - try to connect to the API
             async with httpx.AsyncClient(timeout=5.0, verify=self.verify_ssl) as client:
@@ -1177,7 +1165,7 @@ async def test_local_file_storage_success():
 
 ```python
 @pytest.mark.asyncio
-@pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
+@pytest.mark.asyncio
 async def test_http_api_storage_success(httpx_mock):
     """Test successful HTTP API upload"""
     httpx_mock.add_response(
@@ -1265,7 +1253,7 @@ async def test_extraction_with_http_storage(storage_api_mock):
 
 ✅ **Default behavior unchanged**: `backend: "local_file"` maintains current functionality
 ✅ **No breaking changes**: Existing code continues to work
-✅ **Optional HTTP**: `httpx` remains optional dependency (--extra http)
+✅ **HTTP included**: `httpx` is a core dependency, always available
 ✅ **Configuration compatible**: StorageConfig already exists in config model
 
 ---

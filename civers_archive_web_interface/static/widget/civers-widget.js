@@ -74,6 +74,28 @@
     }
 
     /**
+     * Escape a string for safe insertion into HTML attributes/content.
+     * Prevents XSS when config values are interpolated into innerHTML.
+     */
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    /**
+     * Validate that a string is a proper URL (http/https protocol only).
+     */
+    function isValidUrl(str) {
+        try {
+            const url = new URL(str);
+            return url.protocol === 'http:' || url.protocol === 'https:';
+        } catch {
+            return false;
+        }
+    }
+
+    /**
      * Set up the widget DOM and Alpine.js integration
      */
     function setupWidget() {
@@ -101,14 +123,22 @@
             }
         }
 
+        // Validate API URL before using it
+        if (!isValidUrl(config.apiUrl)) {
+            console.error('🏛️ CiVers: Invalid apiUrl:', config.apiUrl);
+            return;
+        }
+
+        const safeApiUrl = escapeHtml(config.apiUrl);
+
         // Inject widget HTML structure
         root.innerHTML = `
             <div x-data="civersWidget({
-                baseUrl: '${config.apiUrl}',
+                baseUrl: '${safeApiUrl}',
                 url: window.location.href,
                 domain: window.location.hostname
             })" class="civers-widget-overlay" :class="{ 'minimized': !expanded, 'expanded': expanded }">
-                <link rel="stylesheet" href="${config.apiUrl}/widget/civers-widget.css">
+                <link rel="stylesheet" href="${safeApiUrl}/widget/civers-widget.css">
                 
                 <style>[x-cloak] { display: none !important; }</style>
                 
@@ -270,7 +300,7 @@
         if (!window.Alpine && !alpineLoaded) {
             alpineLoaded = true;
             const alpineScript = document.createElement('script');
-            alpineScript.src = 'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js';
+            alpineScript.src = `${config.apiUrl}/static/lib/alpine.min.js`;
             alpineScript.defer = true;
             alpineScript.onload = () => {
                 console.log('🏛️ CiVers: Alpine.js script loaded');
@@ -323,32 +353,33 @@
 
     /**
      * Set up automatic SPA navigation detection
+     * Uses non-invasive techniques — no monkey-patching of global APIs
      */
     function setupNavigationDetection() {
-        // Strategy 1: History API interception (covers 95% of SPAs)
-        const originalPushState = history.pushState;
-        history.pushState = function () {
-            originalPushState.apply(history, arguments);
-            initializeWidget();
-        };
+        // Strategy 1: Navigation API (Chrome 102+, Edge 102+, non-invasive)
+        if (typeof window.navigation !== 'undefined') {
+            window.navigation.addEventListener('navigatesuccess', () => {
+                initializeWidget();
+            });
+            console.log('🏛️ CiVers: Using Navigation API for SPA detection');
+        } else {
+            // Strategy 2: URL polling fallback (for older browsers / pushState SPAs)
+            // This is non-invasive — no monkey-patching of global APIs
+            setInterval(() => {
+                if (location.href !== lastUrl) {
+                    initializeWidget();
+                }
+            }, 500);
+            console.log('🏛️ CiVers: Using URL polling for SPA detection');
+        }
 
-        const originalReplaceState = history.replaceState;
-        history.replaceState = function () {
-            originalReplaceState.apply(history, arguments);
-            initializeWidget();
-        };
-
-        // Strategy 2: Popstate event (browser back/forward)
+        // Always listen for popstate (browser back/forward) and hashchange
         window.addEventListener('popstate', () => {
             initializeWidget();
         });
-
-        // Strategy 3: Polling fallback (for edge cases)
-        setInterval(() => {
-            if (location.href !== lastUrl) {
-                initializeWidget();
-            }
-        }, 500);
+        window.addEventListener('hashchange', () => {
+            initializeWidget();
+        });
     }
 
     // Start initialization
@@ -360,305 +391,308 @@
         getInstance: () => widgetInstance
     };
 
-})();
+    // Widget logic function (registered for Alpine.js x-data binding)
+    function civersWidget(config) {
+        return {
+            // Configuration
+            baseUrl: config.baseUrl || '',
+            url: config.url || window.location.href,
+            domain: config.domain || window.location.hostname,
 
-// Widget logic function (to be called by Alpine.js)
-function civersWidget(config) {
-    return {
-        // Configuration
-        baseUrl: config.baseUrl || '',
-        url: config.url || window.location.href,
-        domain: config.domain || window.location.hostname,
+            // UI State
+            expanded: false,
+            isArchiving: false,
+            workflowActive: false,
+            archiveStatus: 'idle', // 'idle', 'running', 'success', 'failed'
+            progress: 0,
+            currentStep: '',
 
-        // UI State
-        expanded: false,
-        isArchiving: false,
-        workflowActive: false,
-        archiveStatus: 'idle', // 'idle', 'running', 'success', 'failed'
-        progress: 0,
-        currentStep: '',
+            // Data State
+            title: document.title,
+            lastSnapshotId: null,
+            entityData: {
+                has_archives: false,
+                archive_count: 0,
+                archives: [],
+                ...config.initialData
+            },
 
-        // Data State
-        title: document.title,
-        lastSnapshotId: null,
-        entityData: {
-            has_archives: false,
-            archive_count: 0,
-            archives: [],
-            ...config.initialData
-        },
+            // workflowSteps will be populated dynamically from the backend
+            workflowSteps: [],
 
-        // workflowSteps will be populated dynamically from the backend
-        workflowSteps: [],
+            /**
+             * Initialize the widget
+             */
+            init() {
+                // SPAs like Arachne change title after the component mounts
+                setTimeout(() => {
+                    this.title = document.title;
+                }, 500);
 
-        /**
-         * Initialize the widget
-         */
-        init() {
-            // SPAs like Arachne change title after the component mounts
-            setTimeout(() => {
-                this.title = document.title;
-            }, 500);
+                console.log('🏛️ CiVers Widget Initialized for:', this.url, 'Title:', this.title);
+                this.checkStatus();
+            },
 
-            console.log('🏛️ CiVers Widget Initialized for:', this.url, 'Title:', this.title);
-            this.checkStatus();
-        },
-
-        /**
-         * Generate a filesystem-safe ID from the URL
-         */
-        generateUrlId(url) {
-            try {
-                const parsed = new URL(url);
-                const domain = parsed.hostname;
-                let path = parsed.pathname;
-
-                // Normalize domain: dots and hyphens to underscores
-                const normDomain = domain.replace(/\./g, '_').replace(/-/g, '_');
-
-                // Normalize path: same as backend's normalize_path
-                path = path.replace(/^\/+|\/+$/g, ''); // strip leading/trailing slashes
-                if (!path) {
-                    path = 'home';
-                } else {
-                    // Replace special characters with underscores, handle hyphens, remove repeats
-                    path = path.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/-/g, '_').replace(/_+/g, '_').toLowerCase();
-                }
-
-                return `${normDomain}_${path}`;
-            } catch (e) {
-                console.error('Failed to parse URL:', url, e);
-                return 'unknown';
-            }
-        },
-
-        /**
-         * Check archive status for this URL
-         */
-        async checkStatus() {
-            const urlId = this.generateUrlId(this.url);
-            try {
-                const response = await fetch(`${this.baseUrl}/api/url/${urlId}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    this.entityData = {
-                        has_archives: data.snapshots && data.snapshots.length > 0,
-                        archive_count: data.snapshots ? data.snapshots.length : 0,
-                        archives: (data.snapshots || []).map(s => ({
-                            snapshot_id: s.snapshot_id,
-                            timestamp: s.timestamp,
-                            doi: s.snapshot_id
-                        }))
-                    };
-                } else {
-                    this.entityData.has_archives = false;
-                    this.entityData.archive_count = 0;
-                    this.entityData.archives = [];
-                }
-            } catch (error) {
-                console.error('CiVers: Failed to check status:', error);
-            }
-        },
-
-        /**
-         * Trigger the archiving process
-         */
-        async archiveNow() {
-            if (this.isArchiving) return;
-
-            this.isArchiving = true;
-            this.workflowActive = true;
-            this.archiveStatus = 'running';
-            this.progress = 0;
-            this.resetSteps();
-
-            try {
-                // 1. Submit request to backend
-                const response = await fetch(`${this.baseUrl}/api/archive-request`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        url: this.url,
-                        domain: 'default'  // Use 'default' domain for widget requests
-                    })
-                });
-
-                if (!response.ok) throw new Error('Failed to submit archive request');
-
-                const result = await response.json();
-                const requestId = result.request_id;
-
-                // Populate steps and set initial UI state from the submission response
-                this.updateWorkflow(result);
-                this.progress = 5;
-
-                // 2. Start polling for status
-                this.pollStatus(requestId);
-
-            } catch (error) {
-                console.error('CiVers: Archiving failed:', error);
-                alert('Failed to start archiving. Please check backend connection.');
-                this.isArchiving = false;
-                this.workflowActive = false;
-            }
-        },
-
-        /**
-         * Poll the backend for progress updates
-         */
-        async pollStatus(requestId) {
-            const pollInterval = setInterval(async () => {
+            /**
+             * Generate a filesystem-safe ID from the URL
+             */
+            generateUrlId(url) {
                 try {
-                    const response = await fetch(`${this.baseUrl}/api/request-status/${requestId}`);
-                    if (!response.ok) return;
+                    const parsed = new URL(url);
+                    const domain = parsed.hostname;
+                    let path = parsed.pathname;
 
-                    const data = await response.json();
-                    this.updateWorkflow(data);
+                    // Normalize domain: dots and hyphens to underscores
+                    const normDomain = domain.replace(/\./g, '_').replace(/-/g, '_');
 
-                    if (data.status === 'completed' || data.status === 'failed') {
-                        clearInterval(pollInterval);
-                        this.finalizeWorkflow(data);
+                    // Normalize path: same as backend's normalize_path
+                    path = path.replace(/^\/+|\/+$/g, ''); // strip leading/trailing slashes
+                    if (!path) {
+                        path = 'home';
+                    } else {
+                        // Replace special characters with underscores, handle hyphens, remove repeats
+                        path = path.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/-/g, '_').replace(/_+/g, '_').toLowerCase();
+                    }
+
+                    return `${normDomain}_${path}`;
+                } catch (e) {
+                    console.error('Failed to parse URL:', url, e);
+                    return 'unknown';
+                }
+            },
+
+            /**
+             * Check archive status for this URL
+             */
+            async checkStatus() {
+                const urlId = this.generateUrlId(this.url);
+                try {
+                    const response = await fetch(`${this.baseUrl}/api/url/${urlId}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.entityData = {
+                            has_archives: data.snapshots && data.snapshots.length > 0,
+                            archive_count: data.snapshots ? data.snapshots.length : 0,
+                            archives: (data.snapshots || []).map(s => ({
+                                snapshot_id: s.snapshot_id,
+                                timestamp: s.timestamp,
+                                doi: s.snapshot_id
+                            }))
+                        };
+                    } else {
+                        this.entityData.has_archives = false;
+                        this.entityData.archive_count = 0;
+                        this.entityData.archives = [];
                     }
                 } catch (error) {
-                    console.error('CiVers: Polling error:', error);
+                    console.error('CiVers: Failed to check status:', error);
                 }
-            }, 2000);
-        },
+            },
 
-        /**
-         * Update the UI based on polling data
-         */
-        updateWorkflow(data) {
-            // Update workflow steps if provided by backend
-            if (data.workflow_steps && data.workflow_steps.length > 0) {
-                // If we don't have steps yet, or they changed, initialize them
-                if (this.workflowSteps.length === 0) {
-                    this.workflowSteps = data.workflow_steps.map(s => ({
-                        ...s,
-                        status: 'pending'
-                    }));
+            /**
+             * Trigger the archiving process
+             */
+            async archiveNow() {
+                if (this.isArchiving) return;
+
+                this.isArchiving = true;
+                this.workflowActive = true;
+                this.archiveStatus = 'running';
+                this.progress = 0;
+                this.resetSteps();
+
+                try {
+                    // 1. Submit request to backend
+                    const response = await fetch(`${this.baseUrl}/api/archive-request`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            url: this.url,
+                            domain: 'default'  // Use 'default' domain for widget requests
+                        })
+                    });
+
+                    if (!response.ok) throw new Error('Failed to submit archive request');
+
+                    const result = await response.json();
+                    const requestId = result.request_id;
+
+                    // Populate steps and set initial UI state from the submission response
+                    this.updateWorkflow(result);
+                    this.progress = 5;
+
+                    // 2. Start polling for status
+                    this.pollStatus(requestId);
+
+                } catch (error) {
+                    console.error('CiVers: Archiving failed:', error);
+                    alert('Failed to start archiving. Please check backend connection.');
+                    this.isArchiving = false;
+                    this.workflowActive = false;
                 }
-            }
+            },
 
-            const completedSteps = data.completed_steps || [];
-            const currentStepId = data.current_step;
-            const status = data.status;
+            /**
+             * Poll the backend for progress updates
+             */
+            async pollStatus(requestId) {
+                const pollInterval = setInterval(async () => {
+                    try {
+                        const response = await fetch(`${this.baseUrl}/api/request-status/${requestId}`);
+                        if (!response.ok) return;
 
-            this.workflowSteps.forEach(step => {
-                if (completedSteps.includes(step.id)) {
-                    step.status = 'completed';
-                } else if (step.id === currentStepId) {
-                    step.status = 'in_progress';
-                } else {
-                    // It's either pending or failed (if the whole workflow failed at this step)
-                    if (status === 'failed' && step.id === currentStepId) {
-                        step.status = 'failed';
-                    } else if (!completedSteps.includes(step.id)) {
-                        step.status = 'pending';
+                        const data = await response.json();
+                        this.updateWorkflow(data);
+
+                        if (data.status === 'completed' || data.status === 'failed') {
+                            clearInterval(pollInterval);
+                            this.finalizeWorkflow(data);
+                        }
+                    } catch (error) {
+                        console.error('CiVers: Polling error:', error);
+                    }
+                }, 2000);
+            },
+
+            /**
+             * Update the UI based on polling data
+             */
+            updateWorkflow(data) {
+                // Update workflow steps if provided by backend
+                if (data.workflow_steps && data.workflow_steps.length > 0) {
+                    // If we don't have steps yet, or they changed, initialize them
+                    if (this.workflowSteps.length === 0) {
+                        this.workflowSteps = data.workflow_steps.map(s => ({
+                            ...s,
+                            status: 'pending'
+                        }));
                     }
                 }
-            });
 
-            // Map backend status to user-friendly text
-            const statusMap = {
-                'submitted': 'Request Queued',
-                'pending': 'Preparing Workflow',
-                'in_progress': 'Archiving...',
-                'completed': 'Success!',
-                'failed': 'Failed'
-            };
+                const completedSteps = data.completed_steps || [];
+                const currentStepId = data.current_step;
+                const status = data.status;
 
-            this.currentStep = statusMap[status] || status || 'Processing...';
+                this.workflowSteps.forEach(step => {
+                    if (completedSteps.includes(step.id)) {
+                        step.status = 'completed';
+                    } else if (step.id === currentStepId) {
+                        step.status = 'in_progress';
+                    } else {
+                        // It's either pending or failed (if the whole workflow failed at this step)
+                        if (status === 'failed' && step.id === currentStepId) {
+                            step.status = 'failed';
+                        } else if (!completedSteps.includes(step.id)) {
+                            step.status = 'pending';
+                        }
+                    }
+                });
 
-            if (this.workflowSteps.length > 0) {
-                // Calculate progress: each completed step adds its portion
-                const stepWeight = 100 / this.workflowSteps.length;
-                const progressFromSteps = completedSteps.length * stepWeight;
+                // Map backend status to user-friendly text
+                const statusMap = {
+                    'submitted': 'Request Queued',
+                    'pending': 'Preparing Workflow',
+                    'in_progress': 'Archiving...',
+                    'completed': 'Success!',
+                    'failed': 'Failed'
+                };
 
-                // If a step is in progress, add half its weight for visual movement
-                const inProgressBonus = currentStepId ? stepWeight / 2 : 0;
+                this.currentStep = statusMap[status] || status || 'Processing...';
 
-                this.progress = Math.min(Math.round(progressFromSteps + inProgressBonus), 99);
-            } else {
-                // Fallback progress if no steps identified yet
-                if (status === 'in_progress') this.progress = 50;
-            }
+                if (this.workflowSteps.length > 0) {
+                    // Calculate progress: each completed step adds its portion
+                    const stepWeight = 100 / this.workflowSteps.length;
+                    const progressFromSteps = completedSteps.length * stepWeight;
 
-            if (status === 'completed') this.progress = 100;
-            if (status === 'failed') this.progress = Math.max(this.progress, 1);
-        },
+                    // If a step is in progress, add half its weight for visual movement
+                    const inProgressBonus = currentStepId ? stepWeight / 2 : 0;
 
-        /**
-         * Handle workflow completion or failure
-         */
-        finalizeWorkflow(data) {
-            this.progress = data.status === 'completed' ? 100 : this.progress;
-            this.archiveStatus = data.status === 'completed' ? 'success' : 'failed';
-            this.lastSnapshotId = data.snapshot_id || null;
-
-            setTimeout(() => {
-                // Keep modal open, but allow it to be dismissed manually
-                if (data.status === 'completed') {
-                    this.isArchiving = false;
-                    this.checkStatus(); // Refresh snapshots list
+                    this.progress = Math.min(Math.round(progressFromSteps + inProgressBonus), 99);
                 } else {
-                    this.isArchiving = false;
+                    // Fallback progress if no steps identified yet
+                    if (status === 'in_progress') this.progress = 50;
                 }
-            }, 500);
-        },
 
-        /**
-         * Generate citation for the latest snapshot
-         */
-        generateCitation() {
-            if (!this.entityData.has_archives || this.entityData.archives.length === 0) return;
+                if (status === 'completed') this.progress = 100;
+                if (status === 'failed') this.progress = Math.max(this.progress, 1);
+            },
 
-            const latest = this.entityData.archives[0];
-            const date = new Date(latest.timestamp).toLocaleDateString();
-            const url = this.url;
+            /**
+             * Handle workflow completion or failure
+             */
+            finalizeWorkflow(data) {
+                this.progress = data.status === 'completed' ? 100 : this.progress;
+                this.archiveStatus = data.status === 'completed' ? 'success' : 'failed';
+                this.lastSnapshotId = data.snapshot_id || null;
 
-            const citation = `CiVers Archival Record. (Archived: ${date}). "${url}". Snapshot ID: ${latest.snapshot_id}. Retrieved from CiVers Archive.`;
+                setTimeout(() => {
+                    // Keep modal open, but allow it to be dismissed manually
+                    if (data.status === 'completed') {
+                        this.isArchiving = false;
+                        this.checkStatus(); // Refresh snapshots list
+                    } else {
+                        this.isArchiving = false;
+                    }
+                }, 500);
+            },
 
-            this.copyToClipboard(citation);
-            alert(`✅ Citation copied to clipboard!\n\n${citation}`);
-            console.log('🏛️ CiVers Citation:', citation);
-        },
+            /**
+             * Generate citation for the latest snapshot
+             */
+            generateCitation() {
+                if (!this.entityData.has_archives || this.entityData.archives.length === 0) return;
 
-        viewAll() {
-            const urlId = this.generateUrlId(this.url);
-            const cleanBaseUrl = this.baseUrl.replace(/\/+$/, '');
-            const targetUrl = `${cleanBaseUrl}/archive/${urlId}`;
-            console.log('🏛️ CiVers: Redirecting to Archive View:', targetUrl);
-            window.open(targetUrl, '_blank');
-        },
+                const latest = this.entityData.archives[0];
+                const date = new Date(latest.timestamp).toLocaleDateString();
+                const url = this.url;
 
-        viewReplay(snapshotId) {
-            const cleanBaseUrl = this.baseUrl.replace(/\/+$/, '');
-            const targetUrl = `${cleanBaseUrl}/replay/${snapshotId}`;
-            console.log('🏛️ CiVers: Redirecting to Replay View:', targetUrl);
-            window.open(targetUrl, '_blank');
-        },
+                const citation = `CiVers Archival Record. (Archived: ${date}). "${url}". Snapshot ID: ${latest.snapshot_id}. Retrieved from CiVers Archive.`;
 
-        resetSteps() {
-            this.workflowSteps.forEach(s => s.status = 'pending');
-            this.currentStep = 'Initializing...';
-        },
+                this.copyToClipboard(citation);
+                alert(`✅ Citation copied to clipboard!\n\n${citation}`);
+                console.log('🏛️ CiVers Citation:', citation);
+            },
 
-        formatDate(ts) {
-            if (!ts) return '';
-            return new Date(ts).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
-        },
+            viewAll() {
+                const urlId = this.generateUrlId(this.url);
+                const cleanBaseUrl = this.baseUrl.replace(/\/+$/, '');
+                const targetUrl = `${cleanBaseUrl}/archive/${urlId}`;
+                console.log('🏛️ CiVers: Redirecting to Archive View:', targetUrl);
+                window.open(targetUrl, '_blank');
+            },
 
-        copyToClipboard(text) {
-            navigator.clipboard.writeText(text);
-        },
+            viewReplay(snapshotId) {
+                const cleanBaseUrl = this.baseUrl.replace(/\/+$/, '');
+                const targetUrl = `${cleanBaseUrl}/replay/${snapshotId}`;
+                console.log('🏛️ CiVers: Redirecting to Replay View:', targetUrl);
+                window.open(targetUrl, '_blank');
+            },
 
-        toggle() {
-            this.expanded = !this.expanded;
-        }
-    };
-}
+            resetSteps() {
+                this.workflowSteps.forEach(s => s.status = 'pending');
+                this.currentStep = 'Initializing...';
+            },
+
+            formatDate(ts) {
+                if (!ts) return '';
+                return new Date(ts).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+            },
+
+            copyToClipboard(text) {
+                navigator.clipboard.writeText(text);
+            },
+
+            toggle() {
+                this.expanded = !this.expanded;
+            }
+        };
+    }
+
+    // Register globally only for Alpine.js x-data binding
+    window.civersWidget = civersWidget;
+
+})();

@@ -7,7 +7,6 @@ an event to Kafka for the orchestrator to process.
 """
 
 import logging
-import os
 import uuid
 from typing import Dict, Any
 
@@ -51,7 +50,7 @@ async def create_archive_request(
             detail=f"URL '{form_data.url}' does not match the selected domain pattern '{form_data.domain}'"
         )
     
-    # 2. Match the URL to get the actual domain configuration (for workflow_name)
+    # 2. Match the URL to get the actual domain configuration
     domain_info = domain_service.match_url_to_domain(form_data.url)
     if not domain_info:
         # This shouldn't happen if validate_url_for_domain passed, but safe to check
@@ -66,7 +65,7 @@ async def create_archive_request(
     
     # 4. Determine callback URL for orchestrator to send status updates
     app_config = request.app.state.app_config
-    callback_base = os.getenv("CALLBACK_BASE_URL")
+    callback_base = app_config.api.callback_base_url
     if not callback_base:
         callback_base = str(request.base_url).rstrip('/')
     callback_url = f"{callback_base}{WEBHOOK_STATUS_PATH}"
@@ -88,6 +87,8 @@ async def create_archive_request(
         )
     
     # 6. Publish to Kafka
+    logger.info(f"Kafka status: enabled={kafka_producer.is_enabled}, initialized={getattr(kafka_producer, 'is_initialized', 'unknown')}")
+    
     if not kafka_producer.is_enabled:
         logger.warning(f"Kafka is disabled. Request {request_id} stored in DB but not published.")
         # We'll still return 201 because it's stored and could be processed later or manually
@@ -103,7 +104,6 @@ async def create_archive_request(
         event = OrchestratorRequestEvent(
             request_id=request_id,
             url=form_data.url,
-            workflow_name=None,  # Orchestrator will auto-detect from domain
             priority=app_config.api.kafka.default_priority,
             callback_url=callback_url,
             metadata={
@@ -112,13 +112,18 @@ async def create_archive_request(
             }
         )
         
+        logger.info(f"Attempting to publish event to Kafka: {event.model_dump()}")
+        
         # Publish to Kafka
         published = await kafka_producer.publish_event(
             topic_key="orchestrator_requests",
             event_data=event.model_dump()
         )
         
+        logger.info(f"Publish result: {published}")
+        
         if not published:
+            logger.error("Publish returned False")
             # Update status to failed in DB
             status_service.update_status(
                 request_id=request_id,
@@ -130,30 +135,12 @@ async def create_archive_request(
                 detail="Kafka service temporarily unavailable. Please try again later."
             )
             
-        # Find workflow definition in config to include steps in response
-        workflow_steps = []
-        # Workflows are managed by the orchestrator, not the web interface
-        # workflow_name = domain_info.workflow
-        workflow_def = None
-        # Commenting out workflow lookup since domain_info doesn't have workflow attribute
-        # for wf in request.app.state.app_config.workflows:
-        #     if wf.name == workflow_name:
-        #         workflow_def = wf
-        #         break
-        
-        if workflow_def:
-            for step in workflow_def.steps:
-                workflow_steps.append({
-                    "id": step.name,
-                    "display": step.description or step.name.replace('_', ' ').title()
-                })
-
         return {
             "status": RequestStatus.SUBMITTED,
             "message": "Archive request successfully submitted and sent to orchestrator.",
             "request_id": request_id,
             "url": form_data.url,
-            "workflow_steps": workflow_steps
+            "workflow_steps": []
         }
         
     except KafkaProducerError as e:
@@ -165,7 +152,7 @@ async def create_archive_request(
         )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Kafka communication error: {str(e)}"
+            detail="The archiving service is temporarily unavailable. Please try again later."
         )
     except Exception as e:
         logger.exception(f"Unexpected error processing archive request {request_id}")
@@ -176,7 +163,7 @@ async def create_archive_request(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred: {str(e)}"
+            detail="An unexpected error occurred. Please try again later."
         )
 
 
@@ -226,6 +213,7 @@ async def get_request_status(
         "url": url,
         "url_id": url_id,
         "domain": record.get("domain"),
+        "workflow_name": record.get("workflow_name"),
         "current_step": record.get("current_step"),
         "completed_steps": record.get("completed_steps", []),
         "workflow_steps": workflow_steps,

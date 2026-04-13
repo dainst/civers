@@ -1,0 +1,19 @@
+[run]
+source = .
+omit =
+    tests/*
+    setup.py
+    .venv/*
+    civers/*
+    */__init__.py
+    main.py
+
+[report]
+show_missing = True
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if __name__ == .__main__.:
+    raise NotImplementedError
+    pass
+    raise ImportError

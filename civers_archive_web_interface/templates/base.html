@@ -6,11 +6,11 @@
     <meta name="description" content="{% block meta_description %}Civers Archive Web Interface - Browse and replay archived versions of websites{% endblock %}">
     <title>{% block title %}{{ title or "Civers Archive Web Interface" }}{% endblock %}</title>
     
-    <!-- Tailwind CSS from CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind CSS (pre-built, self-hosted) -->
+    <link rel="stylesheet" href="{{ url_for('static', path='/lib/tailwind.min.css') }}">
     
-    <!-- Alpine.js from CDN -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Alpine.js (self-hosted) -->
+    <script defer src="{{ url_for('static', path='/lib/alpine.min.js') }}"></script>
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">

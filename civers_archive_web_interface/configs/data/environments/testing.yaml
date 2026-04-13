@@ -1,0 +1,17 @@
+# Configuration overrides for testing environment
+# This file is automatically loaded when running tests
+
+app:
+  logging:
+    level: WARNING
+    json_enabled: false
+
+transport:
+  kafka_enabled: false
+
+storage:
+  type: sqlite
+  filesystem:
+    path: /tmp/civers-test-archives
+  sqlite:
+    db_path: /tmp/civers-test-archives/archives.db

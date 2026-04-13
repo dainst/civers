@@ -3,20 +3,21 @@
 
 environment: testing
 
-transport:
-  kafka:
-    bootstrap_servers: "localhost:29092"
-    consumer_group: "metadata-extractor-test"
-    health_check_enabled: false
-    monitoring_enabled: false
+app:
+  transport:
+    kafka:
+      bootstrap_servers: "localhost:29092"
+      consumer_group: "metadata-extractor-test"
+      health_check_enabled: false
+      monitoring_enabled: false
 
-storage:
-  enabled:
-    - local_file
-  backends:
-    local_file:
-      base_path: "tests/output"
-      create_subdirectories: true
+  storage:
+    enabled:
+      - local_file
+    backends:
+      local_file:
+        base_path: "tests/output"
+        create_subdirectories: true
 
 logging:
   level: "DEBUG"

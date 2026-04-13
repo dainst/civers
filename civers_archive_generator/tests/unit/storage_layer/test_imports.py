@@ -7,6 +7,8 @@ after fixing the import paths from 'configs' to 'config'.
 
 import pytest
 
+pytestmark = [pytest.mark.unit]
+
 
 class TestStorageLayerImports:
     """Tests to verify storage_layer imports work correctly."""

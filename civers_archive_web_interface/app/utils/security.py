@@ -54,8 +54,10 @@ def validate_snapshot_id(snapshot_id: str, validation_config: ValidationConfig) 
         raise SecurityValidationError("Invalid characters in snapshot ID")
     
     # Validate format matches expected pattern
-    pattern = re.compile(validation_config.snapshot_id_pattern)
+    pattern_str = validation_config.snapshot_id_pattern
+    pattern = re.compile(pattern_str)
     if not pattern.match(snapshot_id):
+        logger.warning(f"Snapshot ID format mismatch: ID='{snapshot_id}', Pattern='{pattern_str}'")
         raise SecurityValidationError("Snapshot ID format invalid (expected: req_{id}_{timestamp})")
     
     return snapshot_id
@@ -86,6 +88,7 @@ def validate_artifact_type(artifact_type: str, validation_config: ValidationConf
     # Check against whitelist
     allowed_types = validation_config.allowed_artifact_types
     if artifact_type not in allowed_types:
+        logger.warning(f"Artifact type not in whitelist: '{artifact_type}', Allowed: {allowed_types}")
         raise SecurityValidationError(
             f"Artifact type '{artifact_type}' not allowed. "
             f"Allowed types: {', '.join(sorted(allowed_types))}"
@@ -156,15 +159,18 @@ def validate_file_path(file_path: Path, storage_root: Path) -> Path:
         resolved_storage_root = storage_root.resolve()
         
         # Check that the file path is within the storage root
-        if not str(resolved_file_path).startswith(str(resolved_storage_root)):
-            logger.warning(f"Path traversal attempt: {file_path} outside {storage_root}")
+        if not resolved_file_path.is_relative_to(resolved_storage_root):
+            logger.warning(
+                f"Path traversal attempt: {file_path} outside {storage_root}\n"
+                f"Resolved: {resolved_file_path} vs Root: {resolved_storage_root}"
+            )
             raise SecurityValidationError("File path outside allowed storage directory")
         
         return resolved_file_path
         
     except (OSError, RuntimeError) as e:
         logger.warning(f"Path resolution failed for {file_path}: {e}")
-        raise SecurityValidationError("Invalid file path") from e
+        raise SecurityValidationError(f"Invalid file path: {e}") from e
 
 
 def sanitize_filename(filename: str, validation_config: ValidationConfig) -> str:

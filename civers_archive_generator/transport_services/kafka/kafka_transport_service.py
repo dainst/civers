@@ -8,7 +8,7 @@ publisher, and the core archive service.
 
 import asyncio
 import logging
-from typing import Dict, Any, Optional, List, Callable
+from typing import Dict, Any, Optional, Callable
 
 from configs.models import ConfigDataModel
 from archive_services.archive_service_interface import ArchiveServiceInterface
@@ -125,10 +125,14 @@ class KafkaTransportService(TransportServiceInterface):
         else:
             logger.debug(f"ℹ️ No handler for topic {topic}")
 
-    async def _handle_archive_request(self, message, message_data: Dict[str, Any]):
+    async def _handle_archive_request(self, message, message_data: Any):
         """Handle incoming archive requests."""
         try:
             # Parse request event
+            if not isinstance(message_data, dict):
+                logger.error(f"❌ Received archive request with non-dict data: {type(message_data)}")
+                return
+
             event = ArchiveRequestEvent(**message_data)
             request_id = event.request_id
             url = event.url
@@ -158,7 +162,7 @@ class KafkaTransportService(TransportServiceInterface):
                     request_id=request_id,
                     url=url,
                     archive_path=result['archive_path'],
-                    artifacts_created=result['domain_config']['artifacts'],
+                    artifacts_created=result['artifacts_created'],
                     processing_time_seconds=result['processing_time_seconds'],
                     snapshot_id=snapshot_id
                 )
@@ -215,7 +219,8 @@ class KafkaTransportService(TransportServiceInterface):
     async def health_check(self) -> Dict[str, Any]:
         """Check health of Kafka transport service."""
         try:
-            status = self.connection_manager.get_connection_status() if hasattr(self.connection_manager, 'get_connection_status') else {}
+            status = self.connection_manager.get_connection_status()
+            # Service is healthy if it's running AND producer is available
             is_healthy = self.connection_manager.producer is not None and self.running
             
             return {
@@ -224,11 +229,16 @@ class KafkaTransportService(TransportServiceInterface):
                 "details": {
                     "running": self.running,
                     "requests_processed": self._requests_processed,
-                    "producer": "ready" if self.connection_manager.producer else "missing",
-                    "consumer": "ready" if self.connection_manager.consumer else "missing"
+                    "producer": "ready" if status.get('producer_started') else "missing",
+                    "consumer": "ready" if status.get('consumer_started') else "missing",
+                    "kafka_config": {
+                        "bootstrap_servers": self.kafka_config.bootstrap_servers,
+                        "topics": self.topics
+                    }
                 }
             }
         except Exception as e:
+            logger.error(f"❌ Health check failed: {e}")
             return {"healthy": False, "error": str(e)}
 
     async def send_response(self, destination: str, message: Dict[str, Any], **kwargs) -> bool:

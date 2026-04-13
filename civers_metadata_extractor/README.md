@@ -2,7 +2,7 @@
 
 A Python service that extracts metadata from web resources and converts it to DataCite format. Uses Kafka for message processing.
 
-[![Tests](https://img.shields.io/badge/tests-134%20passing-success)](tests/)
+[![Tests](https://img.shields.io/badge/tests-238%20passing-success)](tests/)
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -21,8 +21,8 @@ A Python service that extracts metadata from web resources and converts it to Da
 git clone https://github.com/dainst/civers-metadata-extractor.git
 cd civers-metadata-extractor
 
-# 2. Install dependencies (with HTTP support)
-uv sync --extra http
+# 2. Install dependencies
+uv sync
 
 # 3. Configure the system
 cp app_config.yaml.example app_config.yaml
@@ -126,8 +126,7 @@ The service requires ONE of two content sources:
 }
 ```
 
-→ Service downloads HTML from `document_url`  
-→ Requires: `uv sync --extra http`
+→ Service downloads HTML from `document_url`
 
 **2. Provide HTML Directly**
 
@@ -182,10 +181,10 @@ graph TD
     C -->|Content Retrieval| D{Content Source?}
     D -->|document_url| E[Download from Storage]
     D -->|html_content| F[Use Provided HTML]
-    D -->|url| G[Fetch from Source]
+   
     E --> H[Process Content]
     F --> H
-    G --> H
+    
     H --> I[ExtractorFactory]
     I --> J[JSON-LD Extractor]
     J --> K[Flattened Data]
@@ -513,7 +512,7 @@ RUN pip install uv
 COPY . .
 
 # Install dependencies
-RUN uv sync --extra http
+RUN uv sync
 
 # Run the service
 CMD ["uv", "run", "python", "main.py"]
@@ -624,10 +623,7 @@ uv run python -c "import metadata_extractors; print('✅ OK')"
 **HTTP content fetching fails**
 
 ```bash
-# Install HTTP dependencies
-uv sync --extra http
-
-# Verify httpx is available
+uv sync
 uv run python -c "import httpx; print('✅ httpx available')"
 ```
 
@@ -664,7 +660,7 @@ uv run python -c "import httpx; print('✅ httpx available')"
 # Clone and setup
 git clone <repository-url>
 cd civers-metadata-extractor
-uv sync --extra http
+uv sync
 
 # Install pre-commit hooks
 pre-commit install
@@ -690,4 +686,3 @@ uv run ruff check .
 
 ---
 
-**Built with ❤️ by the DAI Team**

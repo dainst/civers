@@ -18,7 +18,7 @@ from .api.archive_request import router as archive_request_router
 from .api.webhook import router as webhook_router
 from .api.widget import router as widget_router
 from .routes.pages import router as pages_router
-from configs import load_app_config, ConfigurationError
+from configs import YamlFileConfigLoader, ConfigurationError
 from .storage import create_storage_service
 from .database.sqlite_manager import SQLiteManager
 from .database.models import get_schema_sql
@@ -37,15 +37,18 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# Configure logging at startup (before loading config to see setup logs)
-log_level = os.getenv("LOG_LEVEL", "INFO")
-log_file = os.getenv("LOG_FILE", None)
-json_logging = os.getenv("JSON_LOGGING", "true").lower() == "true"
-configure_logging(level=log_level, json_format=json_logging, log_file=log_file)
-
 # Load application configuration at module level for FastAPI initialization
 # This allows using config values before the lifespan context runs
-_app_config = load_app_config()
+_config_loader = YamlFileConfigLoader()
+_app_config = _config_loader.load()
+
+configure_logging(
+    level=_app_config.app.logging.level,
+    json_format=_app_config.app.logging.json_enabled,
+    log_file=_app_config.app.logging.file,
+    kafka_level=_app_config.app.logging.kafka_log_level,
+    access_level=_app_config.app.logging.access_log_level
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -65,8 +68,8 @@ async def lifespan(app: FastAPI):
         # Initialize database for request status tracking
         # Re-use storage provider's DB if it's SQLite, otherwise create separate connection
         db_manager = None
-        if hasattr(storage_service.provider, 'db') and isinstance(storage_service.provider.db, SQLiteManager):
-            db_manager = storage_service.provider.db
+        db_manager = storage_service.get_db_manager()
+        if db_manager and isinstance(db_manager, SQLiteManager):
             logger.info("Using storage provider's SQLite database for request status tracking")
         elif hasattr(_app_config.storage, 'sqlite') and _app_config.storage.sqlite:
             # Create a separate DB manager for status tracking
@@ -109,6 +112,11 @@ async def lifespan(app: FastAPI):
         else:
             logger.info("Kafka disabled in configuration")
         
+        # Configure Jinja2 templates with auto-reload in debug mode
+        templates = Jinja2Templates(directory=_app_config.directories.templates, auto_reload=_app_config.server.debug)
+        app.state.templates = templates
+        logger.info("Jinja2 templates initialized")
+
         logger.info("Application initialized successfully")
         
     except ConfigurationError as e:
@@ -150,14 +158,42 @@ This results in the following execution order:
 app.add_middleware(ErrorDispatcherMiddleware)  # Single dispatcher for all error handling
 app.add_middleware(
     SecurityHeadersMiddleware,
-    debug=os.getenv("DEBUG", "False").lower() == "true"
+    debug=_app_config.server.debug
 )  # Security headers for CSP and XSS protection
 
 # CORS configuration for the external widget
+# Derived from domain configuration (defaults/domains.yaml + environment overrides)
+# Derived from domain configuration (defaults/domains.yaml + environment overrides)
+_cors_origins = set(_app_config.server.cors_origins)
+
+# Always allow localhost:8000 (app default)
+_cors_origins.add("http://localhost:8000")
+
+# Add configured domains
+if hasattr(_app_config, "domains"):
+    for domain in _app_config.domains:
+        if domain.is_wildcard or domain.is_default:
+            continue
+            
+        domain_name = domain.name.strip()
+        if not domain_name:
+            continue
+
+        # If already a URL (has scheme), add as is
+        if domain_name.startswith("http://") or domain_name.startswith("https://"):
+            _cors_origins.add(domain_name)
+        else:
+            # Otherwise assume it's a hostname and allow both schemes
+            _cors_origins.add(f"http://{domain_name}")
+            _cors_origins.add(f"https://{domain_name}")
+
+# _cors_origins_list = list(_cors_origins)
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, this should be a whitelist of authorized domains
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -166,14 +202,14 @@ app.add_middleware(CorrelationIdMiddleware)     # Correlation ID for request tra
 
 # Trust proxy headers (X-Forwarded-Proto, X-Forwarded-For) from Traefik
 # This makes url_for() generate https:// URLs when behind HTTPS proxy
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+_trusted_proxies = _app_config.api.trusted_proxy_hosts
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=_trusted_proxies)
 
 # Register application-level exception handlers for consistent error formatting
 app.add_exception_handler(RequestValidationError, custom_validation_exception_handler)
 
-# Configure Jinja2 templates with auto-reload in debug mode
-debug = os.getenv("DEBUG", "False").lower() == "true"
-templates = Jinja2Templates(directory=_app_config.directories.templates, auto_reload=debug)
+# Configure Jinja2 templates (moved to lifespan)
+# templates = Jinja2Templates(directory=_app_config.directories.templates, auto_reload=_app_config.server.debug)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=_app_config.directories.static), name="static")
@@ -199,25 +235,22 @@ async def health_check():
         "version": _app_config.app.version
     }
 
-@app.get("/debug/cache/stats", include_in_schema=False, tags=["Debug"])
-async def cache_stats(request: Request):
-    """
-    Get storage cache statistics.
-    
-    **Development and Testing Purpose Only**
-    
-    This endpoint provides internal cache statistics for development, 
-    debugging, and testing purposes. It should not be used in production
-    applications and may be removed or restricted in future versions.
-    """
-    storage_service = request.app.state.storage_service
-    return storage_service.get_cache_stats()
+# Debug endpoint: only available when DEBUG=true
+if _app_config.server.debug:
+    @app.get("/debug/cache/stats", include_in_schema=False, tags=["Debug"])
+    async def cache_stats(request: Request):
+        """
+        Get storage cache statistics.
+        
+        **Development and Testing Purpose Only**
+        
+        This endpoint provides internal cache statistics for development, 
+        debugging, and testing purposes. It is only available when DEBUG=true.
+        """
+        storage_service = request.app.state.storage_service
+        return storage_service.get_cache_stats()
 
 # Home page route is now handled by pages_router
 
 if __name__ == "__main__":
-    host = os.getenv("HOST", "127.0.0.1")
-    port = int(os.getenv("PORT", "8000"))
-    debug = os.getenv("DEBUG", "False").lower() == "true"
-    
-    uvicorn.run("app.main:app", host=host, port=port, reload=debug)
+    uvicorn.run("app.main:app", host=_app_config.server.host, port=_app_config.server.port, reload=_app_config.server.debug)

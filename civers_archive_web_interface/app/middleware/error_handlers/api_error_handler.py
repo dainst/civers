@@ -18,14 +18,10 @@ from ...storage import StorageError
 from ...utils.security import SecurityValidationError
 from ...models.responses import ErrorResponse, ErrorDetail
 from ...custom_exceptions.exceptions.api_exceptions import ResourceNotFoundError, ArtifactNotFoundError, ValidationError
+from ...utils.correlation import get_correlation_id
 
 
 logger = logging.getLogger(__name__)
-
-
-def _get_correlation_id() -> str:
-    """Get correlation ID from asgi-correlation-id context."""
-    return correlation_id.get('unknown')
 
 
 def create_api_error_response(
@@ -36,7 +32,7 @@ def create_api_error_response(
 ) -> JSONResponse:
     """Create consistent API error response using Pydantic ErrorResponse model."""
 
-    request_id = _get_correlation_id()
+    request_id = get_correlation_id()
     error_response = ErrorResponse(
         success=False,
         error=error_type,
@@ -179,7 +175,7 @@ class APIErrorHandler:
 
     async def _handle_resource_not_found_error(self, request: Request, exc: ResourceNotFoundError) -> JSONResponse:
         """Handle ResourceNotFoundError for API routes."""
-        logger.warning(f"API resource not found: {exc.resource_type} '{exc.resource_id}'", extra={
+        logger.info(f"API resource not found: {exc.resource_type} '{exc.resource_id}'", extra={
             'error_type': 'api_resource_not_found',
             'path': request.url.path,
             'resource_type': exc.resource_type,

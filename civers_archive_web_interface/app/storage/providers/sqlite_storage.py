@@ -53,7 +53,10 @@ class SQLiteStorageProvider(StorageProviderInterface):
 
     def get_all_urls(self) -> Dict[str, ArchivedUrl]:
         """
-        Get all URLs from database (fast).
+        Get all URLs from database using batch queries.
+
+        Uses 3 flat queries instead of nested per-URL/per-snapshot queries
+        to avoid N+1 query performance degradation.
 
         Returns:
             Dictionary mapping url_id to ArchivedUrl objects
@@ -62,7 +65,7 @@ class SQLiteStorageProvider(StorageProviderInterface):
             StorageError: If database query fails
         """
         try:
-            # Query all URLs
+            # Query 1: All URLs
             url_rows = self.db.fetch_all("""
                 SELECT url_id, original_url, folder_name,
                        first_captured, last_captured, snapshot_count
@@ -70,17 +73,55 @@ class SQLiteStorageProvider(StorageProviderInterface):
                 ORDER BY last_captured DESC
             """)
 
+            # Query 2: All snapshots
+            snapshot_rows = self.db.fetch_all("""
+                SELECT snapshot_id, url_id, timestamp, url, title, folder_path,
+                       status_code, content_type, content_length, metadata_json
+                FROM snapshots
+                ORDER BY timestamp DESC
+            """)
+
+            # Query 3: All artifacts
+            artifact_rows = self.db.fetch_all("""
+                SELECT snapshot_id, artifact_type
+                FROM artifacts
+            """)
+
+            # Build lookup: snapshot_id -> [artifact_types]
+            artifacts_by_snapshot = {}
+            for row in artifact_rows:
+                artifacts_by_snapshot.setdefault(row['snapshot_id'], []).append(row['artifact_type'])
+
+            # Build lookup: url_id -> [Snapshot objects]
+            snapshots_by_url = {}
+            for snap_row in snapshot_rows:
+                # Parse metadata
+                metadata = {}
+                if snap_row['metadata_json']:
+                    try:
+                        metadata = json.loads(snap_row['metadata_json'])
+                    except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse metadata for {snap_row['snapshot_id']}")
+
+                snapshot = Snapshot(
+                    snapshot_id=snap_row['snapshot_id'],
+                    timestamp=datetime.fromisoformat(snap_row['timestamp']),
+                    url=snap_row['url'],
+                    title=snap_row['title'],
+                    folder_path=snap_row['folder_path'],
+                    metadata=metadata,
+                    available_artifacts=artifacts_by_snapshot.get(snap_row['snapshot_id'], [])
+                )
+                snapshots_by_url.setdefault(snap_row['url_id'], []).append(snapshot)
+
+            # Assemble final result
             result = {}
             for url_row in url_rows:
-                # Query snapshots for this URL
-                snapshots = self._get_snapshots_for_url(url_row['url_id'])
-
-                # Build ArchivedUrl
                 archived_url = ArchivedUrl(
                     url_id=url_row['url_id'],
                     original_url=url_row['original_url'],
                     folder_name=url_row['folder_name'],
-                    snapshots=snapshots
+                    snapshots=snapshots_by_url.get(url_row['url_id'], [])
                 )
                 result[archived_url.url_id] = archived_url
 
@@ -344,6 +385,9 @@ class SQLiteStorageProvider(StorageProviderInterface):
             existing_snapshot = self._find_existing_snapshot(request_id, url_id)
 
             if existing_snapshot:
+                if not allow_existing:
+                    raise StorageError(f"Snapshot already exists for request_id '{request_id}'")
+
                 # Use existing snapshot - add files to it
                 snapshot_id = existing_snapshot['snapshot_id']
                 storage_path = Path(existing_snapshot['folder_path'])
@@ -467,12 +511,15 @@ class SQLiteStorageProvider(StorageProviderInterface):
         """
         Get all snapshots for a URL.
 
+        Uses 2 queries instead of 1+M (one per snapshot for artifacts).
+
         Args:
             url_id: The URL identifier
 
         Returns:
             List of Snapshot objects
         """
+        # Query 1: All snapshots for this URL
         snapshot_rows = self.db.fetch_all("""
             SELECT snapshot_id, timestamp, url, title, folder_path,
                    status_code, content_type, content_length, metadata_json
@@ -481,17 +528,25 @@ class SQLiteStorageProvider(StorageProviderInterface):
             ORDER BY timestamp DESC
         """, (url_id,))
 
+        if not snapshot_rows:
+            return []
+
+        # Query 2: All artifacts for these snapshots in one batch
+        snapshot_ids = [row['snapshot_id'] for row in snapshot_rows]
+        placeholders = ','.join('?' * len(snapshot_ids))
+        artifact_rows = self.db.fetch_all(f"""
+            SELECT snapshot_id, artifact_type
+            FROM artifacts
+            WHERE snapshot_id IN ({placeholders})
+        """, snapshot_ids)
+
+        # Build lookup: snapshot_id -> [artifact_types]
+        artifacts_by_snapshot = {}
+        for row in artifact_rows:
+            artifacts_by_snapshot.setdefault(row['snapshot_id'], []).append(row['artifact_type'])
+
         snapshots = []
         for snap_row in snapshot_rows:
-            # Query artifacts for this snapshot
-            artifact_rows = self.db.fetch_all("""
-                SELECT artifact_type
-                FROM artifacts
-                WHERE snapshot_id = ?
-            """, (snap_row['snapshot_id'],))
-
-            available_artifacts = [row['artifact_type'] for row in artifact_rows]
-
             # Parse metadata
             metadata = {}
             if snap_row['metadata_json']:
@@ -507,7 +562,7 @@ class SQLiteStorageProvider(StorageProviderInterface):
                 title=snap_row['title'],
                 folder_path=snap_row['folder_path'],
                 metadata=metadata,
-                available_artifacts=available_artifacts
+                available_artifacts=artifacts_by_snapshot.get(snap_row['snapshot_id'], [])
             )
             snapshots.append(snapshot)
 

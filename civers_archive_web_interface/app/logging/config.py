@@ -1,13 +1,18 @@
 """Logging configuration using asgi-correlation-id pattern."""
 
 import logging
-import os
 from logging.config import dictConfig
 from typing import Optional
 from asgi_correlation_id import CorrelationIdFilter
 
 
-def configure_logging(level: str = "INFO", json_format: bool = True, log_file: Optional[str] = None) -> None:
+def configure_logging(
+    level: str = "INFO", 
+    json_format: bool = True, 
+    log_file: Optional[str] = None,
+    kafka_level: str = "WARNING",
+    access_level: str = "INFO"
+) -> None:
     """
     Configure application logging using asgi-correlation-id pattern.
 
@@ -15,9 +20,12 @@ def configure_logging(level: str = "INFO", json_format: bool = True, log_file: O
         level: Log level (DEBUG, INFO, WARNING, ERROR)
         json_format: Use JSON formatter for structured logging
         log_file: Optional file path for file logging
+        kafka_level: Log level for Kafka libraries
+        access_level: Log level for uvicorn access logs
     """
-    # Get Kafka log level from environment (controllable via docker-compose)
-    kafka_log_level = os.getenv("KAFKA_LOG_LEVEL", "WARNING").upper()
+    # Get Kafka log level from configuration
+    kafka_log_level = kafka_level.upper()
+    access_log_level = access_level.upper()
 
     config = {
         'version': 1,
@@ -48,7 +56,7 @@ def configure_logging(level: str = "INFO", json_format: bool = True, log_file: O
             'app': {'level': level.upper()},
             # Third-party loggers
             'uvicorn': {'level': 'INFO'},
-            'uvicorn.access': {'level': 'INFO'},
+            'uvicorn.access': {'level': access_log_level},
             'httpx': {'level': 'INFO'},
             'asgi_correlation_id': {'level': 'WARNING'},
             # Kafka loggers - suppress all verbose sub-loggers

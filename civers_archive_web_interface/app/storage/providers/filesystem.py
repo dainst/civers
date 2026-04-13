@@ -19,6 +19,7 @@ from ...models.snapshot import Snapshot
 from configs.models import ValidationConfig
 from ...utils.url_parser import parse_url, generate_request_id, build_storage_path
 from ...utils.file_storage import store_snapshot_files
+import zipfile
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class FilesystemStorageProvider(StorageProviderInterface):
     local filesystem with integrated directory scanning functionality.
     """
 
-    def __init__(self, storage_path: Path, timeout_seconds: int = 10, validation_config: ValidationConfig = None):
+    def __init__(self, storage_path: Path,validation_config: ValidationConfig, timeout_seconds: int = 10):
         """
         Initialize filesystem storage provider.
         
@@ -42,8 +43,7 @@ class FilesystemStorageProvider(StorageProviderInterface):
         """
         self.storage_path = Path(storage_path)
         self.timeout_seconds = timeout_seconds
-        self.validation_config = validation_config or ValidationConfig()
-        self._cached_results: Optional[Dict[str, ArchivedUrl]] = None
+        self.validation_config = validation_config
         self._start_time = None
 
     def _check_timeout(self) -> bool:
@@ -57,25 +57,24 @@ class FilesystemStorageProvider(StorageProviderInterface):
         Parse timestamp string from request folder name.
         
         Expected format: req_{request_id}_{YYYYMMDD_HHMMSS}
+        Uses regex anchored to the end to handle request IDs containing underscores.
         """
         try:
-            # Extract timestamp from request folder format: req_{request_id}_{YYYYMMDD_HHMMSS}
+            import re
+            
+            # Extract timestamp from folder name using regex anchored to end
+            # Matches 8-digit date + 6-digit time at the end, separated by underscore
             directory_prefix = self.validation_config.snapshot_directory_prefix
             if folder_name.startswith(directory_prefix):
-                parts = folder_name.split('_')
-                if len(parts) >= 3:
-                    # Get the last two parts as date and time
-                    date_part = parts[-2]  # YYYYMMDD
-                    time_part = parts[-1]  # HHMMSS
-                    timestamp_str = f"{date_part}_{time_part}"
-                    
-                    # Try to parse the extracted timestamp
+                match = re.match(r'^.*_(\d{8})_(\d{6})$', folder_name)
+                if match:
+                    timestamp_str = f"{match.group(1)}_{match.group(2)}"
                     try:
                         return datetime.strptime(timestamp_str, '%Y%m%d_%H%M%S')
                     except ValueError:
                         pass
             
-            # Use configured timestamp formats
+            # Use configured timestamp formats as fallback
             formats = self.validation_config.timestamp_formats
             
             for fmt in formats:
@@ -133,7 +132,7 @@ class FilesystemStorageProvider(StorageProviderInterface):
         Returns:
             URL string if found, None otherwise
         """
-        import zipfile
+        
         
         wacz_path = snapshot_dir / 'archive.wacz'
         if not wacz_path.exists():
@@ -400,7 +399,6 @@ class FilesystemStorageProvider(StorageProviderInterface):
         try:
             # Perform direct filesystem scan
             archived_urls = self._scan_storage()
-            self._cached_results = archived_urls
             return archived_urls
             
         except Exception as e:
@@ -421,11 +419,8 @@ class FilesystemStorageProvider(StorageProviderInterface):
             StorageError: If storage operation fails
         """
         try:
-            # Get all URLs if not cached
-            if self._cached_results is None:
-                self.get_all_urls()
-            
-            return self._cached_results.get(url_id) if self._cached_results else None
+            all_urls = self.get_all_urls()
+            return all_urls.get(url_id)
             
         except Exception as e:
             logger.error(f"Error getting URL {url_id}: {e}")
@@ -445,15 +440,13 @@ class FilesystemStorageProvider(StorageProviderInterface):
             StorageError: If storage operation fails
         """
         try:
-            # Get all URLs to search for snapshot
-            if self._cached_results is None:
-                self.get_all_urls()
+            all_urls = self.get_all_urls()
             
-            if not self._cached_results:
+            if not all_urls:
                 return None
                 
             # Search through all URLs for the snapshot
-            for archived_url in self._cached_results.values():
+            for archived_url in all_urls.values():
                 for snapshot in archived_url.snapshots:
                     if snapshot.snapshot_id == snapshot_id:
                         return snapshot
@@ -697,9 +690,6 @@ class FilesystemStorageProvider(StorageProviderInterface):
                 metadata=metadata,
                 available_artifacts=all_artifacts
             )
-
-            # Invalidate cache to force rescan on next get_all_urls()
-            self._cached_results = None
 
             return snapshot
 

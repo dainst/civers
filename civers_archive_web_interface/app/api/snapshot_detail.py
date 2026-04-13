@@ -14,9 +14,6 @@ from pydantic import BaseModel, Field
 from ..models.snapshot import Snapshot
 from ..models.responses import ErrorResponse
 from ..custom_exceptions.exceptions.api_exceptions import ResourceNotFoundError
-from configs import load_app_config
-
-_app_config = load_app_config()
 
 logger = logging.getLogger(__name__)
 
@@ -71,17 +68,13 @@ class SnapshotDetail(BaseModel):
         Returns:
             SnapshotDetail with all computed fields
         """
-        # Get allowed artifact types from config if not provided
+        # Fallback to common types if no config provided
         if allowed_artifact_types is None:
-            try:
-                allowed_artifact_types = _app_config.validation.allowed_artifact_types
-            except Exception:
-                # Fallback to common types if config loading fails
-                allowed_artifact_types = {
-                    "archive.wacz", "metadata.json", "screenshot.png", 
-                    "singlefile.html", "warc.file", "document.html",
-                    "dom-snapshot.html", "archive_generator_metadata.json"
-                }
+            allowed_artifact_types = {
+                "archive.wacz", "metadata.json", "screenshot.png", 
+                "singlefile.html", "warc.file", "document.html",
+                "dom-snapshot.html", "archive_generator_metadata.json"
+            }
         
         # Calculate file sizes if possible
         artifacts_info = {}
@@ -172,8 +165,14 @@ async def get_snapshot_detail(
     # Get base URL for download links
     base_url = str(request.base_url).rstrip('/')
     
+    # Get allowed artifact types from app config
+    try:
+        allowed_artifact_types = request.app.state.app_config.validation.allowed_artifact_types
+    except AttributeError:
+        allowed_artifact_types = None
+
     # Convert to detail response format
-    snapshot_detail = SnapshotDetail.from_snapshot(snapshot, base_url)
+    snapshot_detail = SnapshotDetail.from_snapshot(snapshot, base_url, allowed_artifact_types)
     
     logger.debug(f"Returning snapshot details for {snapshot_id} (artifacts: {snapshot_detail.artifact_count})")
     

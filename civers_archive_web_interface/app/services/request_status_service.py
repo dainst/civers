@@ -73,6 +73,7 @@ class RequestStatusService:
         self,
         request_id: str,
         status: str,
+        workflow_name: Optional[str] = None,
         current_step: Optional[str] = None,
         completed_steps: Optional[List[str]] = None,
         error_message: Optional[str] = None,
@@ -86,6 +87,7 @@ class RequestStatusService:
         Args:
             request_id: Unique request identifier
             status: New status (pending, in_progress, completed, failed)
+            workflow_name: Workflow being executed
             current_step: Currently executing workflow step
             completed_steps: List of completed step names
             error_message: Error message if status is 'failed'
@@ -101,6 +103,9 @@ class RequestStatusService:
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
             
+            if workflow_name is not None:
+                update_values["workflow_name"] = workflow_name
+                
             if current_step is not None:
                 update_values["current_step"] = current_step
                 

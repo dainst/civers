@@ -100,7 +100,6 @@ class OrchestratorRequestEvent(EventBaseModel):
     - request_id: str (required) - Unique identifier
     - created_at: str - ISO 8601 UTC timestamp  
     - url: str (required) - URL to archive
-    - workflow_name: Optional[str] - Workflow to execute (None = auto-detect from domain)
     - priority: int - Processing priority 1-10 (default: 1)
     - callback_url: Optional[str] - Webhook URL for status updates
     - metadata: Dict[str, Any] - Additional metadata
@@ -116,17 +115,12 @@ class OrchestratorRequestEvent(EventBaseModel):
             'request_id': 'abc-123',
             'created_at': '2026-01-06T12:00:00Z',
             'url': 'https://example.com/page',
-            'workflow_name': None,
             'priority': 1,
             'callback_url': 'https://web-interface/api/webhook/status',
             'metadata': {}
         }
     """
     
-    workflow_name: Optional[str] = Field(
-        default=None,
-        description="Workflow name to execute. If None, orchestrator infers from domain."
-    )
     priority: int = Field(
         default=1,
         ge=1,

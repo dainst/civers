@@ -3,9 +3,17 @@
 
 domains:
   - name: arachne.test.dainst.org
-    artifacts: [warc, html, screenshots, singlefile, json]
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
     webpage_types: dynamic
     
   - name: example.com
-    artifacts: [warc, html, singlefile]
+    generators:
+      - name: scoop
+        artifacts: [warc, dom-snapshot, screenshot]
+      - name: singlefile
+        artifacts: [singlefile]
     webpage_types: dynamic

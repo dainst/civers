@@ -4,6 +4,7 @@ The Civers Web Interface is a web application for browsing, managing, and replay
 
 - **URL Archives** – Browse all snapshots of archived URLs with associated artifacts (WACZ archives, screenshots, SingleFile HTML, metadata)
 - **Snapshot Replay** – Replay archived snapshots with metadata display and citation generation (APA, MLA, Chicago)
+- **Archive Request** – Submit new archive requests through the web form, processed via Kafka
 - **File Upload API** – Upload archive files programmatically
 - **Fast Queries** – Choose between filesystem or SQLite-indexed storage
 
@@ -12,11 +13,13 @@ The Civers Web Interface is a web application for browsing, managing, and replay
 - **Two Storage Providers**
   - Filesystem: Direct file access
   - SQLite: Database-indexed for faster queries
+- **Archive Request Submission** – Web form for requesting new archives via Kafka
 - **File Upload API** – Upload WACZ archives and artifacts
 - **Auto-Indexing** – SQLite provider automatically indexes files on startup
 - **RESTful API** – Full API for integration
+- **Embeddable Widget** – JavaScript widget for embedding archive views
 - **Citation Generation** – Multiple citation formats
-- **Configurable** – YAML-based configuration
+- **Configurable** – Hierarchical YAML-based configuration with environment overrides
 
 ## Prerequisites
 
@@ -35,29 +38,22 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
-### 2. Configure Storage
+### 2. Configuration
 
-Create your configuration file:
+The application uses hierarchical YAML configuration files in `configs/data/`. Default settings are loaded from `configs/data/defaults/` and merged with environment-specific overrides from `configs/data/environments/`.
 
-```bash
-# Copy example configuration
-cp config.example.yaml config.yaml
-```
+Key configuration files:
 
-**Basic configuration** (`config.yaml`):
-```yaml
-storage:
-  type: "sqlite"  # Use "filesystem" for direct file access
+| File | Purpose |
+|------|---------|
+| `configs/data/defaults/app.yaml` | Application metadata, logging, API settings |
+| `configs/data/defaults/server.yaml` | Server host, port, debug mode, CORS origins |
+| `configs/data/defaults/storage.yaml` | Storage provider selection and settings |
+| `configs/data/defaults/validation.yaml` | Input validation rules, allowed artifact types |
+| `configs/data/defaults/kafka.yaml` | Kafka transport configuration |
+| `configs/data/defaults/domains.yaml` | Domain-specific archiving rules |
 
-  sqlite:
-    db_path: "data/archives.db"
-    auto_rebuild: true
-
-  filesystem:
-    path: "archives"
-```
-
-See [Configuration](#configuration) section for more details.
+See [docs/components/CONFIGURATION.md](docs/components/CONFIGURATION.md) for full configuration reference.
 
 ### 3. Run the Application
 
@@ -70,9 +66,10 @@ uv run python -m app.main
 ```
 
 The application will be available at:
-- **Main application**: http://127.0.0.1:8000
-- **API documentation**: http://127.0.0.1:8000/docs
-- **Health check**: http://127.0.0.1:8000/health
+
+- **Main application**: <http://127.0.0.1:8000>
+- **API documentation**: <http://127.0.0.1:8000/docs>
+- **Health check**: <http://127.0.0.1:8000/health>
 
 ### 4. Test File Upload
 
@@ -80,7 +77,7 @@ Upload test files to verify everything works:
 
 ```bash
 # Quick test with Python script
-python test_upload.py
+uv run python test_upload.py
 ```
 
 See [File Upload](#file-upload) section for more options.
@@ -98,99 +95,65 @@ uv run python -m pytest -v
 uv run python -m pytest tests/test_snapshots_api.py -v
 ```
 
-## Configuration
+## Storage Providers
 
-The application uses a YAML configuration file (`config.yaml`) to configure storage providers and other settings.
+You can choose between two storage providers via `configs/data/defaults/storage.yaml`:
 
-### Storage Provider Options
-
-You can choose between two storage providers:
-
-#### Filesystem Provider
+### Filesystem Provider
 
 **How it works:**
+
 - Scans filesystem directories on every request
 - Reads files directly from disk
 - No database required
 
-**Benefits:**
-- No setup or indexing needed
-- Always reflects current filesystem state
-- Simple and straightforward
-- Great for development
-
 **Use when:**
+
 - Developing locally
 - Working with small archives
 - You want simplicity
 
-**Configuration:**
+**Configuration** (`storage.yaml`):
+
 ```yaml
 storage:
   type: "filesystem"
   filesystem:
     path: "archives"
-    timeout_seconds: 10
+    timeout_seconds: 0
 ```
 
-#### SQLite Provider (Recommended)
+### SQLite Provider (Recommended)
 
 **How it works:**
+
 - Maintains a database index of all files
 - Queries database for fast lookups
 - Auto-indexes filesystem on first startup
 - Updates index when new files are uploaded
 
-**Benefits:**
-- Faster than traversing filesystem and caching on every request
-- Queries database instead of scanning directories
-- Automatically builds index from existing files
-- Best for production environments
-
 **Use when:**
+
 - Running in production
 - Working with larger archives
 - You need fast query performance
 
-**Configuration:**
+**Configuration** (`storage.yaml`):
+
 ```yaml
 storage:
   type: "sqlite"
   sqlite:
     db_path: "data/archives.db"
-    auto_rebuild: true  # Rebuild index if database is empty
+    auto_rebuild: true
     connection_timeout: 10
   filesystem:
     path: "archives"  # Still needs path for file storage
 ```
 
-### Full Configuration Example
+### Switching Providers
 
-```yaml
-storage:
-  type: "sqlite"
-
-  sqlite:
-    db_path: "data/archives.db"
-    auto_rebuild: true
-    connection_timeout: 10
-
-  filesystem:
-    path: "archives"
-    timeout_seconds: 10
-
-  cache:
-    ttl_seconds: 60
-    max_entries: 1000
-
-validation:
-  snapshot_id_pattern: '^req_[a-zA-Z0-9\-_]+_\d{8}_\d{6}$'
-  allowed_artifact_types:
-    - "archive.wacz"
-    - "metadata.json"
-    - "screenshot.png"
-    - "singlefile.html"
-```
+Change the `type` in `configs/data/defaults/storage.yaml`. No data migration needed — both providers read from the same filesystem. Restart the application for changes to take effect.
 
 ## File Upload
 
@@ -210,12 +173,6 @@ python test_upload.py --url https://example.com/my-page
 # Custom request ID
 python test_upload.py --request-id my-test-123
 ```
-
-This will:
-- Create test files (WACZ, metadata, screenshot, SingleFile HTML)
-- Upload them to the API
-- Verify the upload
-- Display results
 
 ### Manual Upload with curl
 
@@ -249,6 +206,7 @@ curl -X POST http://localhost:8000/api/upload \
 ### Verify Upload
 
 **Check via API:**
+
 ```bash
 # List all URLs
 curl http://localhost:8000/api/urls
@@ -258,11 +216,13 @@ curl http://localhost:8000/api/snapshots/req_test-123_20250112_143022
 ```
 
 **Check filesystem:**
+
 ```bash
 ls -la archives/example_com/test/req_test-123_20250112_143022/
 ```
 
 **Check database (SQLite):**
+
 ```bash
 sqlite3 data/archives.db "SELECT * FROM snapshots ORDER BY created_at DESC LIMIT 5;"
 ```
@@ -270,21 +230,44 @@ sqlite3 data/archives.db "SELECT * FROM snapshots ORDER BY created_at DESC LIMIT
 ## Available API Endpoints
 
 ### Core APIs
-- `GET /api/urls` - List all archived URLs (with pagination and sorting)
-- `GET /api/urls/{url_id}/snapshots` - List snapshots for a specific URL
-- `GET /api/snapshots/{snapshot_id}` - Get snapshot details
-- `GET /api/snapshots/{snapshot_id}/artifacts/{type}` - Download artifact file
-- `POST /api/upload` - Upload archive files
-- `GET /health` - Application health check
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/urls` | List all archived URLs (pagination, sorting) |
+| `GET` | `/api/url/{url_id}` | Get details for a specific URL |
+| `GET` | `/api/urls/{url_id}/snapshots` | List snapshots for a URL |
+| `GET` | `/api/snapshots/{snapshot_id}` | Get snapshot details |
+| `GET` | `/api/artifacts/serve` | Download an artifact file |
+| `POST` | `/api/upload` | Upload archive files |
+| `GET` | `/api/upload` | Upload endpoint info |
+| `POST` | `/api/archive-request` | Submit a new archive request |
+| `GET` | `/api/request-status/{request_id}` | Check archive request status |
+| `POST` | `/api/webhook/status` | Receive status updates from orchestrator |
+| `GET` | `/health` | Application health check |
+
+### Widget
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/widget/civers-widget.js` | Embeddable widget JavaScript |
+| `GET` | `/widget/civers-widget.css` | Widget styles |
+| `GET` | `/widget/demo.html` | Widget demo page |
 
 ### Web Pages
-- `GET /` - Home page
-- `GET /archive/{url_id}` - URL archive list page
-- `GET /replay/{snapshot_id}` - Snapshot replay page
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | Home page |
+| `GET` | `/archive-request` | Archive request form |
+| `GET` | `/my-requests` | User's archive requests |
+| `GET` | `/status/{request_id}` | Request status page |
+| `GET` | `/archive/{url_id}` | URL archive list page |
+| `GET` | `/replay/{snapshot_id}` | Snapshot replay page |
 
 ### API Documentation
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+
+- **Swagger UI**: <http://localhost:8000/docs>
+- **ReDoc**: <http://localhost:8000/redoc>
 
 ## API Usage Examples
 
@@ -299,7 +282,7 @@ curl "http://127.0.0.1:8000/api/urls/example_com_home_page/snapshots"
 curl "http://127.0.0.1:8000/api/snapshots/req_test-1_20240301_120000"
 
 # Download artifact
-curl "http://127.0.0.1:8000/api/snapshots/req_test-1_20240301_120000/artifacts/archive.wacz" \
+curl "http://127.0.0.1:8000/api/artifacts/serve?snapshot_id=req_test-1_20240301_120000&type=archive.wacz" \
   -o archive.wacz
 
 # Filter snapshots by artifact availability
@@ -307,6 +290,11 @@ curl "http://127.0.0.1:8000/api/urls/example_com/snapshots?has_wacz=true"
 
 # Filter snapshots by date range
 curl "http://127.0.0.1:8000/api/urls/example_com/snapshots?from_date=2024-01-01&to_date=2024-12-31"
+
+# Submit archive request
+curl -X POST "http://127.0.0.1:8000/api/archive-request" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com", "domain": "example.com"}'
 ```
 
 ## Testing
@@ -335,9 +323,6 @@ python test_upload.py
 
 # With custom options
 python test_upload.py --url https://example.com --request-id test-123
-
-# Bash script alternative
-./test_upload.sh
 ```
 
 ### Manual API Testing
@@ -363,20 +348,29 @@ curl -X POST http://localhost:8000/api/upload \
 ```
 civers_archive_web_interface/
 ├── app/
-│   ├── api/                # API endpoints
+│   ├── api/                # API endpoint routers
+│   ├── custom_exceptions/  # Custom exception classes
 │   ├── database/           # SQLite database management
+│   ├── logging/            # Logging configuration
+│   ├── middleware/         # Security and error-handling middleware
 │   ├── models/             # Pydantic data models
+│   ├── routes/             # Web page routes (templates)
+│   ├── services/           # Business logic services (Kafka, etc.)
 │   ├── storage/            # Storage providers and services
-│   ├── cli/               # CLI commands
-│   └── main.py            # FastAPI application
-├── tests/                  # Unit and integration tests
+│   ├── utils/              # Utility functions
+│   └── main.py             # FastAPI application entry point
+├── configs/
+│   ├── __init__.py         # Package exports and public API
+│   ├── models.py           # Configuration Pydantic models
+│   ├── loaders.py          # YAML configuration loader
+│   └── data/
+│       ├── defaults/       # Base YAML configuration files
+│       └── environments/   # Environment-specific overrides
 ├── templates/              # Jinja2 HTML templates
 ├── static/                 # CSS, JavaScript, images
-├── data/                   # SQLite database files
-├── config.yaml            # Application configuration
-├── config.example.yaml    # Example configuration
-├── test_upload.py         # Upload test script
-└── test_upload.sh         # Bash upload test script
+├── tests/                  # Unit and integration tests
+├── data/                   # SQLite database files (runtime)
+└── test_upload.py          # Upload test script
 ```
 
 ### Storage Structure
@@ -396,83 +390,42 @@ archives/
 
 ### Environment Variables
 
-```bash
-# Application settings
-HOST=127.0.0.1
-PORT=8000
-DEBUG=true
+The application primarily uses YAML configuration files. The following environment variables are supported:
 
-# Logging
-LOG_LEVEL=INFO
-LOG_FILE=logs/app.log
-JSON_LOGGING=true
-
-# Configuration
-CONFIG_PATH=config.yaml  # Optional, defaults to config.yaml
-```
-
-## Storage Provider Details
-
-### How Each Provider Works
-
-**Filesystem Provider:**
-1. Request comes in for URLs/snapshots
-2. Scans `archives/` directory structure
-3. Reads metadata.json files
-4. Returns results
-5. Caches results temporarily
-
-**SQLite Provider:**
-1. On startup: Checks if database exists
-2. If empty and `auto_rebuild=true`: Scans filesystem and populates database
-3. Request comes in for URLs/snapshots
-4. Queries database index (fast)
-5. Returns results
-6. On upload: Updates database automatically
+| Variable | Description |
+|----------|-------------|
+| `CONFIG_ENVIRONMENT` | Override environment detection (`development`, `testing`, `docker`) |
+| `CONFIG_DIR` | Override configuration directory path |
+| `KAFKA_BOOTSTRAP_SERVERS` | Kafka broker connection string (used via `${...}` expansion in YAML) |
 
 ### Database Schema (SQLite)
 
-When using SQLite provider:
-- **urls** - Stores archived URLs
-- **snapshots** - Stores snapshot metadata
-- **artifacts** - Stores artifact file information
-- **Indexes** - On timestamps, URL IDs for fast queries
+When using the SQLite provider:
 
-### Switching Providers
-
-You can switch between providers by changing the `config.yaml` file. No data migration needed - both providers read from the same filesystem.
-
-```yaml
-# Switch to filesystem
-storage:
-  type: "filesystem"
-
-# Switch to SQLite
-storage:
-  type: "sqlite"
-  sqlite:
-    db_path: "data/archives.db"
-    auto_rebuild: true
-```
-
-Restart the application for changes to take effect.
+- **urls** – Stores archived URLs
+- **snapshots** – Stores snapshot metadata
+- **artifacts** – Stores artifact file information
+- **Indexes** – On timestamps, URL IDs for fast queries
 
 ## Troubleshooting
 
 ### Application won't start
 
-**Error**: `Configuration loading failed`
-- Check `config.yaml` syntax (valid YAML)
+**Error**: `Configuration validation failed`
+
+- Check YAML syntax in `configs/data/defaults/` files
 - Verify file paths exist
 - Ensure proper indentation
 
 ### Upload fails
 
 **Error**: `Could not connect to API`
-- Ensure application is running: `uvicorn app.main:app --reload`
+
+- Ensure application is running: `uv run uvicorn app.main:app --reload`
 - Check URL is correct: `http://localhost:8000/api/upload`
 
 **Error**: `400 Bad Request`
+
 - Verify URL is valid (starts with http:// or https://)
 - Ensure request_id is provided
 - Check at least one file is uploaded
@@ -480,24 +433,19 @@ Restart the application for changes to take effect.
 ### Database issues (SQLite)
 
 **Error**: `Database locked`
+
 - Close any SQLite browser connections
 - Restart application
 
 **Empty results after upload:**
-- Check `auto_rebuild: true` in config
+
+- Check `auto_rebuild: true` in `configs/data/defaults/storage.yaml`
 - Manually rebuild: Delete `data/archives.db` and restart
 
 ### Files not found
 
 **Error**: `Snapshot not found` or `404`
+
 - Verify files exist in `archives/` directory
 - Check directory structure matches expected format
 - If using SQLite, rebuild index: delete `data/archives.db` and restart with `auto_rebuild: true`
-
-## License
-
-[Add your license information here]
-
-## Contributing
-
-[Add contribution guidelines here]

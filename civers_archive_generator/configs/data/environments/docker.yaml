@@ -9,7 +9,7 @@ app:
   # Docker Kafka settings (internal port with host networking)
   transport:
     kafka:
-      bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+      bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}
   
   # Storage configuration for Docker
   # Enable both local and CIVERS API in containerized environment
@@ -34,5 +34,9 @@ app:
 # Additional domains for Docker environment
 domains:
   - name: httpbin.org
-    artifacts: [warc, html, screenshots, singlefile]
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
     webpage_types: dynamic

@@ -14,7 +14,7 @@ The application uses a layered security approach:
 
 ## SecurityHeadersMiddleware
 
-**Location**: `app/middleware/security_headers.py` (136 lines)
+**Location**: `app/middleware/security_headers.py`
 
 This middleware runs on every request and adds security headers to protect against common attacks.
 
@@ -35,6 +35,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 ### Security Headers Added
 
 **Basic Protection** (applied to all pages):
+
 ```python
 response.headers["X-Content-Type-Options"] = "nosniff"           # Prevents MIME sniffing attacks
 response.headers["X-Frame-Options"] = "SAMEORIGIN"              # Prevents clickjacking
@@ -48,41 +49,48 @@ response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=
 The middleware creates different security policies depending on what type of page is being served:
 
 **API Endpoints** (`/api/*`):
+
 - Very strict: blocks almost everything since APIs only need to return data
 - `default-src 'none'` - blocks all content by default
-- `frame-ancestors 'none'` - prevents embedding in other sites
+- `connect-src 'self' http://localhost:* http://127.0.0.1:*` - allows local widget connections
+- `frame-ancestors 'self'` - only allows same-origin embedding
 
 **File Downloads** (`/api/artifacts/serve`):
+
 - Allows some flexibility for archived HTML files
 - Permits inline styles and scripts (needed for SingleFile HTML)
-- Allows data URLs for embedded images and fonts
+- Allows data URLs and blobs for embedded images (`data:`, `blob:`), data URLs for fonts
 - Only allows embedding from same origin
 
 **Documentation Pages** (`/docs`, `/redoc`):
+
 - Allows CDN resources for Swagger UI to work
 - Permits necessary scripts and styles from jsdelivr.net
 - Allows FastAPI assets and web fonts
 
 **Regular Web Pages**:
-- Balanced policy that works with Tailwind CSS and Alpine.js
-- Allows same-origin content and some external resources
+
+- Balanced policy that works with self-hosted Tailwind CSS and Alpine.js
+- Allows same-origin content only (no external CDNs)
 - Permits WebSocket connections in debug mode
 
 ## Input Validation Functions
 
-**Location**: `app/utils/security.py` (242 lines)
+**Location**: `app/utils/security.py`
 
 These functions check user input to prevent attacks and ensure data safety.
 
 ### Main Validation Functions
 
 #### Snapshot ID Validation
+
 ```python
 def validate_snapshot_id(snapshot_id: str, validation_config: ValidationConfig) -> str:
     """Makes sure snapshot IDs are safe and properly formatted."""
 ```
 
 **What it checks:**
+
 - Not empty
 - Not too long (configurable limit)
 - No path traversal attempts (`../`, `/`, `\`)
@@ -90,32 +98,38 @@ def validate_snapshot_id(snapshot_id: str, validation_config: ValidationConfig) 
 - Matches the expected pattern (regex)
 
 **Example dangerous inputs it blocks:**
+
 - `../../../etc/passwd`
 - `req_test\..\..\windows\system32`
 - Strings with null bytes or control characters
 
 #### File Path Validation
+
 ```python
 def validate_file_path(file_path: Path, storage_root: Path) -> Path:
     """Ensures files are within the allowed storage directory."""
 ```
 
 **What it does:**
+
 - Resolves the full file path (handles symlinks)
 - Checks that the file is inside the storage directory
 - Prevents access to files outside the archives folder
 
 **Example attacks it prevents:**
+
 - `/var/archives/../../../etc/passwd`
 - Symlink attacks pointing outside storage
 
 #### Artifact Type Validation
+
 ```python
 def validate_artifact_type(artifact_type: str, validation_config: ValidationConfig) -> str:
     """Only allows known safe file types."""
 ```
 
 **Allowed file types:**
+
 - `archive.wacz` - Web archive files
 - `metadata.json` - Snapshot metadata
 - `screenshot.png` - Page screenshots
@@ -126,12 +140,14 @@ def validate_artifact_type(artifact_type: str, validation_config: ValidationConf
 ### Content Security Functions
 
 #### Safe File Downloads
+
 ```python
 def get_content_disposition(artifact_type: str, snapshot_id: str) -> str:
     """Creates safe download filenames and headers."""
 ```
 
 **What it does:**
+
 - Creates safe filenames by removing dangerous characters
 - Sets `inline` for HTML files (so they display in browser)
 - Sets `attachment` for other files (forces download)
@@ -141,7 +157,7 @@ def get_content_disposition(artifact_type: str, snapshot_id: str) -> str:
 
 ### Validation Settings
 
-The security validation is configured in `app/config/models.py`:
+The security validation is configured in `configs/models.py`:
 
 ```python
 class ValidationConfig(BaseModel):
@@ -149,11 +165,18 @@ class ValidationConfig(BaseModel):
     snapshot_id_pattern: str = r'^req_[a-zA-Z0-9\-_]+_\d{8}_\d{6}$'
     snapshot_id_max_length: int = 100
 
+    # Directory naming
+    snapshot_directory_prefix: str = "req_"
+
+    # Timestamp formats
+    timestamp_formats: List[str] = ['%Y%m%d_%H%M%S', '%Y-%m-%d_%H-%M-%S']
+
     # File safety
     filename_max_length: int = 255
     allowed_artifact_types: Set[str] = {
         "archive.wacz", "metadata.json", "screenshot.png",
-        "singlefile.html", "warc.file", "document.html"
+        "singlefile.html", "warc.file", "document.html",
+        "dom-snapshot.html", "archive_generator_metadata.json"
     }
 
     # File type mappings
@@ -163,28 +186,29 @@ class ValidationConfig(BaseModel):
         "screenshot.png": "image/png",
         "singlefile.html": "text/html",
         "warc.file": "application/warc",
-        "document.html": "text/html"
+        "document.html": "text/html",
+        "dom-snapshot.html": "text/html",
+        "archive_generator_metadata.json": "application/json"
     }
 ```
 
-### Environment Configuration
+### Configuration Override
 
-You can override security settings with environment variables:
-- `CIVERS_VALIDATION_SNAPSHOT_ID_PATTERN` - Change the ID pattern
-- `CIVERS_VALIDATION_SNAPSHOT_ID_MAX_LENGTH` - Change max ID length
-- `CIVERS_VALIDATION_FILENAME_MAX_LENGTH` - Change max filename length
+Validation settings can be customized by editing `configs/defaults/server.yaml` under the `validation:` section. The YAML values are loaded at startup and merged into the `ValidationConfig` model.
 
 ## How Security Integrates with the App
 
 ### Middleware Pipeline Order
 
-The security middleware runs in a specific order:
+The middleware runs in a specific order (last added in `main.py` = first executed):
 
 ```
-1. CorrelationIdMiddleware (adds request ID)
-2. SecurityHeadersMiddleware (adds protective headers)
-3. ErrorDispatcherMiddleware (handles errors)
-4. Your request reaches the actual endpoint
+1. ProxyHeadersMiddleware (trusts X-Forwarded-* from reverse proxy)
+2. CorrelationIdMiddleware (adds request ID for tracing)
+3. CORSMiddleware (handles cross-origin requests for widget)
+4. SecurityHeadersMiddleware (adds CSP and protective headers)
+5. ErrorDispatcherMiddleware (catches errors and formats responses)
+6. Your request reaches the actual endpoint
 ```
 
 ### Integration with FastAPI
@@ -195,7 +219,7 @@ The security middleware is added in `app/main.py`:
 # Add security middleware
 app.add_middleware(
     SecurityHeadersMiddleware,
-    debug=os.getenv("DEBUG", "False").lower() == "true"
+    debug=_app_config.server.debug  # Loaded from configs/defaults/server.yaml
 )
 ```
 
@@ -219,19 +243,17 @@ The validation functions log suspicious activity:
 - **Info level**: Normal validation failures
 - **Debug level**: Successful validations
 
-Example log entry:
-```json
-{
-  "level": "WARNING",
-  "message": "Path traversal attempt detected: ../../../etc/passwd",
-  "correlation_id": "req_123456",
-  "client_ip": "192.168.1.100"
-}
+Example log output:
+
+```
+WARNING - Path traversal attempt detected in snapshot_id: ../../../etc/passwd
+WARNING - Failed artifact access attempt (snapshot not found): bad_id/archive.wacz from 192.168.1.100
 ```
 
 ### Audit Trail
 
 All security validations include:
+
 - Request correlation ID for tracking
 - Client IP address (when available)
 - Exact input that was rejected

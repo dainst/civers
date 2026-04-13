@@ -5,12 +5,12 @@ environment: testing
 
 app:
   # Test-specific archive directory
-  archive_directory: tests/archives_artifacts
+  archive_directory: ${ARCHIVE_DIRECTORY:-test_archives}
 
   # Test Kafka settings (dedicated test port)
   transport:
     kafka:
-      bootstrap_servers: localhost:29093
+      bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:29093}
   
   # Storage configuration for testing
   # Use local file only to avoid external dependencies in tests
@@ -19,24 +19,38 @@ app:
       - local_file
     backends:
       local_file:
-        base_path: tests/archives_artifacts
+        base_path: ${ARCHIVE_DIRECTORY:-test_archives}
         create_subdirectories: true
 
 # Fast test domains only
 domains:
   - name: httpbin.org
-    artifacts: [warc, html, screenshots, singlefile] 
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
     webpage_types: dynamic
     
   - name: example.com
-    artifacts: [warc, html, singlefile]
+    generators:
+      - name: scoop
+        artifacts: [warc, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
     webpage_types: dynamic
 
   # Integration test domains
   - name: arachne.dainst.org
-    artifacts: [warc, screenshots, singlefile]
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot]
+      - name: singlefile
+        artifacts: [singlefile]
     webpage_types: dynamic
     
   - name: field.dainst.org
-    artifacts: [warc]
+    generators:
+      - name: scoop
+        artifacts: [warc]
     webpage_types: static

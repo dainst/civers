@@ -11,25 +11,23 @@ flattened data from any extractor (JSON-LD, meta tags, CSS selectors, etc.).
 from .flattened_to_intermediate_mapper import (
     FlattenedToIntermediateModelMapper,
     MappingResult,
-    MappingStatus
+    MappingStatus,
 )
-from .transformation_engine import TransformationEngine
 from .key_parser import KeyParser
+from .mapping_adapter import MappingRule, parse_mapping_rules
 from .model_constructor import ModelConstructor
-from .mapping_adapter import parse_mapping_rules, MappingRule
+from .transformation_engine import TransformationEngine
 
 __all__ = [
     # Main mapper
-    'FlattenedToIntermediateModelMapper',
-    'MappingResult',
-    'MappingStatus',
-    
+    "FlattenedToIntermediateModelMapper",
+    "MappingResult",
+    "MappingStatus",
     # Mapper components
-    'TransformationEngine',
-    'KeyParser',
-    'ModelConstructor',
-    
+    "TransformationEngine",
+    "KeyParser",
+    "ModelConstructor",
     # Utilities
-    'parse_mapping_rules',
-    'MappingRule',
+    "parse_mapping_rules",
+    "MappingRule",
 ]

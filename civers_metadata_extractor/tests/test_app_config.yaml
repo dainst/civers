@@ -40,6 +40,7 @@ domains:
   # Arachne domain configuration - Updated for simplified JSON-LD keys
   - name: arachne.dainst.org
     input_source: html_document # Process HTML with embedded JSON-LD
+    extractor: jsonld
     # Mappings for universal mapper (FlattenedToIntermediateModelMapper)
     mappings:
       # PRIORITY 1: Required DataCite fields using simplified keys
@@ -60,10 +61,11 @@ domains:
       "publisher[*].identifier.value": "Publisher.publisher_identifier" # ROR identifiers
       "publisher[*].identifier.propertyID": "Publisher.publisher_identifier_scheme" # "ror.org"
       
-      # Dates - Publication and modification dates with implicit type inference
-      "datePublished": "Date.date|date_type=Published" # Explicit semantic mapping
+      # Dates - Publication year extracted from datePublished; modification date kept as Date
+      "datePublished": "publication_year|transform=extract_year"
       "dateModified": "Date.date|date_type=Updated" # Explicit semantic mapping
-      
+      "@type": "ResourceType.resource_type_general|constant=Dataset"
+
       # PRIORITY 2: Important optional fields
       
       # Geographic information - Dynamic mapping for ALL spatial coverage areas
@@ -92,6 +94,7 @@ domains:
   # Publications domain configuration - Based on publications_meta_tags_sample.html
   - name: publications.dainst.org
     input_source: html_document # Input source type
+    extractor: jsonld
     # Mappings for universal mapper (FlattenedToIntermediateModelMapper)
     mappings:
       # Dublin Core meta tag mappings with explicit class.property syntax
@@ -109,12 +112,12 @@ domains:
       "DC.Rights": "Rights.rights" # Copyright statement -> Rights model
       "DC.Source": "Publisher.publisher" # "iDAI.publications/books" -> Publisher model
       "DC.Source.URI": "AlternateIdentifier.alternate_identifier" # "https://publications.dainst.org/books/dai" -> AlternateIdentifier model
-      "DC.Type": "ResourceType.resource_type" # "Text.Book" -> ResourceType model
+      "DC.Type": "ResourceType.resource_type_general|constant=Dataset" # ResourceType model
 
       # Citation-specific meta tags for enhanced metadata with explicit targeting
       "citation_title": "Title.title" # Explicit Title model targeting
       "citation_language": "Description.lang" # Language for descriptions
-      "citation_publication_date": "Date.date" # Publication date -> Date model
+      "citation_publication_date": "publication_year|transform=extract_year" # Publication year
       "citation_author": "Creator.creator_name" # Additional authors -> Creator model
       "citation_abstract": "Description.description" # Abstract -> Description model
       "citation_doi": "AlternateIdentifier.alternate_identifier" # DOI -> AlternateIdentifier model
@@ -129,11 +132,13 @@ domains:
   # Test domain for validation and testing with explicit class.property mappings
   - name: test.example.org
     input_source: html_document # Input source type
+    extractor: jsonld
     # Mappings for universal mapper (FlattenedToIntermediateModelMapper)
     mappings:
       "h1.title": "Title.title" # Explicit Title model targeting
       ".author": "Creator.creator_name" # Explicit Creator model targeting
-      ".pub-date": "Date.date" # Explicit Date model targeting
+      ".pub-date": "publication_year|transform=extract_year" # Publication year
+      ".resource-type": "ResourceType.resource_type_general|constant=Dataset" # Resource type
       ".description": "Description.description" # Explicit Description model targeting
       ".keywords": "Subject.subject" # Explicit Subject model targeting
 

@@ -114,11 +114,22 @@ async def upload_files(
         if not files:
             raise ValidationError("No files provided for upload")
 
+        # Configurable max upload size (default 100MB)
+        max_upload_size_mb = request.app.state.app_config.api.max_upload_size_mb
+        max_upload_size = max_upload_size_mb * 1024 * 1024
+
         # Convert uploaded files to Dict[str, IO] format expected by storage
         file_streams = {}
         for upload_file in files:
             # Read file content into BytesIO
             content = await upload_file.read()
+
+            # Enforce file size limit
+            if len(content) > max_upload_size:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large. Maximum size is {max_upload_size // (1024 * 1024)} MB."
+                )
             file_streams[upload_file.filename] = BytesIO(content)
 
             logger.debug(
@@ -164,11 +175,11 @@ async def upload_files(
                 error_msg = error_msg.split(': ', 1)[1]
             raise HTTPException(status_code=400, detail=error_msg)
         logger.error(f"Storage error in upload: {e}")
-        raise HTTPException(status_code=500, detail=f"Storage error: {error_msg}")
+        raise HTTPException(status_code=500, detail="An error occurred while storing the uploaded file.")
 
     except Exception as e:
         logger.error(f"Unexpected error in upload: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again later.")
 
 
 @router.get(

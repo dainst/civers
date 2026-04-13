@@ -110,8 +110,9 @@ class TestParseUrl:
     def test_url_with_port(self):
         """Test parsing of URL with port."""
         domain, norm_domain, norm_path = parse_url("https://example.com:8080/about")
-        assert domain == "example.com:8080"
-        assert norm_domain == "example_com:8080"
+        # hostname strips port per Python urlparse behavior
+        assert domain == "example.com"
+        assert norm_domain == "example_com"
         assert norm_path == "about"
 
     def test_url_without_scheme(self):

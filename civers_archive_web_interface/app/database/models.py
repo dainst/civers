@@ -6,7 +6,7 @@ including tables for URLs, snapshots, and artifacts with appropriate
 indexes for performance.
 """
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA_SQL = """
 -- URLs table
@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS request_status (
     status TEXT NOT NULL,  -- pending, in_progress, completed, failed
     domain TEXT,
     url TEXT NOT NULL,
+    workflow_name TEXT,
     current_step TEXT,
     completed_steps TEXT,  -- JSON array of step names
     error_message TEXT,
@@ -88,9 +89,9 @@ CREATE TABLE IF NOT EXISTS schema_metadata (
 );
 
 INSERT OR IGNORE INTO schema_metadata (key, value)
-VALUES ('version', '3');
+VALUES ('version', '4');
 
-UPDATE schema_metadata SET value = '3' WHERE key = 'version';
+UPDATE schema_metadata SET value = '4' WHERE key = 'version';
 """
 
 

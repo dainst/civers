@@ -52,6 +52,16 @@ class CiversRestApiStorageStrategy(StorageStrategy):
         'snapshot_req_123_20251208'
     """
     
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> "CiversRestApiStorageStrategy":
+        return cls(
+            upload_url=config["upload_url"],
+            timeout_seconds=config.get("timeout_seconds", 30),
+            retry_attempts=config.get("retry_attempts", 3),
+            verify_ssl=config.get("verify_ssl", True),
+            auth=config.get("auth"),
+        )
+
     def __init__(
         self,
         upload_url: str,
@@ -238,7 +248,7 @@ class CiversRestApiStorageStrategy(StorageStrategy):
                         if 400 <= response.status_code < 500:
                             break
                         
-            except httpx.TimeoutException as e:
+            except httpx.TimeoutException:
                 error_msg = f"Request timeout after {self.timeout_seconds}s"
                 self.logger.warning(f"Upload attempt {attempt} failed: {error_msg}")
                 last_error = error_msg

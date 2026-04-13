@@ -1,337 +1,155 @@
-# Configuration Documentation
+# Configuration Architecture
 
-## Overview
+This directory contains the complete configuration management system for the CIVERS Archive Web Interface. The architecture provides environment-aware, hierarchical configuration loading with validation and type safety.
 
-The configuration system uses Pydantic models with environment variable overrides and YAML file support. It provides centralized configuration management with dependency injection throughout the application.
+## 📁 Directory Structure
 
-**Key features:**
-- Type safety through Pydantic models with validation
-- Environment variables override YAML configuration
-- Single configuration entry point for the application
-- Configuration injected into FastAPI application state
-- Built-in validation with descriptive error messages
-- Designed for future storage backends (S3, Database)
-
-## Files
-
-```
-app/config/
-├── loader.py            (128 lines)  - Configuration loading logic
-└── models.py            (165 lines)  - Pydantic configuration models
-```
-
-**Configuration Models**: 5 main models (AppConfig, StorageConfig, FilesystemConfig, CacheConfig, ValidationConfig)
-
-## Configuration Models
-
-### 1. FilesystemConfig (`models.py`)
-
-**What it configures**: Local filesystem storage provider settings.
-
-**Fields:**
-- `path: str` - Directory path for archives (default: "archives")
-- `timeout_seconds: int` - Filesystem operation timeout (default: 10, must be ≥ 0)
-
-**Validation:**
-- Timeout must be non-negative
-- Custom validator prevents negative timeout values
-
-**Environment variables:**
-- `CIVERS_FILESYSTEM_PATH` → `path`
-- `CIVERS_FILESYSTEM_TIMEOUT_SECONDS` → `timeout_seconds`
-
-**Code:**
-```python
-class FilesystemConfig(BaseModel):
-    path: str = Field(default="archives", description="Path to archives directory")
-    timeout_seconds: int = Field(default=10, ge=0, description="Filesystem operation timeout")
-
-    @field_validator('timeout_seconds')
-    def validate_timeout(cls, v):
-        if v < 0:
-            raise ValueError("timeout_seconds must be non-negative")
-        return v
+```text
+configs/
+├── __init__.py              # Package exports and public API
+├── models.py                # Pydantic data models for validation
+├── loaders.py               # Configuration loading logic
+└── data/                    # Configuration data files
+    ├── defaults/            # Base configurations (shared across environments)
+    │   ├── app.yaml         # Application metadata, logging, API, database
+    │   ├── server.yaml      # Server host, port, debug, CORS origins
+    │   ├── storage.yaml     # Storage provider configuration
+    │   ├── validation.yaml  # Input validation rules & artifact types
+    │   ├── kafka.yaml       # Kafka transport configuration
+    │   └── domains.yaml     # Domain-specific archiving rules
+    └── environments/        # Environment-specific overrides
+        └── development.yaml # Development environment overrides
 ```
 
-### 2. CacheConfig (`models.py`)
+## 🏗️ Architecture Overview
 
-**What it configures**: Application-wide caching behavior.
+The configuration system follows a **hierarchical loading strategy** with environment-based overrides:
 
-**Fields:**
-- `ttl_seconds: int` - Cache TTL in seconds (default: 60, -1 for no expiration)
-- `max_entries: int` - Maximum cache entries (default: 1000, must be ≥ 1)
+1. **Base Configuration**: Load all YAML files from `data/defaults/` (sorted alphabetically)
+2. **Environment Detection**: Automatically detect or specify environment
+3. **Environment Overrides**: Deep-merge environment-specific settings from `data/environments/`
+4. **Environment Variable Expansion**: Resolve `${VAR}` and `${VAR:-default}` syntax in values
+5. **Validation**: Validate the merged dictionary against Pydantic models via `AppConfig(**config)`
 
-**Validation:**
-- TTL must be -1 (no expiration) or positive (not 0)
-- Max entries must be positive
+### Key Design Principles
 
-**Environment variables:**
-- `CIVERS_CACHE_TTL_SECONDS` → `ttl_seconds`
+- **Environment Awareness**: Automatic environment detection with manual override capability
+- **Hierarchical Configuration**: Base + Environment pattern for maintainable configs
+- **Type Safety**: Pydantic models ensure configuration validation at startup
+- **Separation of Concerns**: Clear separation between data (YAML) and code (Python)
+- **Cross-Component Consistency**: Configuration models are designed to be consistent with other CIVERS components (`civers_orchestrator`, `civers_archive_generator`, `civers_metadata_extractor`)
 
-**Code:**
-```python
-class CacheConfig(BaseModel):
-    ttl_seconds: int = Field(default=60, ge=1, description="Cache TTL in seconds (-1 for no expiration)")
-    max_entries: int = Field(default=1000, ge=1, description="Maximum cache entries")
+## 📊 Configuration Files Reference
 
-    @field_validator('ttl_seconds')
-    def validate_ttl(cls, v):
-        if v < -1 or v == 0:
-            raise ValueError("ttl_seconds must be -1 (no expiration) or positive")
-        return v
+### `app.yaml` — Application & Server Settings
+
+Contains the core application configuration, logging, API behavior, database settings, and directory paths.
+
+```yaml
+app:
+  name: "Civers Archive Web Interface"
+  version: "1.0.0"
+  description: "Civers Archive Web Interface for browsing and replaying archived versions of websites"
+  service_name: "civers-archive-web-interface"
+  environment: "${CONFIG_ENVIRONMENT:-development}"
+  logging:
+    level: INFO
+    correlation_id_log_level: INFO
+    file: null
+    json_enabled: true
+    kafka_log_level: WARNING
+    access_log_level: INFO
+
+api:
+  pagination:
+    default_page_size: 50
+    max_page_size: 100
+    default_page: 1
+    default_offset: 0
+  kafka:
+    default_priority: 1
+  callback_base_url: "http://localhost:8000"
+  trusted_proxy_hosts:
+    - "127.0.0.1"
+  max_upload_size_mb: 100
+
+database:
+  connection_timeout_seconds: 10.0
+
+directories:
+  templates: "templates"
+  static: "static"
+  archives: "archives"
 ```
 
-### 3. StorageConfig (`models.py`)
+#### Root Sections in `app.yaml`
 
-**What it configures**: Top-level storage configuration with provider selection and caching.
+| Section | Model | Description |
+|---------|-------|-------------|
+| `app` | `AppInfoConfig` | Application metadata, environment, logging |
+| `app.logging` | `LoggingConfig` | Log levels, JSON format, file output |
+| `api` | `ApiConfig` | Pagination, upload limits, proxy settings |
+| `database` | `DatabaseConfig` | Database connection timeouts |
+| `directories` | `DirectoriesConfig` | Template, static, and archive directory paths |
 
-**Fields:**
-- `type: Literal["filesystem"]` - Storage provider type (currently only filesystem)
-- `filesystem: Optional[FilesystemConfig]` - Filesystem provider configuration
-- `cache: CacheConfig` - Cache configuration (auto-created with defaults)
+---
 
-**Validation:**
-- Model validator automatically creates filesystem config when type is "filesystem"
-- Future support planned for S3 and database providers
+### `server.yaml` — Server Settings
 
-**Environment variables:**
-- `CIVERS_STORAGE_TYPE` → `type`
+Configures the HTTP server host, port, debug mode, and CORS origins. Used by uvicorn and CORS middleware in `app/main.py`.
 
-**Code:**
-```python
-class StorageConfig(BaseModel):
-    type: Literal["filesystem",] = Field(default="filesystem")
-    filesystem: Optional[FilesystemConfig] = None
-    cache: CacheConfig = Field(default_factory=CacheConfig)
-
-    @model_validator(mode='before')
-    def validate_storage_config(cls, data):
-        if isinstance(data, dict):
-            storage_type = data.get('type', 'filesystem')
-
-            # Set default filesystem config if type is filesystem and no config provided
-            if storage_type == 'filesystem' and 'filesystem' not in data:
-                data['filesystem'] = {}
-
-        return data
+```yaml
+server:
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+  cors_origins:
+    - "http://localhost:8000"
+    - "http://localhost:8080"
 ```
 
-### 4. ValidationConfig (`models.py`)
+| Section | Model | Description |
+|---------|-------|-------------|
+| `server` | `ServerConfig` | Server host, port, debug mode, CORS origins |
 
-**What it configures**: Input validation and security configuration.
+---
 
-**Fields:**
-- `snapshot_id_pattern: str` - Regex pattern for snapshot ID validation
-- `snapshot_id_max_length: int` - Maximum snapshot ID length (default: 100)
-- `snapshot_directory_prefix: str` - Directory prefix for snapshots (default: "req_")
-- `timestamp_formats: List[str]` - Supported timestamp formats
-- `filename_max_length: int` - Maximum filename length (default: 255)
-- `allowed_artifact_types: Set[str]` - Whitelisted artifact file types
-- `content_type_mappings: Dict[str, str]` - MIME type mappings for artifacts
+### `storage.yaml` — Storage Provider Configuration
 
-**Validation:**
-- Length limits must be positive
-- At least one timestamp format required
-- Artifact type security whitelist
-
-**Environment variables:**
-- `CIVERS_VALIDATION_SNAPSHOT_ID_PATTERN` → `snapshot_id_pattern`
-- `CIVERS_VALIDATION_SNAPSHOT_ID_MAX_LENGTH` → `snapshot_id_max_length`
-- `CIVERS_VALIDATION_SNAPSHOT_DIRECTORY_PREFIX` → `snapshot_directory_prefix`
-- `CIVERS_VALIDATION_FILENAME_MAX_LENGTH` → `filename_max_length`
-
-### 5. AppConfig (`models.py`)
-
-**What it configures**: Top-level application configuration container.
-
-**Fields:**
-- `storage: StorageConfig` - Storage configuration (auto-created with defaults)
-- `validation: ValidationConfig` - Validation configuration (auto-created with defaults)
-
-**Features:**
-- `validate_assignment=True` for runtime validation
-- Automatic factory creation of nested configurations
-
-**Code:**
-```python
-class AppConfig(BaseModel):
-    model_config = ConfigDict(validate_assignment=True)
-
-    storage: StorageConfig = Field(default_factory=StorageConfig)
-    validation: ValidationConfig = Field(default_factory=ValidationConfig)
-```
-
-## Configuration Loading
-
-### Loading process (`loader.py`):
-
-1. **YAML File Loading**: Loads from `config/storage.yaml` (default) or specified path
-2. **Environment Variable Override**: Applies `CIVERS_*` environment variables
-3. **Pydantic Validation**: Creates typed configuration objects with validation
-4. **Error Handling**: Provides descriptive errors for configuration issues
-
-**Main function:**
-```python
-def load_app_config(config_path: Optional[Path] = None) -> AppConfig:
-    # Load configuration from YAML file with environment variable overrides
-    # Returns: AppConfig instance with validated configuration
-    # Raises: ConfigurationError if loading or validation fails
-```
-
-### Environment Variable Overrides
-
-Environment variables follow the pattern `CIVERS_<SECTION>_<KEY>`:
-
-**Storage overrides:**
-- `CIVERS_STORAGE_TYPE` - Storage provider type
-- `CIVERS_FILESYSTEM_PATH` - Filesystem storage path
-- `CIVERS_FILESYSTEM_TIMEOUT_SECONDS` - Filesystem operation timeout
-- `CIVERS_CACHE_TTL_SECONDS` - Cache TTL
-
-**Validation overrides:**
-- `CIVERS_VALIDATION_SNAPSHOT_ID_PATTERN` - Snapshot ID validation pattern
-- `CIVERS_VALIDATION_SNAPSHOT_ID_MAX_LENGTH` - Maximum snapshot ID length
-- `CIVERS_VALIDATION_SNAPSHOT_DIRECTORY_PREFIX` - Snapshot directory prefix
-- `CIVERS_VALIDATION_FILENAME_MAX_LENGTH` - Maximum filename length
-
-## FastAPI Integration
-
-### Application startup (`main.py`):
-
-Configuration is loaded during startup and injected into FastAPI application state:
-
-```python
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    try:
-        # Load application configuration
-        app_config = load_app_config()
-        app.state.app_config = app_config
-
-        # Create storage service with configuration
-        storage_service = create_storage_service(app_config)
-        app.state.storage_service = storage_service
-
-        logger.debug("Application initialized successfully")
-    except ConfigurationError as e:
-        logger.error(f"Failed to initialize application: {e}")
-        raise RuntimeError(f"Application initialization failed: {e}") from e
-
-    yield
-
-    # Shutdown
-    logger.debug("Application shutting down")
-```
-
-### Storage factory integration (`storage/factory.py`):
-
-```python
-def create_storage_provider(app_config: AppConfig) -> StorageProviderInterface:
-    try:
-        config = app_config.storage
-        if config.type == 'filesystem':
-            return _create_filesystem_provider(config, app_config.validation)
-        else:
-            raise StorageConfigurationError(f"Unknown storage provider type: {config.type}")
-
-    except Exception as e:
-        raise StorageConfigurationError(f"Provider creation failed: {e}") from e
-```
-
-### Request-level access:
-
-```python
-# In API endpoints
-storage_service = request.app.state.storage_service
-app_config = request.app.state.app_config
-```
-
-## Validation and Error Handling
-
-### Validation rules:
-
-1. **Pydantic field validation**: Automatic validation with descriptive errors
-2. **Custom validators**: Additional business logic validation
-3. **Type safety**: Strong typing prevents configuration errors
-4. **Range validation**: Numeric constraints (ge, le, etc.)
-
-### Error handling:
-
-```python
-class ConfigurationError(Exception):
-    pass
-```
-
-**Error sources:**
-- Missing configuration files
-- Invalid YAML syntax
-- Pydantic validation failures
-- Environment variable type conversion errors
-
-## Configuration Hierarchy
-
-### Default value hierarchy:
-
-1. **Pydantic field defaults**: Base defaults defined in model fields
-2. **Factory defaults**: Auto-creation of nested configuration objects
-3. **YAML file values**: Override defaults when present
-4. **Environment variables**: Highest priority, override everything
-
-### Configuration composition:
-
-```python
-AppConfig(
-    storage=StorageConfig(
-        type="filesystem",
-        filesystem=FilesystemConfig(path="archives", timeout_seconds=10),
-        cache=CacheConfig(ttl_seconds=60, max_entries=1000)
-    ),
-    validation=ValidationConfig(...)
-)
-```
-
-## Integration with Other Components
-
-### 1. Security module (`utils/security.py`):
-
-```python
-def validate_snapshot_id(snapshot_id: str, validation_config: ValidationConfig) -> str:
-    # Uses validation_config.snapshot_id_max_length
-    # Uses validation_config.snapshot_id_pattern
-```
-
-### 2. Storage providers (`storage/providers/filesystem.py`):
-
-```python
-def __init__(self, storage_path: Path, timeout_seconds: int = 10, validation_config: ValidationConfig = None):
-    self.storage_path = Path(storage_path)
-    self.timeout_seconds = timeout_seconds
-    self.validation_config = validation_config or ValidationConfig()
-```
-
-### 3. Storage service:
-
-```python
-def create_storage_service(app_config: AppConfig, provider: Optional[StorageProviderInterface] = None) -> StorageService:
-    config = app_config.storage
-    return StorageService(provider, config.cache.ttl_seconds)
-```
-
-## Configuration File
-
-### Default YAML configuration (`config/storage.yaml`):
+Configures the storage backend (filesystem or SQLite) and caching behavior.
 
 ```yaml
 storage:
-  type: "filesystem"
+  type: "sqlite"
+
   filesystem:
     path: "archives"
-    timeout_seconds: 100
-  cache:
-    ttl_seconds: 1000
-    max_entries: 1000
+    timeout_seconds: 0
 
+  sqlite:
+    db_path: "data/archives.db"
+    auto_rebuild: true
+    connection_timeout: 10
+
+  cache:
+    ttl_seconds: 10000000
+    max_entries: 1000
+```
+
+| Section | Model | Description |
+|---------|-------|-------------|
+| `storage` | `StorageConfig` | Provider type selection (`"filesystem"` or `"sqlite"`) |
+| `storage.filesystem` | `FilesystemConfig` | Path and timeout for filesystem provider |
+| `storage.sqlite` | `SQLiteConfig` | DB path, auto-rebuild, connection timeout |
+| `storage.cache` | `CacheConfig` | TTL and max entries for in-memory cache |
+
+---
+
+### `validation.yaml` — Input Validation Rules
+
+Defines validation patterns, allowed artifact types, and content-type mappings.
+
+```yaml
 validation:
   snapshot_id_pattern: '^req_[a-zA-Z0-9\-_]+_\d{8}_\d{6}$'
   snapshot_id_max_length: 100
@@ -347,6 +165,8 @@ validation:
     - singlefile.html
     - warc.file
     - document.html
+    - dom-snapshot.html
+    - archive_generator_metadata.json
   content_type_mappings:
     archive.wacz: application/zip
     metadata.json: application/json
@@ -354,17 +174,291 @@ validation:
     singlefile.html: text/html
     warc.file: application/warc
     document.html: text/html
+    dom-snapshot.html: text/html
+    archive_generator_metadata.json: application/json
 ```
 
-## Summary
+| Section | Model | Description |
+|---------|-------|-------------|
+| `validation` | `ValidationConfig` | Snapshot ID patterns, allowed artifact types, content-type mappings |
 
-The configuration system provides a type-safe foundation with:
+---
 
-- Pydantic models for validation and type safety
-- Environment variable overrides for flexible deployment
-- YAML file support for complex configuration
-- Seamless integration throughout the application
-- Centralized configuration management
-- Error handling and validation
+### `kafka.yaml` — Kafka Transport Configuration
 
-The system enables flexible deployment across environments while maintaining strict type safety and validation.
+Configures the Kafka producer for publishing archive request events.
+
+```yaml
+kafka:
+  bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
+  producer:
+    acks: "all"
+    retries: 3
+    batch_size: 16384
+    linger_ms: 10
+    request_timeout_ms: 30000
+    api_version_timeout_ms: 30000
+    publish_timeout_seconds: 10.0
+    shutdown_timeout_seconds: 5
+  topics:
+    orchestrator_requests: "orchestrator.requests"
+    orchestrator_status: "orchestrator.status"
+  health_check_enabled: true
+  monitoring_enabled: true
+  connection_retry_attempts: 5
+  connection_retry_delay_ms: 2000
+```
+
+| Section | Model | Description |
+|---------|-------|-------------|
+| `kafka` | `KafkaConfig` | Bootstrap servers, topics, health/monitoring settings |
+| `kafka.producer` | `KafkaProducerConfig` | Acks, retries, batch size, timeouts |
+
+> [!NOTE]
+> The `bootstrap_servers` field uses environment variable expansion: `${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}`. This allows the same YAML to work across environments by setting the env var in Docker/production.
+
+> [!IMPORTANT]
+> At runtime, the `kafka` section from this YAML file is loaded into `AppConfig.transport.kafka` (via `TransportConfig`). Kafka enablement is controlled by `TransportConfig.enabled` (a list, default: `["kafka"]`), **not** by a field in the YAML.
+
+---
+
+### `domains.yaml` — Domain Configuration
+
+Defines which domains are available for archiving in the web interface form.
+
+```yaml
+domains:
+  - name: arachne.dainst.org
+    enabled: true
+    description: "iDAI.objects/Arachne - Archaeological object database"
+
+  - name: arachne.test.dainst.org
+    enabled: true
+    description: "Arachne test environment"
+
+  - name: field.dainst.org
+    enabled: true
+    description: "iDAI.field - Field documentation"
+
+  - name: publications.dainst.org
+    enabled: true
+    description: "DAINST Publications"
+
+  - name: "*.dainst.org"
+    enabled: true
+    description: "Default pattern for DAI domains"
+
+  - name: default
+    enabled: true
+    description: "Default fallback for unknown domains"
+
+  - name: httpbin.org
+    enabled: true
+    description: "HTTP testing service for integration tests"
+```
+
+| Section | Model | Description |
+|---------|-------|-------------|
+| `domains` | `List[DomainConfig]` | Domain names/patterns with enabled flag and description |
+
+---
+
+## 🌍 Environment Overrides
+
+### Available Environments
+
+| Environment | Source | Detection |
+|-------------|--------|-----------|
+| `development` | `development.yaml` | Default fallback |
+| `testing` | — | Auto-detected via `PYTEST_CURRENT_TEST` env var |
+| `docker` | — | Auto-detected via `/.dockerenv` file |
+
+#### Environment Detection Priority
+
+1. `CONFIG_ENVIRONMENT` environment variable (explicit)
+2. `/.dockerenv` file exists → `docker`
+3. `PYTEST_CURRENT_TEST` env var set → `testing`
+4. Default → `development`
+
+### `development.yaml`
+
+```yaml
+domains:
+  - name: localhost:8080
+    enabled: true
+    description: "local Arachne instance"
+app:
+  logging:
+    level: INFO
+    access_log_level: INFO
+```
+
+Environment files can override **any** section from the defaults. Values are deep-merged, so only the specific fields that need to change must be specified.
+
+## 📋 Configuration Data Models
+
+All configuration is validated at startup using Pydantic models defined in `configs/models.py`.
+
+### `AppConfig` — Root Model
+
+The top-level model that receives the merged YAML dictionary:
+
+```python
+class AppConfig(BaseModel):
+    app: AppInfoConfig           # From app.yaml → app:
+    api: ApiConfig               # From app.yaml → api:
+    database: DatabaseConfig     # From app.yaml → database:
+    directories: DirectoriesConfig # From app.yaml → directories:
+    server: ServerConfig         # From server.yaml → server:
+    storage: StorageConfig       # From storage.yaml → storage:
+    validation: ValidationConfig # From validation.yaml → validation:
+    transport: TransportConfig   # From kafka.yaml → kafka: (wrapped)
+    domains: List[DomainConfig]  # From domains.yaml → domains:
+```
+
+> [!NOTE]
+> `AppConfig` provides a `config.kafka` property shortcut that returns `config.transport.kafka`, so you can access Kafka settings either way.
+
+### Key Model Details
+
+#### `LoggingConfig` (nested under `app.logging`)
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `level` | `str` | `"INFO"` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`) |
+| `correlation_id_log_level` | `str` | `"INFO"` | Log level for correlation ID middleware |
+| `file` | `str?` | `null` | Path to log file |
+| `json_enabled` | `bool` | `true` | Enable JSON logging format |
+| `kafka_log_level` | `str` | `"WARNING"` | Log level for Kafka library |
+| `access_log_level` | `str` | `"INFO"` | Log level for uvicorn.access |
+
+#### `ApiConfig`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `pagination.default_page_size` | `int` | `50` | Default page size (1–1000) |
+| `pagination.max_page_size` | `int` | `100` | Maximum page size (1–1000) |
+| `callback_base_url` | `str?` | `"http://localhost:8000"` | Base URL for orchestrator callbacks |
+| `trusted_proxy_hosts` | `List[str]` | `["127.0.0.1"]` | Trusted proxy hosts |
+| `max_upload_size_mb` | `int` | `100` | Maximum file upload size in MB |
+
+#### `ServerConfig`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `host` | `str` | `"0.0.0.0"` | Server bind host |
+| `port` | `int` | `8000` | Server port |
+| `debug` | `bool` | `false` | Enable debug mode (auto-reload templates) |
+| `cors_origins` | `List[str]` | `["http://localhost:8000", "http://localhost:8080"]` | Allowed CORS origins |
+
+#### `StorageConfig`
+
+> [!NOTE]
+> The "Default" column shows the **effective runtime default** from the YAML files, not the Pydantic model fallback.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `type` | `Literal` | `"sqlite"` | Provider type: `"filesystem"` or `"sqlite"` |
+| `filesystem.path` | `str` | `"archives"` | Path to archives directory |
+| `filesystem.timeout_seconds` | `int` | `0` | Filesystem operation timeout |
+| `sqlite.db_path` | `str` | `"data/archives.db"` | Path to SQLite database file |
+| `sqlite.auto_rebuild` | `bool` | `true` | Auto-rebuild index if DB empty |
+| `sqlite.connection_timeout` | `int` | `10` | Connection timeout in seconds |
+| `cache.ttl_seconds` | `int` | `10000000` | Cache TTL in seconds (`-1` for no expiry) |
+| `cache.max_entries` | `int` | `1000` | Maximum cache entries |
+
+#### `ValidationConfig`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `snapshot_id_pattern` | `str` | `'^req_...'` | Regex for snapshot ID validation |
+| `snapshot_id_max_length` | `int` | `100` | Max snapshot ID length |
+| `snapshot_directory_prefix` | `str` | `"req_"` | Prefix for snapshot directories |
+| `timestamp_formats` | `List[str]` | `[...]` | Supported timestamp formats |
+| `filename_max_length` | `int` | `255` | Maximum filename length |
+| `allowed_artifact_types` | `Set[str]` | 8 types | Allowed artifact file types |
+| `content_type_mappings` | `Dict[str,str]` | 8 mappings | MIME type mappings |
+
+#### `TransportConfig`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | `List[str]` | `["kafka"]` | Enabled transport mechanisms |
+| `kafka` | `KafkaConfig` | — | Kafka configuration (see below) |
+
+#### `KafkaConfig` (nested under `transport.kafka`)
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `bootstrap_servers` | `str` | `"localhost:29092"` | Kafka broker connection (supports `${}` expansion) |
+| `topics` | `Dict[str,str]` | 2 topics | Topic name mappings |
+| `producer.*` | `KafkaProducerConfig` | — | Producer acks, retries, timeouts |
+| `health_check_enabled` | `bool` | `true` | Enable Kafka health check |
+| `monitoring_enabled` | `bool` | `true` | Enable monitoring |
+| `connection_retry_attempts` | `int` | `5` | Retry attempts |
+| `connection_retry_delay_ms` | `int` | `2000` | Retry delay in ms |
+
+#### `DomainConfig`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | `str` | **required** | Domain name or pattern (e.g., `"*.dainst.org"`) |
+| `enabled` | `bool` | `true` | Whether domain is enabled |
+| `description` | `str` | `""` | Human-readable description |
+
+## 🔧 Configuration Loading (`loaders.py`)
+
+### `YamlFileConfigLoader`
+
+The primary configuration loader that manages hierarchical loading and merging.
+
+#### Environment Variable Expansion
+
+YAML values can reference environment variables:
+
+- `${VAR_NAME}`: Simple substitution
+- `${VAR_NAME:-default}`: Substitution with default fallback
+- `"prefix_${VAR}_suffix"`: Partial substitution
+- `"${VAR1}:${VAR2}"`: Multiple variables
+
+#### Usage
+
+```python
+from configs.loaders import YamlFileConfigLoader
+
+loader = YamlFileConfigLoader()
+config = loader.load()
+
+# Access values
+log_level = config.app.logging.level
+storage_type = config.storage.type
+cors_origins = config.server.cors_origins
+kafka_servers = config.transport.kafka.bootstrap_servers
+# or via shortcut property:
+kafka_servers = config.kafka.bootstrap_servers
+```
+
+## 🚀 Extending the Configuration
+
+### Adding a New Environment
+
+1. Create `data/environments/<name>.yaml` with overrides
+2. Set `CONFIG_ENVIRONMENT=<name>` when running
+
+### Adding New Configuration Sections
+
+1. Add Pydantic model in `models.py`
+2. Add new model field to `AppConfig`
+3. Add default values in `data/defaults/`
+4. Add environment overrides as needed
+
+## 🔒 Security Considerations
+
+- Never commit sensitive data to configuration files
+- Use environment variable expansion for secrets: `${SECRET_KEY}`
+- Ensure test environments cannot access production data
+- Use different Kafka clusters/topics per environment
+
+---
+
+**Note**: This configuration system is consistent with the pattern used across all CIVERS components (`civers_orchestrator`, `civers_archive_generator`, `civers_metadata_extractor`).

@@ -1,15 +1,20 @@
 # archive_services/archive_service.py
 import asyncio
+import ipaddress
+import json
 import logging
+import os
 import time
-from typing import Dict, Any, Optional, List
-from urllib.parse import urlparse
+from datetime import datetime
 from pathlib import Path
-from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
+
+import aiofiles
 
 from configs.models import ConfigDataModel, DomainConfig
 from .archive_service_interface import ArchiveServiceInterface
-from archive_generators import ArchiveGeneratorFactory
+from archive_generators import ArchiveGeneratorFactory, ArchiveResult, ArtifactResult, ArtifactStatus
 from storage_layer import StorageManager
 
 logger = logging.getLogger(__name__)
@@ -33,27 +38,19 @@ class ArchiveService(ArchiveServiceInterface):
         
     async def create_archive(self, url: str, request_id: str, priority: int = 1) -> Dict[str, Any]:
         """
-        Create an archive for the given URL.
-        
-        Args:
-            url: The URL to archive
-            request_id: Unique identifier for this request
-            priority: Priority level (1-10, where 1 is highest)
-            
-        Returns:
-            Dict containing success status, archive details, or error information
+        Create an archive for the given URL by orchestrating multiple generators.
         """
-        start_time = time.time()
+        start_time = datetime.now()
+        start_time_ts = time.time()
         
         logger.info(f"🚀 Starting archive creation for request: {request_id}")
         logger.info(f"   URL: {url}")
-        logger.info(f"   Priority: {priority}")
         
         try:
             # Step 1: Find domain configuration
             domain_config = self._find_domain_config(url)
             if not domain_config:
-                processing_time = time.time() - start_time
+                processing_time = time.time() - start_time_ts
                 error_msg = f"No domain configuration found for URL: {url}"
                 logger.warning(f"⚠️ {error_msg}")
                 return {
@@ -68,71 +65,94 @@ class ArchiveService(ArchiveServiceInterface):
             
             logger.info(f"✅ Found domain config: {domain_config.name}")
             
-            # Step 2: Create appropriate archive generator
-            generator = self._create_archive_generator(domain_config)
-            logger.info(f"🔧 Initialized {domain_config.webpage_types} archive generator")
-            
-            # Step 3: Generate archive - now returns ArchiveResult
-            logger.info(f"📦 Generating archive for {url}")
-            archive_result = await generator.generate_archive(url, request_id)
-            
-            # Check if archive generation succeeded
-            if not archive_result.success:
-                processing_time = time.time() - start_time
-                logger.warning(f"⚠️ Archive generation failed: {archive_result.error_message}")
+            # Step 2: SSRF Protection
+            try:
+                await self._validate_url_for_ssrf(url)
+            except ValueError as e:
+                processing_time = time.time() - start_time_ts
+                logger.error(f"🚨 SSRF Protection: {e}")
                 return {
                     'success': False,
                     'request_id': request_id,
                     'url': url,
-                    'archive_path': archive_result.archive_path,
-                    'error': archive_result.error_message,
-                    'error_type': archive_result.error_type or 'archive_generation_failed',
-                    'artifacts_created': archive_result.artifacts_created,
-                    'failed_artifacts': [a.name for a in archive_result.failed_artifacts],
+                    'error': str(e),
+                    'error_type': 'ssrf_blocked',
                     'processing_time_seconds': processing_time,
-                    'scoop_exit_code': archive_result.scoop_exit_code,
                     'priority': priority
                 }
+
+            # Step 3: Create output folder
+            output_folder = self._create_output_folder(url, request_id)
+            logger.info(f"📂 Archive directory: {output_folder}")
+
+            # Step 4: Create generators
+            generators = self.generator_factory.create_generators(domain_config)
+            logger.info(f"🔧 Initialized {len(generators)} archive generators")
             
-            logger.info(f"✅ Archive generated: {archive_result.archive_path}")
-            logger.debug(f"   Artifacts: {archive_result.artifacts_created}")
+            # Step 5: Run each generator
+            all_artifacts = []
+            overall_success = True
+            error_messages = []
             
-            # Step 4: Validate required artifacts from domain config
-            required_artifacts = domain_config.artifacts or []
-            is_valid, missing_artifacts = archive_result.validate_required_artifacts(required_artifacts)
+            for gen_config in domain_config.generators:
+                generator = next((g for g in generators if g.__class__.__name__.lower().startswith(gen_config.name)), None)
+                if not generator:
+                    continue
+                
+                logger.info(f"📦 Running {gen_config.name} generator for {url}")
+                try:
+                    artifact_results = await generator.generate_archive(url, output_folder, gen_config.artifacts)
+                    all_artifacts.extend(artifact_results)
+                    
+                    # Check for failures in requested artifacts
+                    failed = [a for a in artifact_results if a.status == ArtifactStatus.FAILED]
+                    if failed:
+                        overall_success = False
+                        for a in failed:
+                            error_messages.append(f"{gen_config.name}: {a.name} failed - {a.error}")
+                except Exception as e:
+                    logger.error(f"❌ {gen_config.name} generator failed: {e}")
+                    overall_success = False
+                    error_messages.append(f"{gen_config.name} catastrophic failure: {e}")
             
-            if not is_valid:
-                processing_time = time.time() - start_time
-                error_msg = f"Missing required artifacts: {', '.join(missing_artifacts)}"
-                logger.warning(f"⚠️ Artifact validation failed: {error_msg}")
-                return {
-                    'success': False,
-                    'request_id': request_id,
-                    'url': url,
-                    'archive_path': archive_result.archive_path,
-                    'error': error_msg,
-                    'error_type': 'missing_required_artifacts',
-                    'artifacts_created': archive_result.artifacts_created,
-                    'missing_artifacts': missing_artifacts,
-                    'failed_artifacts': [a.name for a in archive_result.failed_artifacts],
-                    'processing_time_seconds': processing_time,
-                    'scoop_exit_code': archive_result.scoop_exit_code,
-                    'priority': priority
-                }
+            # Step 6: Create ArchiveResult
+            processing_time = (datetime.now() - start_time).total_seconds()
+            snapshot_id = os.path.basename(output_folder)
             
-            logger.info(f"✅ Artifact validation passed")
+            if overall_success:
+                archive_result = ArchiveResult.create_success(
+                    archive_path=output_folder,
+                    request_id=request_id,
+                    url=url,
+                    artifacts=all_artifacts,
+                    processing_time_seconds=processing_time,
+                    snapshot_id=snapshot_id
+                )
+            else:
+                combined_error = "; ".join(error_messages)
+                archive_result = ArchiveResult.create_failure(
+                    archive_path=output_folder,
+                    request_id=request_id,
+                    url=url,
+                    error_message=combined_error,
+                    error_type="archive_generation_failed",
+                    artifacts=all_artifacts,
+                    processing_time_seconds=processing_time,
+                    snapshot_id=snapshot_id
+                )
+
+            # Step 8: Final metadata generation
+            metadata = self._generate_metadata(url, output_folder, start_time, all_artifacts, request_id)
+            await self._save_metadata(metadata, output_folder)
             
-            # Step 5: Store archive
+            # Step 9: Store archive
             storage_result = await self._store_archive(
                 archive_result.archive_path, url, domain_config, request_id
             )
-            logger.info(f"💾 Archive stored successfully")
-            
-            # Step 5: Calculate processing time and return success
-            processing_time = time.time() - start_time
+            logger.info("💾 Archive stored successfully")
             
             result = {
-                'success': True,
+                'success': archive_result.success,
                 'request_id': request_id,
                 'url': url,
                 'archive_path': archive_result.archive_path,
@@ -142,22 +162,22 @@ class ArchiveService(ArchiveServiceInterface):
                 'domain_config': {
                     'name': domain_config.name,
                     'webpage_types': domain_config.webpage_types,
-                    'artifacts': domain_config.artifacts
+                    'generators': [g.model_dump() for g in domain_config.generators]
                 },
                 'processing_time_seconds': processing_time,
-                'scoop_exit_code': archive_result.scoop_exit_code,
                 'priority': priority
             }
+            if not archive_result.success:
+                result['error'] = archive_result.error_message
+                result['error_type'] = archive_result.error_type
             
             logger.info(f"🎉 Archive creation completed for request {request_id} in {processing_time:.2f}s")
             return result
             
         except Exception as e:
-            processing_time = time.time() - start_time
+            processing_time = time.time() - start_time_ts
             error_msg = str(e)
-            
-            logger.error(f"❌ Archive creation failed for request {request_id}: {error_msg}", exc_info=True)
-            
+            logger.error(f"❌ Archive creation failed: {error_msg}", exc_info=True)
             return {
                 'success': False,
                 'request_id': request_id,
@@ -196,6 +216,7 @@ class ArchiveService(ArchiveServiceInterface):
                 config_name = domain_config.name.lower()
                 # Check if domain config name matches
                 if (config_name == domain.lower() or 
+                    domain.lower().endswith("." + config_name) or
                     (domain_config.is_wildcard and domain.lower().endswith(config_name.replace("*", "")))):
                     
                     logger.debug(f"✅ Found matching domain config: {domain_config.name}")
@@ -208,26 +229,85 @@ class ArchiveService(ArchiveServiceInterface):
             logger.error(f"❌ Error parsing URL {url}: {e}")
             return None
     
-    def _create_archive_generator(self, domain_config: DomainConfig):
-        """
-        Create appropriate archive generator based on domain configuration.
-        
-        Uses the ArchiveGeneratorFactory to create the appropriate generator instance.
-        
-        Args:
-            domain_config: The domain configuration
-            
-        Returns:
-            Archive generator instance
-            
-        Raises:
-            ValueError: If no suitable generator can be created
-        """
+    async def _validate_url_for_ssrf(self, url: str) -> None:
+        """Check if URL points to a prohibited IP address or range (SSRF protection)."""
         try:
-            return self.generator_factory.create_generator(domain_config)
-        except Exception as e:
-            logger.error(f"❌ Failed to create archive generator: {e}")
+            parsed = urlparse(url)
+            hostname = parsed.hostname
+            if not hostname:
+                return
+
+            # Resolve hostname via the event loop — non-blocking unlike socket.gethostbyname
+            results = await asyncio.get_running_loop().getaddrinfo(hostname, None)
+            ip_address = results[0][4][0]
+            ip = ipaddress.ip_address(ip_address)
+
+            # Block private/local IP ranges
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_unspecified:
+                raise ValueError(f"URL resolves to a prohibited private/local IP address: {ip_address}")
+
+        except OSError:
+            logger.warning(f"Could not resolve hostname: {urlparse(url).hostname}")
+        except ValueError:
             raise
+        except Exception as e:
+            logger.error(f"Error during SSRF validation: {e}")
+
+    def _create_output_folder(self, url: str, request_id: str) -> str:
+        """Create a structured archive output directory."""
+        parsed = urlparse(url)
+        domain = (parsed.hostname or parsed.netloc.split(':')[0]).replace(".", "_").replace("-", "_")
+        path_part = parsed.path.strip("/").replace("/", "_").replace("-", "_")
+        if not path_part:
+            path_part = "home_page"
+        
+        safe_request_id = "".join(c for c in request_id if c.isalnum() or c in "-_")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        output_folder = os.path.join(
+            self.config.app.archive_directory,
+            domain,
+            path_part,
+            f"req_{safe_request_id}_{timestamp}"
+        )
+        os.makedirs(output_folder, exist_ok=True)
+        return output_folder
+
+    def _generate_metadata(self, url: str, output_folder: str, start_time: datetime, artifacts: List[ArtifactResult], request_id: Optional[str] = None) -> Dict[str, Any]:
+        """Generate metadata.json for the archive."""
+        end_time = datetime.now()
+        files = []
+        for file_path in Path(output_folder).iterdir():
+            if file_path.is_file():
+                stat = file_path.stat()
+                files.append({
+                    'name': file_path.name,
+                    'size': stat.st_size,
+                    'created': datetime.fromtimestamp(stat.st_ctime).isoformat()
+                })
+
+        metadata = {
+            'archive_info': {
+                'url': url,
+                'request_id': request_id,
+                'created_at': start_time.isoformat(),
+                'completed_at': end_time.isoformat(),
+                'processing_time_seconds': (end_time - start_time).total_seconds(),
+                'generator': 'ArchiveService_v2',
+                'version': '2.0.0'
+            },
+            'artifacts_created': [a.name for a in artifacts if a.status == ArtifactStatus.SUCCESS],
+            'failed_artifacts': [a.name for a in artifacts if a.status == ArtifactStatus.FAILED],
+            'files': files
+        }
+        return metadata
+
+    async def _save_metadata(self, metadata: Dict[str, Any], output_folder: str) -> None:
+        """Save metadata to metadata.json."""
+        meta_path = os.path.join(output_folder, "metadata.json")
+        content = json.dumps(metadata, indent=2, ensure_ascii=False)
+        async with aiofiles.open(meta_path, "w", encoding="utf-8") as f:
+            await f.write(content)
     
     async def _store_archive(self, archive_path: str, _url: str, domain_config: DomainConfig, request_id: str = None) -> Dict[str, Any]:
         """
@@ -295,19 +375,6 @@ class ArchiveService(ArchiveServiceInterface):
             # Generate storage ID
             storage_id = f"archive_{request_id or int(time.time() * 1000)}"
             
-            # Create archive metadata for storage
-            archive_metadata = {
-                'storage_id': storage_id,
-                'archive_path': str(archive_path),
-                'source_url': _url,
-                'domain': domain_config.name,
-                'artifacts': domain_config.artifacts,
-                'files': created_files,
-                'total_size': total_size,
-                'file_count': len(created_files),
-                'created_at': datetime.now(timezone.utc).isoformat(),
-                'request_id': request_id
-            }
             
             # Upload all archive artifacts to enabled backends (wacz, html, png, etc.)
             artifacts_storage_result = None
@@ -332,7 +399,7 @@ class ArchiveService(ArchiveServiceInterface):
             storage_result = {
                 'storage_id': storage_id,
                 'archive_path': archive_path,
-                'artifacts': domain_config.artifacts,
+                'artifacts': [a for g in domain_config.generators for a in g.artifacts],
                 'storage_strategy': primary_backend,
                 'stored_at': time.time(),
                 'files': created_files,

@@ -41,6 +41,13 @@ class LocalFileStorageStrategy(StorageStrategy):
         'output/metadata/metadata_test_req_123.json'
     """
     
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> "LocalFileStorageStrategy":
+        return cls(
+            base_path=config.get("base_path", "output/metadata"),
+            create_subdirectories=config.get("create_subdirectories", True),
+        )
+
     def __init__(self, base_path: str = "output/metadata", create_subdirectories: bool = True):
         """
         Initialize local file storage strategy.

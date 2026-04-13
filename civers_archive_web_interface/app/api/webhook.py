@@ -19,14 +19,15 @@ router = APIRouter(
     tags=["Webhook"]
 )
 
+
 class WebhookPayload(BaseModel):
     """
-    Flexible payload for status updates from the orchestrator.
+    Typed payload for status updates from the orchestrator.
     Can represent status change, completion, or failure.
     """
     request_id: str
     url: str
-    workflow_name: str
+    workflow_name: Optional[str] = None
     status: str
     current_step: Optional[str] = None
     completed_steps: Optional[List[str]] = None
@@ -35,11 +36,13 @@ class WebhookPayload(BaseModel):
     message: Optional[str] = None
     processing_time_seconds: Optional[float] = None
     results: Optional[Dict[str, Any]] = None
+    step_results: Optional[Dict[str, Any]] = None
+
 
 @router.post("/status", status_code=status.HTTP_200_OK)
 async def status_webhook(
     request: Request,
-    payload: Dict[str, Any] = Body(...)
+    payload: WebhookPayload = Body(...)
 ):
     """
     Receive status update from orchestrator.
@@ -48,7 +51,7 @@ async def status_webhook(
     completes, or fails.
     """
     status_service = request.app.state.request_status_service
-    request_id = payload.get("request_id")
+    request_id = payload.request_id
     
     if not request_id:
         raise HTTPException(
@@ -56,19 +59,20 @@ async def status_webhook(
             detail="Missing request_id in payload"
         )
         
-    logger.info(f"Received status webhook for request {request_id}: {payload.get('status')}")
+    logger.info(f"Received status webhook for request {request_id}: {payload.status}")
     
     # Map payload to database update arguments
-    request_status = payload.get("status")
-    current_step = payload.get("current_step")
-    completed_steps = payload.get("completed_steps")
-    error_message = payload.get("error_message") or payload.get("message")
+    request_status = payload.status
+    workflow_name = payload.workflow_name
+    current_step = payload.current_step
+    completed_steps = payload.completed_steps
+    error_message = payload.error_message or payload.message
 
     # Infer status if missing (e.g., from OrchestratorCompletedEvent or OrchestratorFailedEvent)
     if not request_status:
-        if "results" in payload or "step_results" in payload:
+        if payload.results or payload.step_results:
             request_status = RequestStatus.COMPLETED
-        elif "failed_step" in payload or "error_message" in payload:
+        elif payload.failed_step or payload.error_message:
             request_status = RequestStatus.FAILED
         elif current_step:
             request_status = RequestStatus.IN_PROGRESS
@@ -77,10 +81,9 @@ async def status_webhook(
     
     # Handle completion results (e.g., extracting snapshot_id)
     snapshot_id = None
-    results = payload.get("results") or payload.get("step_results")
+    results = payload.results or payload.step_results
     if results and isinstance(results, dict):
         # The orchestrator completed event often has results under 'archive_generation' or 'metadata_extraction'
-        # Let's try to find snapshot_id in known places
         archive_results = results.get("archive_generation")
         if archive_results and isinstance(archive_results, dict):
             snapshot_id = archive_results.get("snapshot_id")
@@ -93,6 +96,7 @@ async def status_webhook(
     success = status_service.update_status(
         request_id=request_id,
         status=request_status,
+        workflow_name=workflow_name,
         current_step=current_step,
         completed_steps=completed_steps,
         error_message=error_message,
@@ -101,7 +105,7 @@ async def status_webhook(
     
     if not success:
         logger.error(f"Failed to update status in DB for request {request_id}")
-        # We still return 200 to acknowledge receipt of webhook, 
+        # We still return 200 to acknowledge receipt of webhook,
         # but log the internal failure.
     
     return {"status": "accepted"}

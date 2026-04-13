@@ -8,18 +8,10 @@ app:
   # Scoop settings for web archiving
   scoop_cli_command: "node lib/scoop/bin/cli.js"
   scoop_timeout_sec: 300
-  scoop_extra_args: 
-    - "--screenshot"
-    - "true"
-    - "--dom-snapshot" 
-    - "true"
-    - "--log-level"
-    - "info"
-    - "--proxy-port"
-    - "0"
+  scoop_extra_args: []
 
   # SingleFile integration settings
-  singlefile_binary_path: "archive_generators/single-file-x86_64-linux"
+  singlefile_binary_path: "archive_generators/singlefile/single-file-x86_64-linux"
   singlefile_timeout_sec: 60
 
   # Storage configuration defaults

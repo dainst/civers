@@ -77,7 +77,9 @@ class StorageProviderInterface(ABC):
             artifact_type: Type of artifact (e.g., 'archive.wacz', 'screenshot.png')
             
         Returns:
-            File-like object stream if found, None otherwise
+            File-like object stream if found, None otherwise.
+            The caller is responsible for closing the returned stream,
+            e.g. by using it as a context manager or in a finally block.
             
         Raises:
             StorageError: If storage operation fails

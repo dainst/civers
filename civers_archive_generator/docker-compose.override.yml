@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
     environment:
       # Application configuration for Docker
-      ARCHIVE_ENV: docker
+      CONFIG_ENVIRONMENT: docker
       APP_NAME: archive_generator
       APP_VERSION: 1.0.0
 

@@ -1,0 +1,11 @@
+domains:
+  - name: localhost:8080
+    enabled: true
+    description: "local Arachne instance"
+app:
+  logging:
+    level: INFO
+    access_log_level: INFO
+transport:
+  kafka:
+    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-broker:29092}"

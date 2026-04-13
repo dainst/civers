@@ -137,14 +137,14 @@ def test_deep_merge_domains_override():
     
     dict1 = {
         "domains": [
-            {"name": "example.com", "artifacts": ["warc"]},
-            {"name": "test.com", "artifacts": ["html"]}
+            {"name": "example.com", "generators": [{"name": "scoop", "artifacts": ["warc"]}]},
+            {"name": "test.com", "generators": [{"name": "scoop", "artifacts": ["html"]}]}
         ]
     }
     dict2 = {
         "domains": [
-            {"name": "example.com", "artifacts": ["warc", "html"]},
-            {"name": "new.com", "artifacts": ["screenshots"]}
+            {"name": "example.com", "generators": [{"name": "scoop", "artifacts": ["warc", "html"]}]},
+            {"name": "new.com", "generators": [{"name": "scoop", "artifacts": ["screenshots"]}]}
         ]
     }
     

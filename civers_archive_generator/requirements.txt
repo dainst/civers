@@ -17,8 +17,8 @@ httpx==0.28.1
 idna==3.10
 iniconfig==2.1.0
 isodate==0.7.2
+aiokafka==0.12.0
 justext==3.0.2
-kafka-python==2.2.10
 lxml==5.4.0
 lxml-html-clean==0.4.2
 packaging==25.0
@@ -33,8 +33,8 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.1.0
 pytz==2025.2
 pyyaml==6.0.2
-regex==2024.11.6
-requests==2.32.3
+regex>=2025.2.10
+requests>=2.32.4
 six==1.17.0
 soupsieve==2.7
 tld==0.13.1

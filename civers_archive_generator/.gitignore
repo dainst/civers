@@ -179,3 +179,5 @@ tests/archives_artifacts/*
 lib/scoop/node_modules
 .claude
 CLAUDE.md
+test_output/
+test_archives/

@@ -15,15 +15,15 @@ The models act as the contract between the frontend, API layer, and storage syst
 
 ## File Structure and Model Distribution
 
-| File | Lines | Models | Purpose |
-|------|-------|---------|----------|
-| `__init__.py` | 22 | 0 | Module exports and documentation |
-| `url.py` | 157 | 1 | ArchivedUrl model for URL directories |
-| `artifact.py` | 196 | 2 | Artifact and ArtifactType for files |
-| `snapshot.py` | 252 | 1 | Snapshot model for timestamped captures |
-| `snapshot_filters.py` | 236 | 3 | Filtering, sorting, and summary models |
-| `responses.py` | 296 | 7 | API response formatting models |
-| **Total** | **1,159** | **14** | Complete data model layer |
+| File | Models | Purpose |
+|------|---------|----------|
+| `__init__.py` | — | Module exports and documentation |
+| `url.py` | `ArchivedUrl` | URL directory model with snapshot aggregation |
+| `artifact.py` | `Artifact` | Artifact file model with security validation |
+| `snapshot.py` | `Snapshot` | Timestamped capture model with metadata |
+| `snapshot_filters.py` | `SnapshotFilters`, `SnapshotSortOption`, `SnapshotSummary` | Filtering, sorting, and lightweight summary models |
+| `responses.py` | `ErrorDetail`, `ErrorResponse`, `SuccessResponse`, `PaginationMeta`, `PaginatedResponse`, `CitationResponse`, `ArchivedUrlResponse`, `SnapshotResponse`, `ArtifactResponse` | API response formatting models |
+| `archive_request_events.py` | `EventBaseModel`, `OrchestratorRequestEvent`, `ArchiveRequestForm` | Kafka event models for archive request feature |
 
 ## Core Data Models
 
@@ -32,6 +32,7 @@ The models act as the contract between the frontend, API layer, and storage syst
 **Purpose**: Represents a URL directory in the storage structure with all its snapshots.
 
 **Key Fields**:
+
 ```python
 class ArchivedUrl(BaseModel):
     url_id: str = Field(..., min_length=1, max_length=255)
@@ -41,11 +42,13 @@ class ArchivedUrl(BaseModel):
 ```
 
 **Validation Rules**:
+
 - **URL ID Security**: Only alphanumeric characters, underscores, and hyphens allowed
 - **URL Normalization**: Automatically adds `https://` scheme if missing
 - **Snapshot Sorting**: Automatically sorts snapshots by timestamp (newest first)
 
 **Key Validators**:
+
 ```python
 @field_validator('url_id')
 @classmethod
@@ -63,6 +66,7 @@ def validate_original_url(cls, v):
 ```
 
 **Computed Properties**:
+
 - `snapshot_count`: Number of snapshots
 - `first_captured`/`last_captured`: Date range information
 - `date_range`: Human-readable date span
@@ -72,6 +76,7 @@ def validate_original_url(cls, v):
 **Purpose**: Represents a single timestamped capture of a URL.
 
 **Key Fields**:
+
 ```python
 class Snapshot(BaseModel):
     snapshot_id: str = Field(..., min_length=1)
@@ -84,12 +89,16 @@ class Snapshot(BaseModel):
 ```
 
 **Validation Rules**:
+
 - **Snapshot ID Format**: Supports both legacy (`YYYYMMDDTHHMMSSZ`) and new request format (`req_{id}_{timestamp}`)
 - **Timestamp Parsing**: Handles multiple datetime formats (ISO, compact)
-- **Artifact Type Validation**: Only allows predefined artifact types
+- **Artifact Deduplication**: Removes duplicate artifact entries from the list
 - **Metadata Type Coercion**: Converts string status codes and content lengths to integers
 
+> **Note**: Artifact type validation (whitelist of allowed types) happens at the upload/API layer using `config.validation.allowed_artifact_types`. Models just hold data.
+
 **Key Validators**:
+
 ```python
 @field_validator('snapshot_id')
 @classmethod
@@ -108,46 +117,66 @@ def validate_snapshot_id_format(cls, v):
 
 @field_validator('available_artifacts')
 @classmethod
-def validate_artifact_types(cls, v):
-    allowed_types = {
-        'archive.wacz', 'metadata.json', 'screenshot.png',
-        'singlefile.html', 'warc.file', 'document.html'
-    }
-    for artifact in v:
-        if artifact not in allowed_types:
-            raise ValueError(f'Invalid artifact type: {artifact}')
-    return list(set(v))
+def deduplicate_artifacts(cls, v):
+    """Remove duplicate artifacts from the list."""
+    return list(set(v)) if v else []
 ```
 
 **Computed Properties**:
+
 ```python
 @property
 def has_wacz(self) -> bool:
     return 'archive.wacz' in self.available_artifacts
 
 @property
+def has_warc(self) -> bool:
+    return 'warc.file' in self.available_artifacts
+
+@property
+def has_screenshot(self) -> bool:
+    return 'screenshot.png' in self.available_artifacts
+
+@property
+def has_singlefile(self) -> bool:
+    return 'singlefile.html' in self.available_artifacts
+
+@property
+def has_document(self) -> bool:
+    return 'document.html' in self.available_artifacts
+
+@property
 def formatted_timestamp(self) -> str:
     return self.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')
 
 @property
+def date_only(self) -> str:
+    return self.timestamp.strftime('%Y-%m-%d')
+
+@property
 def status_code(self) -> Optional[int]:
     return self.metadata.get('status')
+
+@property
+def content_type(self) -> Optional[str]:
+    return self.metadata.get('content_type')
+
+@property
+def content_length(self) -> Optional[int]:
+    return self.metadata.get('content_length')
 ```
 
 ### 3. Artifact Model (`artifact.py`)
 
 **Purpose**: Represents individual files within snapshots.
 
-**Key Components**:
-```python
-class ArtifactType(str, Enum):
-    WARC = "warc.file"
-    SCREENSHOT = "screenshot.png"
-    SINGLEFILE = "singlefile.html"
-    DOCUMENT = "document.html"
+> **Note**: Artifact type validation is handled at the API/config layer via `config.validation.allowed_artifact_types`, not by an enum. The `artifact_type` field is a plain string.
 
+**Key Fields**:
+
+```python
 class Artifact(BaseModel):
-    artifact_type: ArtifactType = Field(...)
+    artifact_type: str = Field(...)
     filename: str = Field(..., min_length=1, max_length=255)
     file_path: Optional[str] = Field(None, exclude=True)
     size_bytes: Optional[int] = Field(None, ge=0)
@@ -157,6 +186,7 @@ class Artifact(BaseModel):
 ```
 
 **Security validation:**
+
 ```python
 @field_validator('filename')
 def validate_filename(cls, v):
@@ -166,9 +196,10 @@ def validate_filename(cls, v):
 ```
 
 **Factory methods:**
+
 ```python
 @classmethod
-def create_from_file(cls, artifact_type: ArtifactType, file_path: Path) -> 'Artifact':
+def create_from_file(cls, artifact_type: str, file_path: Path) -> 'Artifact':
     exists = file_path.exists()
     size_bytes = file_path.stat().st_size if exists else None
     return cls(
@@ -178,7 +209,17 @@ def create_from_file(cls, artifact_type: ArtifactType, file_path: Path) -> 'Arti
         size_bytes=size_bytes,
         exists=exists
     )
+
+@classmethod
+def create_missing(cls, artifact_type: str) -> 'Artifact':
+    return cls(
+        artifact_type=artifact_type,
+        filename=artifact_type,
+        exists=False
+    )
 ```
+
+**Computed Properties**: `formatted_size`, `is_viewable`, `is_replayable`, `download_filename`, `get_content_type()`
 
 ## Response Models and API Integration
 
@@ -187,6 +228,7 @@ def create_from_file(cls, artifact_type: ArtifactType, file_path: Path) -> 'Arti
 The response models ensure consistent API output formatting:
 
 **1. Error Response with Detailed Validation**:
+
 ```python
 class ErrorDetail(BaseModel):
     field: Optional[str] = Field(None)
@@ -202,6 +244,7 @@ class ErrorResponse(BaseModel):
 ```
 
 **2. Generic Paginated Response**:
+
 ```python
 T = TypeVar('T')
 
@@ -212,6 +255,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
 ```
 
 **3. Pagination Metadata with Smart Calculation**:
+
 ```python
 class PaginationMeta(BaseModel):
     @classmethod
@@ -230,6 +274,7 @@ class PaginationMeta(BaseModel):
 ### SnapshotFilters (`snapshot_filters.py`)
 
 **Advanced Filtering Capabilities**:
+
 ```python
 class SnapshotFilters(BaseModel):
     # Date range filtering
@@ -247,6 +292,7 @@ class SnapshotFilters(BaseModel):
 ```
 
 **Intelligent Date Parsing**:
+
 ```python
 @field_validator('from_date', 'to_date', mode='before')
 @classmethod
@@ -287,6 +333,7 @@ def parse_date(cls, v):
 ### Custom Validators Implemented
 
 1. **Security Validators**:
+
    ```python
    # Path traversal prevention
    @field_validator('filename')
@@ -302,6 +349,7 @@ def parse_date(cls, v):
    ```
 
 2. **Data Normalization Validators**:
+
    ```python
    # URL scheme normalization
    @field_validator('original_url', mode='before')
@@ -321,6 +369,7 @@ def parse_date(cls, v):
 ### Strong Type Annotations
 
 Every model uses comprehensive type hints:
+
 ```python
 from typing import Dict, List, Optional, Any, Generic, TypeVar
 
@@ -336,12 +385,6 @@ artifacts: Optional[List[Artifact]] = Field(None)
 ### Enum-Based Constraints
 
 ```python
-class ArtifactType(str, Enum):
-    WARC = "warc.file"
-    SCREENSHOT = "screenshot.png"
-    SINGLEFILE = "singlefile.html"
-    DOCUMENT = "document.html"
-
 class SnapshotSortOption(str, Enum):
     TIMESTAMP_DESC = "timestamp"
     TIMESTAMP_ASC = "timestamp_asc"
@@ -375,6 +418,7 @@ Response Layer
 ### JSON Schema Generation
 
 Models automatically generate OpenAPI-compatible schemas:
+
 ```python
 # Serialization with exclusions
 json_data = snapshot.model_dump(exclude={'folder_path', 'file_path'})
@@ -421,9 +465,12 @@ url_id: str = Field(
 
 The models are extensively used throughout the API layer:
 
-- **URL Endpoints** (`api/urls.py`): ArchivedUrl, Snapshot, SnapshotFilters, PaginatedResponse
+- **URL Endpoints** (`api/urls.py`): ArchivedUrl, Snapshot, SnapshotFilters, SnapshotSummary, PaginatedResponse
 - **Snapshot Details** (`api/snapshot_detail.py`): Snapshot, ErrorResponse
 - **Artifact Serving** (`api/artifacts.py`): ErrorResponse
+- **File Upload** (`api/upload.py`): ErrorResponse
+- **Archive Requests** (`api/archive_request.py`): ArchiveRequestForm, OrchestratorRequestEvent
+- **Webhook** (`api/webhook.py`): ErrorResponse
 - **Storage Layer** (`storage/`): All models for data conversion
 - **Error Handling**: ErrorResponse and ErrorDetail for validation failures
 
@@ -431,12 +478,11 @@ The models are extensively used throughout the API layer:
 
 The Civers Web Interface data models provide a robust, type-safe foundation with:
 
-- **14 Pydantic models** across 6 files totaling 1,159 lines
 - **Comprehensive validation** including security, format, and business rules
 - **Flexible filtering and sorting** capabilities
-- **Consistent API response formatting**
+- **Consistent API response formatting** with generic paginated responses
 - **Strong type safety** with generic support
-- **Extensive test coverage** with 95+ test cases
+- **Event models** for Kafka-based archive request publishing
 - **Integration patterns** for storage layer conversion
 - **Performance optimization** through lightweight summary models
 

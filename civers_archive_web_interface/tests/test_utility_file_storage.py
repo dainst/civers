@@ -16,7 +16,7 @@ from app.utils.file_storage import (
     cleanup_directory,
     store_snapshot_files
 )
-from app.config.models import ValidationConfig
+from configs.models import ValidationConfig
 from app.custom_exceptions.exceptions.api_exceptions import ValidationError
 from app.storage.providers.storage_provider_interface import StorageError
 

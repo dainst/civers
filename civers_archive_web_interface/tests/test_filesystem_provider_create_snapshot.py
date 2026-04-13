@@ -12,7 +12,7 @@ from pathlib import Path
 from datetime import datetime
 
 from app.storage.providers.filesystem import FilesystemStorageProvider
-from app.config.models import ValidationConfig
+from configs.models import ValidationConfig
 from app.custom_exceptions.exceptions.api_exceptions import ValidationError
 from app.storage.providers.storage_provider_interface import StorageError
 
@@ -272,9 +272,9 @@ class TestErrorHandling:
 class TestCacheInvalidation:
     """Tests for cache invalidation after snapshot creation."""
 
-    def test_cache_invalidated_after_create(self, filesystem_provider, temp_storage_path):
-        """Test that cache is invalidated after creating snapshot."""
-        # Populate cache by getting all URLs
+    def test_new_snapshot_visible_after_create(self, filesystem_provider, temp_storage_path):
+        """Test that newly created snapshot is visible in subsequent reads."""
+        # Get initial state
         initial_urls = filesystem_provider.get_all_urls()
         initial_count = len(initial_urls)
 
@@ -286,8 +286,9 @@ class TestCacheInvalidation:
             files=files
         )
 
-        # Cache should be invalidated (set to None)
-        assert filesystem_provider._cached_results is None
+        # Fresh read should include the new snapshot
+        updated_urls = filesystem_provider.get_all_urls()
+        assert len(updated_urls) == initial_count + 1
 
 
 class TestMetadataParsing:

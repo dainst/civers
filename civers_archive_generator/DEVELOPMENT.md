@@ -17,27 +17,22 @@ uv run python main.py
 ### Testing Workflow
 
 ```bash
-# Quick unit tests (no Docker needed)
-uv run pytest -k "not (kafka or integration or e2e)" -v
+# Run all unit tests with verbose output
+uv run pytest tests/unit/ -v
 
-# Fast integration tests (~15 seconds)  
-python3 -m pytest tests/integration/test_fast.py --run-integration -v
+# Run tests with coverage reporting
+uv run pytest --cov=.
 
-# Full integration tests (~60 seconds)
-SKIP_BUILD=true python3 -m pytest tests/integration/ --run-integration -v
-
-# All tests
-uv run pytest -v
+# Run a specific unit test file
+uv run pytest tests/unit/configs/test_storage_config.py -v
 ```
 
-### Using the Test Runner
+
+### Test Runner Shortcuts
 
 ```bash
-# Use the convenient test runner script
-./run_tests.sh unit          # Unit tests only
-./run_tests.sh integration   # Integration tests
-./run_tests.sh all          # Everything
-./run_tests.sh coverage     # With coverage report
+# Run tests and open HTML coverage report
+uv run pytest --cov=. --cov-report=html
 ```
 
 ## Development Commands
@@ -47,14 +42,14 @@ uv run pytest -v
 ```bash
 # Check current configuration
 uv run python -c "
-from config.loaders import YamlFileConfigLoader
+from configs.loaders import YamlFileConfigLoader
 config = YamlFileConfigLoader().load()
 print(f'Environment: {config.app.name}')
 print(f'Domains: {[d.name for d in config.domains]}')
 "
 
 # Test configuration loading
-uv run python -c "from config.loaders import ConfigLoaderFactory; print('Config loads:', ConfigLoaderFactory.create().load().app.name)"
+uv run python -c "from configs.loaders import YamlFileConfigLoader; print('Config loads:', YamlFileConfigLoader().load().app.name)"
 ```
 
 ### Kafka Management
@@ -64,16 +59,16 @@ uv run python -c "from config.loaders import ConfigLoaderFactory; print('Config 
 open http://localhost:8089
 
 # Send test messages with default URLs
-uv run python send_test_requests.py
+uv run python scripts/send_test_requests.py
 
 # Archive specific URLs
-uv run python send_test_requests.py https://example.com https://httpbin.org/get
+uv run python scripts/send_test_requests.py https://example.com https://httpbin.org/get
 
 # Use testing environment
-uv run python send_test_requests.py --environment=testing https://example.com
+uv run python scripts/send_test_requests.py --environment=testing https://example.com
 
 # Enable debug logging
-uv run python send_test_requests.py --verbose https://example.com
+uv run python scripts/send_test_requests.py --verbose https://example.com
 
 # Monitor Kafka logs
 docker compose logs broker -f
@@ -93,7 +88,7 @@ docker compose up -d broker
 uv run python -c "
 import asyncio
 from archive_services import ArchiveService
-from config.loaders import YamlFileConfigLoader
+from configs.loaders import YamlFileConfigLoader
 
 async def test_url():
     config = YamlFileConfigLoader().load()
@@ -107,15 +102,18 @@ result = asyncio.run(test_url())
 
 # Check archive output
 ls -la archives/*/
+
+> [!NOTE]
+> Testing the CIVERS REST API backend via `demo_storage.py` requires a running CIVERS API instance (typically on port 8000).
 ```
 
 ## Code Structure
 
 ### Component Overview
 
-```
+```text
 ├── main.py                 # Application entry point
-├── config/                     # Configuration management
+├── configs/                    # Configuration management
 │   ├── models.py              # Pydantic models
 │   ├── loaders.py             # Environment-based config loading
 │   └── data/                  # YAML configuration files
@@ -125,7 +123,7 @@ ls -la archives/*/
 ├── archive_generators/         # Strategy pattern for archiving
 │   ├── scoop_archive_generator_strategy.py  # Scoop integration
 │   └── archive_generator_factory.py         # Factory pattern
-├── storage/                    # Storage abstraction
+├── storage_layer/              # Storage abstraction
 └── tests/                     # Comprehensive test suite
 ```
 
@@ -160,21 +158,21 @@ domains:
 ### Development
 
 ```bash
-export ARCHIVE_ENV=development  # Use development config
-export UV_LOG_LEVEL=debug      # Verbose logging
+export CONFIG_ENVIRONMENT=development  # Use development config
+export UV_LOG_LEVEL=debug              # Verbose logging
 ```
 
 ### Testing  
 
 ```bash
-export ARCHIVE_ENV=testing     # Use testing config
-export SKIP_BUILD=true         # Skip Docker builds in tests
+export CONFIG_ENVIRONMENT=testing     # Use testing config
+export SKIP_BUILD=true                # Skip Docker builds in tests
 ```
 
 ### Docker
 
 ```bash
-export ARCHIVE_ENV=docker      # Use Docker config
+export CONFIG_ENVIRONMENT=docker      # Use Docker config
 export KAFKA_BOOTSTRAP_SERVERS=broker:9092
 ```
 
@@ -186,7 +184,7 @@ export KAFKA_BOOTSTRAP_SERVERS=broker:9092
 # Check component health
 uv run python -c "
 from archive_services import ArchiveService
-from config.loaders import YamlFileConfigLoader
+from configs.loaders import YamlFileConfigLoader
 service = ArchiveService(YamlFileConfigLoader().load())
 health = service.health_check()
 print('Health:', health['healthy'])
@@ -196,7 +194,7 @@ print('Details:', health['details'])
 # Test Scoop dependencies
 uv run python -c "
 from archive_generators.scoop_archive_generator_strategy import ScoopArchiveGeneratorStrategy
-from config.loaders import YamlFileConfigLoader
+from configs.loaders import YamlFileConfigLoader
 try:
     strategy = ScoopArchiveGeneratorStrategy(YamlFileConfigLoader().load())
     print('✅ Scoop dependencies OK')
@@ -217,40 +215,8 @@ tail -f archive_generator.log
 # Individual archive logs (after creating archives)
 ls archives/*/scoop_*.log
 ```
-
-## Performance Tips
-
-- Use `test_kafka_only` fixture for fast integration tests
-- Set `SKIP_BUILD=true` to avoid Docker rebuilds
-- Use reusable Docker containers during development
-- Run unit tests first, then integration tests
-
-## VS Code Integration
-
-If you're using VS Code, run the setup script:
-
-```bash
-./setup_vscode_testing.sh
-```
-
-This gives you:
-
-- Test Explorer integration
-- Pre-configured debug tasks  
-- Quick testing commands in Command Palette
-- Docker service management
-
-## Contribution Guidelines
-
-1. Run tests before committing: `./run_tests.sh all`
-2. Follow existing code patterns and naming conventions
-3. Add tests for new functionality
-4. Update documentation for new features
-5. Use descriptive commit messages
-
 ## Getting Help
 
-- Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues
 - Look at existing tests for usage examples  
 - Check logs in `archive_generator.log`
 - Use Docker logs: `docker compose logs`

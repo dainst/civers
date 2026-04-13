@@ -88,23 +88,28 @@ class MultiStorageResult:
 class StorageStrategy(ABC):
     """
     Abstract base class for storage strategy implementations.
-    
+
     All storage backends must implement this interface to be compatible
     with the StorageManager. The Strategy pattern allows swapping storage
     implementations without changing the service layer.
-    
+
     Example:
         class MyCustomStrategy(StorageStrategy):
             async def store_metadata(self, data, request_id, url, filename):
                 # Implementation
                 return StorageResult(...)
-            
+
             def get_storage_type(self):
                 return "my_custom_backend"
-            
+
             async def is_available(self):
                 return True
     """
+
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> "StorageStrategy":
+        """Instantiate this strategy from a backend config dict."""
+        return cls(**config)
     
     @abstractmethod
     async def store_metadata(

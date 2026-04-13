@@ -100,36 +100,51 @@ class DomainService:
         # Parse URL to extract domain
         try:
             parsed = urlparse(url)
-            domain = parsed.netloc.lower()
+            domain_with_port = parsed.netloc.lower()
             
-            # Remove port if present
-            if ":" in domain:
-                domain = domain.split(":")[0]
+            # Clean domain without port for fallback matching
+            domain_without_port = domain_with_port.split(":")[0] if ":" in domain_with_port else domain_with_port
             
-            if not domain:
+            if not domain_without_port:
                 return None
                 
         except Exception:
             return None
         
-        # Strategy 1: Exact match
+        # Helper to check if a candidate domain matches a configured domain
+        def check_match(candidate: str, config: DomainConfig) -> bool:
+            # Exact match
+            if config.name.lower() == candidate:
+                return True
+            # Wildcard match
+            if config.is_wildcard:
+                pattern = config.name.lower().replace("*", "")
+                if pattern and candidate.endswith(pattern):
+                    return True
+            return False
+
+        # Strategy: Try exact/wildcard match with port, then without port
         for domain_info in self.domains:
-            if domain_info.enabled and domain_info.name.lower() == domain:
-                logger.debug(f"Exact domain match: {domain} → {domain_info.name}")
+            if not domain_info.enabled:
+                continue
+                
+            # Skip default here, check last
+            if domain_info.is_default:
+                continue
+                
+            # Check matches
+            if check_match(domain_with_port, domain_info):
+                logger.debug(f"Domain match (with port): {domain_with_port} → {domain_info.name}")
                 return domain_info
-        
-        # Strategy 2: Wildcard match
-        for domain_info in self.domains:
-            if domain_info.enabled and domain_info.is_wildcard:
-                pattern = domain_info.name.lower().replace("*", "")
-                if pattern and domain.endswith(pattern):
-                    logger.debug(f"Wildcard domain match: {domain} → {domain_info.name}")
-                    return domain_info
+                
+            if domain_with_port != domain_without_port and check_match(domain_without_port, domain_info):
+                logger.debug(f"Domain match (without port): {domain_without_port} → {domain_info.name}")
+                return domain_info
         
         # Strategy 3: Default fallback
         for domain_info in self.domains:
             if domain_info.enabled and domain_info.is_default:
-                logger.debug(f"Default domain match: {domain} → {domain_info.name}")
+                logger.debug(f"Default domain match: {domain_with_port} → {domain_info.name}")
                 return domain_info
         
         return None
@@ -157,12 +172,10 @@ class DomainService:
         # Parse URL to extract domain
         try:
             parsed = urlparse(url)
-            url_domain = parsed.netloc.lower()
+            domain_with_port = parsed.netloc.lower()
+            domain_without_port = domain_with_port.split(":")[0] if ":" in domain_with_port else domain_with_port
             
-            if ":" in url_domain:
-                url_domain = url_domain.split(":")[0]
-            
-            if not url_domain:
+            if not domain_without_port:
                 return False
                 
         except Exception:
@@ -170,15 +183,23 @@ class DomainService:
         
         expected_lower = expected_domain.lower()
         
-        # Exact match
-        if url_domain == expected_lower:
-            return True
-        
-        # Wildcard match
-        if "*" in expected_domain:
-            pattern = expected_lower.replace("*", "")
-            if pattern and url_domain.endswith(pattern):
+        # Helper for validation
+        def check_valid(candidate: str) -> bool:
+            # Exact match
+            if candidate == expected_lower:
                 return True
+            # Wildcard match
+            if "*" in expected_domain:
+                pattern = expected_lower.replace("*", "")
+                if pattern and candidate.endswith(pattern):
+                    return True
+            return False
+            
+        # Check both with and without port
+        if check_valid(domain_with_port):
+            return True
+        if domain_with_port != domain_without_port and check_valid(domain_without_port):
+            return True
         
         # Default matches everything
         if expected_lower == "default":

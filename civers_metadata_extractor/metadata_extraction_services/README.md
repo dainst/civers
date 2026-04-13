@@ -307,18 +307,10 @@ async def extract_metadata(self, url: str, request_id: str,
 The service includes optional HTTP content fetching:
 
 ```python
-# Optional HTTPX integration
-try:
-    import httpx
-    HTTPX_AVAILABLE = True
-except ImportError:
-    HTTPX_AVAILABLE = False
+import httpx
 
 async def _fetch_content_from_url(self, url: str) -> str:
     """Fetch HTML content from URL using HTTPX."""
-    if not HTTPX_AVAILABLE:
-        raise ContentFetchError("HTTP client not available")
-        
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.get(url, follow_redirects=True)
         response.raise_for_status()

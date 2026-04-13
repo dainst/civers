@@ -8,9 +8,20 @@ app:
   # Application metadata (shown in API docs and health checks)
   name: "Civers Archive Web Interface"
   version: "1.0.0"
-  description: "MVP for browsing and replaying archived versions of websites"
+  description: "Civers Archive Web Interface for browsing and replaying archived versions of websites"
   service_name: "civers-archive-web-interface"
   environment: "${CONFIG_ENVIRONMENT:-development}"
+  
+  # Logging settings
+  logging:
+    level: "INFO"
+    correlation_id_log_level: "INFO"
+    file: null
+    json_enabled: true
+    kafka_log_level: "WARNING"
+    access_log_level: "INFO"
+
+# Server settings
 
 # API behavior settings
 api:
@@ -24,6 +35,15 @@ api:
   # Kafka settings
   kafka:
     default_priority: 1
+  
+  callback_base_url: "http://localhost:8000"
+  
+  # Security settings
+  trusted_proxy_hosts:
+    - "127.0.0.1"
+  
+  # Upload limits
+  max_upload_size_mb: 100
 
 # Database settings
 database:

@@ -124,12 +124,12 @@ class MockStorageService:
 @pytest.fixture
 def client():
     """Test client with mocked storage service."""
-    from app.config import load_app_config
+    from configs import YamlFileConfigLoader
 
     mock_storage = MockStorageService()
     test_app = app
     test_app.state.storage_service = mock_storage
-    test_app.state.app_config = load_app_config()
+    test_app.state.app_config = YamlFileConfigLoader().load()
     return TestClient(test_app)
 
 

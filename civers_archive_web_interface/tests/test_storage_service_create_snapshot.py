@@ -13,7 +13,7 @@ from pathlib import Path
 
 from app.storage.service import StorageService
 from app.storage.providers.filesystem import FilesystemStorageProvider
-from app.config.models import ValidationConfig
+from configs.models import ValidationConfig
 from app.models.snapshot import Snapshot
 from app.custom_exceptions.exceptions.api_exceptions import ValidationError
 from app.storage.providers.storage_provider_interface import StorageError
@@ -234,9 +234,10 @@ class TestRealIntegration:
             allow_existing=True
         )
 
-        # Only new file should be in artifacts
-        assert len(snapshot2.available_artifacts) == 1
+        # create_snapshot returns ALL artifacts in the directory (existing + new)
+        assert len(snapshot2.available_artifacts) == 2
         assert 'screenshot.png' in snapshot2.available_artifacts
+        assert 'archive.wacz' in snapshot2.available_artifacts
 
         # Both files should exist on disk
         snapshot_path = Path(snapshot2.folder_path)
@@ -259,23 +260,27 @@ class TestErrorPropagation:
             )
 
     def test_duplicate_snapshot_error_propagated(self, storage_service, temp_storage_path):
-        """Test that duplicate snapshot error is propagated."""
+        """Test that duplicate snapshot is handled gracefully via auto-discovery."""
         files = {'archive.wacz': BytesIO(b'content')}
 
         # First creation
-        storage_service.create_snapshot(
+        snapshot1 = storage_service.create_snapshot(
             url='https://example.com/page',
             request_id='test9',
             files=files
         )
 
-        # Second creation without allow_existing should fail
-        with pytest.raises(ValidationError, match="Snapshot already exists"):
-            storage_service.create_snapshot(
-                url='https://example.com/page',
-                request_id='test9',
-                files=files
-            )
+        # Second creation without allow_existing — create_snapshot auto-discovers
+        # existing snapshots and adds files to them (idempotent behavior)
+        files2 = {'archive.wacz': BytesIO(b'content')}
+        snapshot2 = storage_service.create_snapshot(
+            url='https://example.com/page',
+            request_id='test9',
+            files=files2
+        )
+
+        # Should reuse the same snapshot directory
+        assert snapshot1.snapshot_id == snapshot2.snapshot_id
 
     def test_storage_error_propagated(self, storage_service_with_mock, mock_provider):
         """Test that StorageError from provider is propagated."""

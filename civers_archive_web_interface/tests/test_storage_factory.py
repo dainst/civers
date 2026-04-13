@@ -15,8 +15,8 @@ from app.storage.factory import (
 from app.storage.providers.filesystem import FilesystemStorageProvider
 from app.storage.providers.sqlite_storage import SQLiteStorageProvider
 from app.storage.service import StorageService
-from app.config import AppConfig, StorageConfig, FilesystemConfig, SQLiteConfig
-from app.config.models import ValidationConfig
+from configs import AppConfig, StorageConfig, FilesystemConfig, SQLiteConfig
+from configs.models import ValidationConfig
 
 
 class TestCreateFilesystemProvider:
@@ -142,11 +142,14 @@ class TestCreateSQLiteProvider:
     def test_sqlite_provider_no_auto_rebuild_when_disabled(self, tmp_path):
         """Test that SQLite provider doesn't auto-rebuild when disabled."""
         db_path = tmp_path / "test.db"
+        storage_path = tmp_path / "archives"
+        storage_path.mkdir()
 
         config = AppConfig(
             storage=StorageConfig(
                 type="sqlite",
-                sqlite=SQLiteConfig(db_path=str(db_path), auto_rebuild=False)
+                sqlite=SQLiteConfig(db_path=str(db_path), auto_rebuild=False),
+                filesystem=FilesystemConfig(path=str(storage_path))
             )
         )
 
@@ -201,7 +204,7 @@ class TestCreateStorageService:
         config = AppConfig()
 
         # Create custom provider
-        provider = FilesystemStorageProvider(storage_path)
+        provider = FilesystemStorageProvider(storage_path, ValidationConfig())
 
         service = create_storage_service(config, provider=provider)
 

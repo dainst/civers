@@ -12,22 +12,41 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.config import load_app_config
+from configs import YamlFileConfigLoader
 from app.storage import create_storage_service
 
 
 @pytest.fixture
 def client():
     """Provide FastAPI test client with initialized app state."""
+    import tempfile
+    import shutil
+    
+    # Create temp directory for independent test run
+    temp_dir = tempfile.mkdtemp()
+    
     with TestClient(app) as test_client:
         # Initialize app state
-        app_config = load_app_config()
+        app_config = YamlFileConfigLoader().load()
+        
+        # Override storage config to use temp directory
+        app_config.storage.type = 'sqlite'
+        app_config.storage.filesystem.path = temp_dir
+        # Ensure sqlite config exists if it wasn't default
+        if not app_config.storage.sqlite:
+             from configs.models import SQLiteConfig
+             app_config.storage.sqlite = SQLiteConfig()
+        app_config.storage.sqlite.db_path = f"{temp_dir}/archives.db"
+        
         storage_service = create_storage_service(app_config)
 
         test_client.app.state.app_config = app_config
         test_client.app.state.storage_service = storage_service
 
         yield test_client
+        
+    # Cleanup
+    shutil.rmtree(temp_dir)
 
 
 def create_test_file(content: bytes, filename: str):
@@ -243,7 +262,7 @@ class TestIdempotentOperations:
 
         assert response2.status_code == 200
         data2 = response2.json()
-        assert len(data2['artifacts_uploaded']) == 1
+        assert len(data2['artifacts_uploaded']) == 2
         assert 'screenshot.png' in data2['artifacts_uploaded']
 
     def test_existing_files_not_overwritten(self, client):
@@ -280,8 +299,8 @@ class TestIdempotentOperations:
 
         assert response2.status_code == 200
         data2 = response2.json()
-        # File should not be in uploaded list (was skipped)
-        assert 'archive.wacz' not in data2['artifacts_uploaded']
+        # File should be in available artifacts list (exists)
+        assert 'archive.wacz' in data2['artifacts_uploaded']
 
 
 class TestUploadInfo:

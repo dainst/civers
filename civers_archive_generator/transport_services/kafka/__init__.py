@@ -8,13 +8,11 @@ from .event_models import (
     ArchiveCompletedEvent,
     ArchiveFailedEvent
 )
-from .health_check import SystemHealthCheck
 __all__ = [
     'KafkaTransportService',
     'EventBaseModel',
     'ArchiveRequestEvent',
     'ArchiveStatusEvent',
     'ArchiveCompletedEvent',
-    'ArchiveFailedEvent',
-    'SystemHealthCheck'
+    'ArchiveFailedEvent'
 ]

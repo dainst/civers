@@ -32,14 +32,14 @@ class ArchiveGeneratorApp:
             
             # Load configuration using YamlFileConfigLoader
             loader = YamlFileConfigLoader()
-            
-            logger.info(f"📄 Loading configuration using YamlFileConfigLoader")
+            # Load configuration
+            logger.info("📄 Loading configuration using YamlFileConfigLoader")
             logger.info(f"🌍 Detected environment: {loader.environment}")
             
             self.config = loader.load()
 
                 
-            logger.info(f"✅ Configuration loaded successfully")
+            logger.info("✅ Configuration loaded successfully")
             logger.info(f"   App: {self.config.app.name} v{self.config.app.version}")
             
             # Log transport configuration
@@ -70,7 +70,7 @@ class ArchiveGeneratorApp:
             health = await self.kafka_transport.health_check()
             if health['healthy']:
                 logger.info("✅ Kafka transport service health check passed")
-                logger.info(f"   Producer ready: {health['details']['producer_ready']}")
+                logger.info(f"   Producer ready: {health['details']['producer']}")
                 logger.info(f"   Bootstrap servers: {health['details']['kafka_config']['bootstrap_servers']}")
             else:
                 logger.warning("⚠️ Kafka transport service health check failed")

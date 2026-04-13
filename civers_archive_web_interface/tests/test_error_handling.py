@@ -25,7 +25,7 @@ class TestErrorHandlers:
         error_detail = ErrorDetail(field="test_field", message="Field error", code="validation_error")
 
         # Mock the correlation_id to return a known value
-        with patch('app.middleware.error_handlers.api_error_handler._get_correlation_id', return_value="test-correlation-id"):
+        with patch('app.middleware.error_handlers.api_error_handler.get_correlation_id', return_value="test-correlation-id"):
             response = create_api_error_response(
                 error_type="test_error",
                 message="Test message",
@@ -45,7 +45,7 @@ class TestErrorHandlers:
 
     def test_create_api_error_response_no_details(self):
         """Test API error response without details."""
-        with patch('app.middleware.error_handlers.api_error_handler._get_correlation_id', return_value="test-id"):
+        with patch('app.middleware.error_handlers.api_error_handler.get_correlation_id', return_value="test-id"):
             response = create_api_error_response("simple_error", "Simple message", 404, details=None)
 
             content = json.loads(response.body)
@@ -62,13 +62,13 @@ class TestMiddlewareIntegration:
     def setup_method(self):
         """Set up test client with proper app state."""
         # Create a test client that simulates the lifespan events
-        from app.config import load_app_config
+        from configs import YamlFileConfigLoader
         from app.storage import create_storage_service
 
         self.client = TestClient(app)
 
         # Manually initialize app state for testing
-        app_config = load_app_config()
+        app_config = YamlFileConfigLoader().load()
         storage_service = create_storage_service(app_config)
 
         app.state.app_config = app_config

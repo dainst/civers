@@ -128,4 +128,3 @@ For detailed technical technical explanations of each module, check the dedicate
 * [**Full Testing Guide**](./tests/README.md) - Deep dive into fixtures and mocking.
 
 ---
-*Created with ❤️ by the CiVers Team.*

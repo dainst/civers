@@ -225,3 +225,5 @@ MOCKING_STORAGE_REFERENCE.md
 *.db-wal
 *.db-shm
 /data/
+zap_security_checks_results/
+.agent/

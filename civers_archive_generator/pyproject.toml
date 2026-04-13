@@ -13,22 +13,21 @@ dependencies = [
     "aiokafka>=0.10.0",
     "playwright>=1.52.0",
     "pydantic>=2.11.5",
-    "pytest>=8.3.5",
-    "pytest-asyncio>=1.0.0",
     "pyyaml>=6.0.2",
     "trafilatura>=2.0.0",
     "warcat>=2.2.5",
     "warcio>=1.7.5",
     "webdriver-manager>=4.0.2",
     "websockets>=15.0.1",
+    "kafka-python>=2.3.0",
 ]
 
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
-testpaths = ["tests"]
-addopts = "-v --tb=short"
-filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore::pytest.PytestReturnNotNoneWarning"
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-timeout>=2.2.0",
 ]
+
+

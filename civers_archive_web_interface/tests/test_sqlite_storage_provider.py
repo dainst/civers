@@ -13,7 +13,7 @@ from io import BytesIO
 from app.database.sqlite_manager import SQLiteManager
 from app.database.models import get_schema_sql
 from app.storage.providers.sqlite_storage import SQLiteStorageProvider
-from app.config.models import ValidationConfig
+from configs.models import ValidationConfig
 
 
 @pytest.fixture

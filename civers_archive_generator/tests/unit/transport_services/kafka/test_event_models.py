@@ -111,12 +111,6 @@ def test_event_model_validation_errors(model_cls, kwargs, expected_msg):
         model_cls(**kwargs)
     assert expected_msg in e.value.errors()[0]['msg']
 
-@pytest.mark.unit
-def test_event_base_model_default_created_at(model_cls, kwargs, expected_msg):
-    
-    with pytest.raises(ValidationError) as e:
-        model_cls(**kwargs)
-    assert expected_msg in e.value.errors()[0]['msg']
 
 
 @pytest.mark.unit
@@ -129,7 +123,7 @@ def test_event_base_model_default_created_at():
     #validate the created_at is in UTC format
     assert event_base_model.created_at.endswith("Z")
     #validate the created_at is in ISO 8601 format
-    assert isoparse(event_base_model.created_at) , "Created at should be in ISO 8601 format"
+    assert isoparse(event_base_model.created_at), "Created at should be in ISO 8601 format"
 
 
 #wite a test function to validate the event models

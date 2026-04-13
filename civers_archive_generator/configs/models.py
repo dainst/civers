@@ -1,12 +1,17 @@
-from typing import List, Literal, Dict, Optional, Union, Any
+from typing import List, Literal, Dict, Optional, Any
 from pydantic import BaseModel, field_validator, Field
 from pathlib import Path
 import os
 
+class GeneratorConfig(BaseModel):
+    """Configuration for a specific generator within a domain"""
+    name: str
+    artifacts: List[str]
+
 class DomainConfig(BaseModel):
     """Configuration for a specific domain's archiving behavior"""
     name: str
-    artifacts: List[str]
+    generators: List[GeneratorConfig]
     webpage_types: Literal["dynamic", "static"]
     enabled: bool = True
     description: str = ""
@@ -16,10 +21,10 @@ class DomainConfig(BaseModel):
         """Check if this is a wildcard domain pattern."""
         return "*" in self.name
 
-    @field_validator("artifacts")
-    def check_artifacts(cls, v):
+    @field_validator("generators")
+    def check_generators(cls, v):
         if not v:
-            raise ValueError("Domain must have at least one artifact type defined")
+            raise ValueError("Domain must have at least one generator defined")
         return v
 
 class KafkaConfig(BaseModel):

@@ -8,7 +8,6 @@ providing clear success/failure status and detailed artifact tracking.
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Any
-from datetime import datetime
 
 
 class ArtifactStatus(Enum):
@@ -83,8 +82,6 @@ class ArchiveResult:
     url: str
     artifacts: List[ArtifactResult] = field(default_factory=list)
     processing_time_seconds: float = 0.0
-    scoop_exit_code: Optional[int] = None
-    singlefile_exit_code: Optional[int] = None
     error_message: Optional[str] = None
     error_type: Optional[str] = None
     snapshot_id: Optional[str] = None
@@ -181,8 +178,6 @@ class ArchiveResult:
             "artifacts": [a.to_dict() for a in self.artifacts],
             "artifacts_created": self.artifacts_created,
             "processing_time_seconds": self.processing_time_seconds,
-            "scoop_exit_code": self.scoop_exit_code,
-            "singlefile_exit_code": self.singlefile_exit_code,
             "error_message": self.error_message,
             "error_type": self.error_type,
             "snapshot_id": self.snapshot_id,
@@ -197,7 +192,6 @@ class ArchiveResult:
         url: str,
         artifacts: List[ArtifactResult],
         processing_time_seconds: float,
-        scoop_exit_code: int = 0,
         snapshot_id: str = None,
         **metadata
     ) -> "ArchiveResult":
@@ -209,7 +203,6 @@ class ArchiveResult:
             url=url,
             artifacts=artifacts,
             processing_time_seconds=processing_time_seconds,
-            scoop_exit_code=scoop_exit_code,
             snapshot_id=snapshot_id,
             metadata=metadata
         )
@@ -224,7 +217,7 @@ class ArchiveResult:
         error_type: str = "processing_error",
         artifacts: List[ArtifactResult] = None,
         processing_time_seconds: float = 0.0,
-        scoop_exit_code: int = None,
+        snapshot_id: str = None,
         **metadata
     ) -> "ArchiveResult":
         """Factory method to create a failed archive result."""
@@ -235,8 +228,8 @@ class ArchiveResult:
             url=url,
             artifacts=artifacts or [],
             processing_time_seconds=processing_time_seconds,
-            scoop_exit_code=scoop_exit_code,
             error_message=error_message,
             error_type=error_type,
+            snapshot_id=snapshot_id,
             metadata=metadata
         )

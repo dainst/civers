@@ -18,9 +18,6 @@ from ..models.snapshot import Snapshot
 from ..models.snapshot_filters import SnapshotFilters, SnapshotSortOption, SnapshotSummary
 from ..models.responses import PaginatedResponse, PaginationMeta, ErrorResponse
 from ..custom_exceptions.exceptions.api_exceptions import ResourceNotFoundError, ValidationError
-from configs import load_app_config
-
-_app_config = load_app_config()
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +70,8 @@ class UrlDetail(UrlListSummary):
 )
 async def list_urls(
     request: Request,
-    page: int = Query(_app_config.api.pagination.default_page, ge=1, description="Page number (1-based)"),
-    limit: int = Query(_app_config.api.pagination.default_page_size, ge=1, le=_app_config.api.pagination.max_page_size, description=f"Number of items per page (1-{_app_config.api.pagination.max_page_size})"),
+    page: Optional[int] = Query(None, ge=1, description="Page number (1-based)"),
+    limit: Optional[int] = Query(None, ge=1, description="Number of items per page"),
     sort: SortOption = Query(SortOption.URL, description="Sort order for results")
 ):
     """
@@ -93,6 +90,18 @@ async def list_urls(
     """
     # Get storage service from app state
     storage_service = request.app.state.storage_service
+    config = request.app.state.app_config.api.pagination
+    
+    # Set defaults if not provided
+    if page is None:
+        page = config.default_page
+    if limit is None:
+        limit = config.default_page_size
+        
+    # Enforce max page size
+    if limit > config.max_page_size:
+        limit = config.max_page_size
+
     logger.debug(f"Fetching URLs - page: {page}, limit: {limit}, sort: {sort}")
     
     # Get all URLs from storage service (with caching)
@@ -199,8 +208,8 @@ async def get_url_summary(
 async def list_snapshots(
     request: Request,
     url_id: str,
-    page: int = Query(_app_config.api.pagination.default_page, ge=1, description="Page number (1-based)"),
-    limit: int = Query(_app_config.api.pagination.default_page_size, ge=1, le=_app_config.api.pagination.max_page_size, description=f"Number of items per page (1-{_app_config.api.pagination.max_page_size})"),
+    page: Optional[int] = Query(None, ge=1, description="Page number (1-based)"),
+    limit: Optional[int] = Query(None, ge=1, description="Number of items per page"),
     sort: SnapshotSortOption = Query(SnapshotSortOption.TIMESTAMP_DESC, description="Sort order for results"),
     from_date: Optional[str] = Query(None, description="Filter snapshots from date (YYYY-MM-DD)"),
     to_date: Optional[str] = Query(None, description="Filter snapshots to date (YYYY-MM-DD)"),
@@ -234,6 +243,18 @@ async def list_snapshots(
     """
     # Get storage service from app state
     storage_service = request.app.state.storage_service
+    config = request.app.state.app_config.api.pagination
+
+    # Set defaults if not provided
+    if page is None:
+        page = config.default_page
+    if limit is None:
+        limit = config.default_page_size
+
+    # Enforce max page size
+    if limit > config.max_page_size:
+        limit = config.max_page_size
+
     logger.debug(f"Fetching snapshots for URL '{url_id}' - page: {page}, limit: {limit}, sort: {sort}")
     
     # Get specific URL from storage service

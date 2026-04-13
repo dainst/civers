@@ -6,9 +6,11 @@ the StorageManager for storing archive metadata.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from dataclasses import dataclass
 from typing import List, Optional
+from unittest.mock import AsyncMock, MagicMock, patch
+
+pytestmark = [pytest.mark.unit]
 
 
 # Mock StorageResult and MultiStorageResult for tests
@@ -106,7 +108,7 @@ class TestArchiveServiceStorageIntegration:
                 with open(archive_file, 'w') as f:
                     f.write("mock warc content")
                 
-                result = await service._store_archive(
+                await service._store_archive(
                     archive_path=tmp_dir,
                     _url="https://example.com",
                     domain_config=mock_domain_config,
