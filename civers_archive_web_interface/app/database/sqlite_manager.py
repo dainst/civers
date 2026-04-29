@@ -176,6 +176,7 @@ class SQLiteManager:
         migrations: list[tuple[str, str, str]] = [
             # (table, column, column_definition)
             ("request_status", "workflow_name", "TEXT"),
+            ("request_status", "workflow_steps", "TEXT"),
         ]
 
         for table, column, definition in migrations:

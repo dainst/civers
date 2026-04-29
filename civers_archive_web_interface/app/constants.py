@@ -43,6 +43,7 @@ ALLOWED_REQUEST_STATUS_FIELDS: Final[frozenset] = frozenset({
     "workflow_name",
     "current_step",
     "completed_steps",
+    "workflow_steps",
     "error_message",
     "snapshot_id",
     "updated_at"
