@@ -43,7 +43,7 @@ async def test_archaeology_workflow_e2e(
     assert result["workflow_name"] == "archaeology_workflow"
     
     # Results are grouped by step name
-    results = result["results"]
+    results = result["step_results"]
     assert "archive_generation" in results
     assert "metadata_extraction" in results
     assert results["archive_generation"]["snapshot_id"] == f"snap-{request_id}"
@@ -69,5 +69,5 @@ async def test_simple_workflow_e2e(
     
     assert result["request_id"] == request_id
     assert result["workflow_name"] == "simple_workflow"
-    assert "archive_generation" in result["results"]
-    assert result["results"]["archive_generation"]["snapshot_id"] == f"snap-{request_id}"
+    assert "archive_generation" in result["step_results"]
+    assert result["step_results"]["archive_generation"]["snapshot_id"] == f"snap-{request_id}"

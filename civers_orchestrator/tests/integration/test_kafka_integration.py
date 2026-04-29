@@ -29,7 +29,7 @@ class TestKafkaIntegrationBasic:
 
         # Verify service is running
         assert kafka_transport_service.running is True
-        assert kafka_transport_service.consumer is not None
+        assert kafka_transport_service.connection_manager.consumer is not None
         assert kafka_transport_service.adapter is not None
 
         # Stop service
@@ -42,11 +42,17 @@ class TestKafkaIntegrationBasic:
     @pytest.mark.asyncio
     async def test_health_check_with_real_kafka(self, kafka_transport_service):
         """Test health check with real Kafka connection."""
-        health = await kafka_transport_service.health_check()
+        start_task = asyncio.create_task(kafka_transport_service.start())
+        await asyncio.sleep(2)
 
-        assert health["healthy"] is True
-        assert health["details"]["producer_ready"] is True
-        assert health["details"]["event_publisher_ready"] is True
+        try:
+            health = await kafka_transport_service.health_check()
+            assert health["healthy"] is True
+            assert health["details"]["producer_ready"] is True
+            assert health["details"]["consumer_ready"] is True
+        finally:
+            await kafka_transport_service.stop()
+            start_task.cancel()
 
     @pytest.mark.asyncio
     async def test_adapter_integration(self, kafka_transport_service):

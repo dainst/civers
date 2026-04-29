@@ -7,11 +7,6 @@ app:
   # Test-specific archive directory
   archive_directory: ${ARCHIVE_DIRECTORY:-test_archives}
 
-  # Test Kafka settings (dedicated test port)
-  transport:
-    kafka:
-      bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:29093}
-  
   # Storage configuration for testing
   # Use local file only to avoid external dependencies in tests
   storage:

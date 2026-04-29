@@ -125,6 +125,9 @@ class OrchestratorFailedEvent(EventBaseModel):
     workflow_name: str = Field(..., description="Workflow that failed")
     failed_step: str = Field(..., description="Step where workflow failed")
     error_message: str = Field(..., description="Error message describing the failure")
+    completed_steps: list[str] = Field(
+        default_factory=list, description="Steps that completed successfully before failure"
+    )
     error_details: Dict[str, Any] = Field(
         default_factory=dict, description="Additional error details"
     )

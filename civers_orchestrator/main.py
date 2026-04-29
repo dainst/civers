@@ -85,7 +85,7 @@ For more information, see: https://github.com/dainst/civers_orchestrator
         action="version",
         version=f"CiVers Orchestrator v{__version__}",
     )
-
+    arguments = parser.parse_args()
     return parser.parse_args()
 
 
@@ -204,14 +204,14 @@ class OrchestratorApp:
 
     def _setup_signal_handlers(self):
         """Set up signal handlers for graceful shutdown."""
-        def signal_handler(signum, frame):
-            sig_name = signal.Signals(signum).name
-            logger.info(f"📡 Received signal {sig_name}, initiating shutdown...")
-            asyncio.create_task(self.shutdown())
+        loop = asyncio.get_event_loop()
 
-        # Register signal handlers
+        def signal_handler(sig: signal.Signals):
+            logger.info(f"📡 Received signal {sig.name}, initiating shutdown...")
+            loop.create_task(self.shutdown())
+
         for sig in [signal.SIGTERM, signal.SIGINT]:
-            signal.signal(sig, signal_handler)
+            loop.add_signal_handler(sig, signal_handler, sig)
 
         logger.info("📡 Signal handlers registered (SIGTERM, SIGINT)")
 
@@ -239,7 +239,7 @@ class OrchestratorApp:
                         f"⏱️ Workflow {transition.workflow_instance.request_id} timed out "
                         f"at step {transition.failed_step}"
                     )
-                    await self.transport._execute_transition(transition)
+                    await self.transport.execute_transition(transition)
 
                 # 2. Cleanup old workflows
                 cleaned = self.orchestrator.cleanup_completed_workflows()

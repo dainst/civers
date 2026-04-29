@@ -313,13 +313,13 @@ class TestOrchestratorCompletedEvent:
             url="https://example.com/page",
             workflow_name="standard_archive_workflow",
             processing_time_seconds=45.5,
-            results={"archive_path": "/path/to/archive", "doi": "10.1234/test"}
+            step_results={"archive_path": "/path/to/archive", "doi": "10.1234/test"}
         )
 
         assert event.request_id == "req-123"
         assert event.workflow_name == "standard_archive_workflow"
         assert event.processing_time_seconds == 45.5
-        assert event.results["archive_path"] == "/path/to/archive"
+        assert event.step_results["archive_path"] == "/path/to/archive"
 
     def test_completed_event_processing_time_validation(self):
         """Test that negative processing time raises ValidationError."""
@@ -344,14 +344,14 @@ class TestOrchestratorCompletedEvent:
             url="https://example.com/page",
             workflow_name="test_workflow",
             processing_time_seconds=30.0,
-            results={"status": "success"}
+            step_results={"status": "success"}
         )
 
         json_str = event.model_dump_json()
         data = json.loads(json_str)
 
         assert data["processing_time_seconds"] == 30.0
-        assert "results" in data
+        assert "step_results" in data
 
 
 class TestOrchestratorFailedEvent:

@@ -11,9 +11,7 @@ This service implements the CiVers Kafka Pattern:
 
 import asyncio
 from collections.abc import Callable
-from typing import Any, Type, Optional, Dict
-
-from aiokafka.errors import KafkaError
+from typing import Any, Dict
 
 from configs.logging_config import get_logger
 from configs.models import ConfigDataModel
@@ -72,7 +70,14 @@ class KafkaTransportService(TransportServiceInterface):
         self.event_publisher = EventPublisher(self.connection_manager, self.topics)
         self.event_handlers: dict[str, Callable] = {}
         self.callback_service = CallbackService()
-        
+
+        # Reverse map: response topic → step_name (built from component_mappings config)
+        self._topic_to_step_name: dict[str, str] = {
+            topic: mapping.step_name
+            for mapping in self.kafka_config.component_mappings.values()
+            for topic in mapping.response_topics.values()
+        }
+
         self._requests_processed = 0
 
     def register_handler(self, topic: str, handler: Callable) -> None:
@@ -149,22 +154,49 @@ class KafkaTransportService(TransportServiceInterface):
             )
 
     async def _consume_loop(self) -> None:
-        """Main async consumption loop."""
+        """Main async consumption loop with automatic reconnection on error."""
         logger.info("📡 Starting async Kafka consumption loop")
-        try:
-            async for msg in self.connection_manager.consumer:
+        backoff = 1  # seconds; doubles on each consecutive failure, capped at 60
+
+        while self.running:
+            try:
+                # Rebuild consumer if it was torn down by a previous error
+                if self.connection_manager.consumer is None:
+                    topics = list(self.event_handlers.keys())
+                    logger.info(f"📡 (Re)connecting Kafka consumer for topics: {topics}")
+                    await self.connection_manager.setup_consumer(topics)
+                    backoff = 1  # reset after a successful connect
+
+                async for msg in self.connection_manager.consumer:
+                    if not self.running:
+                        return
+                    try:
+                        await self._process_message(msg)
+                    except Exception as e:
+                        logger.error(f"❌ Error processing Kafka message: {e}", exc_info=True)
+
+            except asyncio.CancelledError:
+                return
+            except Exception as e:
                 if not self.running:
-                    break
-                
-                try:
-                    await self._process_message(msg)
-                except Exception as e:
-                    logger.error(f"❌ Error processing Kafka message: {e}", exc_info=True)
-                    
-        except Exception as e:
-            if self.running:
-                logger.error(f"❌ Kafka consumption loop error: {e}")
-                await asyncio.sleep(1)
+                    return
+                logger.error(
+                    f"❌ Kafka consumption loop error: {e}. "
+                    f"Reconnecting in {backoff}s...",
+                    exc_info=True,
+                )
+                # Stop the consumer only (leave the producer intact)
+                if self.connection_manager.consumer is not None:
+                    try:
+                        await self.connection_manager.consumer.stop()
+                    except Exception:
+                        pass
+                    self.connection_manager.consumer = None
+
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, 60)
+
+        logger.info("📡 Kafka consumption loop stopped")
 
     async def _process_message(self, message: Any) -> None:
         """Process a message from the consumer."""
@@ -177,7 +209,10 @@ class KafkaTransportService(TransportServiceInterface):
             
         handler = self.event_handlers.get(topic)
         if handler:
-            await handler(message, message_data)
+            try:
+                await handler(message, message_data)
+            except Exception as e:
+                logger.error(f"❌ Handler error on topic {topic}: {e}", exc_info=True)
         else:
             logger.debug(f"ℹ️ No handler for topic {topic}")
 
@@ -209,11 +244,12 @@ class KafkaTransportService(TransportServiceInterface):
         """Handle archive.completed event."""
         try:
             event = ArchiveCompletedEvent(**message_data)
+            step_name = self._topic_to_step_name[message.topic]
             logger.info(f"✅ Archive completed: {event.request_id}")
 
             transition = self.orchestrator.step_completed(
                 request_id=event.request_id,
-                step_name="archive_generation",
+                step_name=step_name,
                 result_data={
                     "archive_path": event.archive_path,
                     "artifacts_created": event.artifacts_created,
@@ -222,7 +258,7 @@ class KafkaTransportService(TransportServiceInterface):
                 }
             )
 
-            await self._execute_transition(transition)
+            await self.execute_transition(transition)
         except Exception as e:
             logger.error(f"❌ Failed to handle archive completed: {e}")
 
@@ -230,15 +266,16 @@ class KafkaTransportService(TransportServiceInterface):
         """Handle archive.failed event."""
         try:
             event = ArchiveFailedEvent(**message_data)
+            step_name = self._topic_to_step_name[message.topic]
             logger.error(f"❌ Archive failed: {event.request_id}: {event.error_message}")
 
             transition = self.orchestrator.step_failed(
                 request_id=event.request_id,
-                step_name="archive_generation",
+                step_name=step_name,
                 error_message=event.error_message
             )
 
-            await self._execute_transition(transition)
+            await self.execute_transition(transition)
         except Exception as e:
             logger.error(f"❌ Failed to handle archive failure: {e}")
 
@@ -246,11 +283,12 @@ class KafkaTransportService(TransportServiceInterface):
         """Handle metadata.completed event."""
         try:
             event = MetadataExtractionCompletedEvent(**message_data)
+            step_name = self._topic_to_step_name[message.topic]
             logger.info(f"✅ Metadata extraction completed: {event.request_id}")
 
             transition = self.orchestrator.step_completed(
                 request_id=event.request_id,
-                step_name="metadata_extraction",
+                step_name=step_name,
                 result_data={
                     "extracted_metadata": event.extracted_metadata,
                     "domain_used": event.domain_used,
@@ -259,7 +297,7 @@ class KafkaTransportService(TransportServiceInterface):
                 }
             )
 
-            await self._execute_transition(transition)
+            await self.execute_transition(transition)
         except Exception as e:
             logger.error(f"❌ Failed to handle metadata completed: {e}")
 
@@ -267,21 +305,22 @@ class KafkaTransportService(TransportServiceInterface):
         """Handle metadata.failed event."""
         try:
             event = MetadataExtractionFailedEvent(**message_data)
+            step_name = self._topic_to_step_name[message.topic]
             logger.error(f"❌ Metadata extraction failed: {event.request_id}: {event.error_message}")
 
             transition = self.orchestrator.step_failed(
                 request_id=event.request_id,
-                step_name="metadata_extraction",
+                step_name=step_name,
                 error_message=event.error_message
             )
 
-            await self._execute_transition(transition)
+            await self.execute_transition(transition)
         except Exception as e:
             logger.error(f"❌ Failed to handle metadata failure: {e}")
 
     # === INSTRUCTION EXECUTION ===
 
-    async def _execute_transition(self, transition: WorkflowTransition):
+    async def execute_transition(self, transition: WorkflowTransition):
         """Execute a workflow transition."""
         try:
             if transition.action == "execute_step":
@@ -413,15 +452,18 @@ class KafkaTransportService(TransportServiceInterface):
     async def health_check(self) -> Dict[str, Any]:
         """Perform health check."""
         try:
-            is_healthy = self.connection_manager.producer is not None and self.running
+            producer_ready = self.connection_manager.producer is not None
+            consumer_ready = self.connection_manager.consumer is not None
             return {
-                "healthy": is_healthy,
-                "service_name": "KafkaTransportService",
+                "healthy": self.running and producer_ready,
+                "running": self.running,
                 "details": {
+                    "service": "kafka_transport",
                     "running": self.running,
+                    "producer_ready": producer_ready,
+                    "consumer_ready": consumer_ready,
+                    "registered_topics": list(self.event_handlers.keys()),
                     "requests_processed": self._requests_processed,
-                    "producer": "ready" if self.connection_manager.producer else "missing",
-                    "consumer": "ready" if self.connection_manager.consumer else "missing"
                 }
             }
         except Exception as e:
@@ -434,7 +476,14 @@ class KafkaTransportService(TransportServiceInterface):
     def get_transport_info(self) -> Dict[str, Any]:
         """Info about transport."""
         return {
-            "type": "AsyncKafka",
-            "bootstrap_servers": self.kafka_config.bootstrap_servers,
-            "consumer_group": self.kafka_config.consumer.group_id
+            "transport_type": "KafkaTransportService",
+            "kafka_config": {
+                "bootstrap_servers": self.kafka_config.bootstrap_servers,
+                "consumer_group": self.kafka_config.consumer.group_id,
+            },
+            "status": {
+                "running": self.running,
+                "producer_ready": self.connection_manager.producer is not None,
+                "consumer_ready": self.connection_manager.consumer is not None,
+            }
         }

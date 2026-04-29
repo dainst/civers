@@ -18,7 +18,11 @@ dev = [
     "ruff>=0.8.4",
     "mypy>=1.14.0",
     "types-pyyaml>=6.0.12",
-    # E2E testing dependencies
+    # E2E / integration testing and manual scripts
+    # kafka-python provides the synchronous KafkaProducer/KafkaConsumer/KafkaAdminClient
+    # used by tests/e2e/, tests/integration/, and scripts/test_workflow.py.
+    # The production app uses aiokafka (async); this package is test/tooling only.
+    "kafka-python>=2.0.0",
     "aiokafka>=0.12.0",
     "httpx>=0.28.0",
 ]
@@ -55,6 +59,27 @@ markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
     "kafka: marks tests that require Kafka infrastructure",
     "e2e: marks tests as end-to-end tests",
+]
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.1.0",
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "scripts/*",
+    ".venv/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
 ]
 # Note: CONFIG_ENVIRONMENT=testing is set via autouse fixture in tests/conftest.py
 # This ensures testing.yaml is loaded even if /.dockerenv exists

@@ -19,6 +19,7 @@ class TestKafkaComponentMappingModel:
         from configs.models import KafkaComponentMapping
 
         mapping = KafkaComponentMapping(
+            step_name="archive_generation",
             request_topic="archive.requests",
             response_topics={
                 "success": "archive.completed",
@@ -71,6 +72,7 @@ class TestKafkaComponentMappingModel:
 
         # This should validate that success/failure keys exist
         mapping = KafkaComponentMapping(
+            step_name="archive_generation",
             request_topic="archive.requests",
             response_topics={
                 "success": "archive.completed",
@@ -91,6 +93,7 @@ class TestKafkaComponentMappingModel:
         from configs.models import KafkaComponentMapping
 
         mapping = KafkaComponentMapping(
+            step_name="archive_generation",
             request_topic="archive.requests",
             response_topics={"success": "x", "failure": "y"},
             event_models={
@@ -130,6 +133,7 @@ class TestKafkaConfigWithComponentMappings:
             },
             "component_mappings": {
                 "archive_generator": {
+                    "step_name": "archive_generation",
                     "request_topic": "archive.requests",
                     "response_topics": {
                         "success": "archive.completed",
@@ -193,11 +197,13 @@ class TestKafkaConfigWithComponentMappings:
             },
             "component_mappings": {
                 "archive_generator": {
+                    "step_name": "archive_generation",
                     "request_topic": "archive.requests",
                     "response_topics": {"success": "archive.completed", "failure": "archive.failed"},
                     "event_models": {"request": "ArchiveRequestEvent", "success": "ArchiveCompletedEvent", "failure": "ArchiveFailedEvent"}
                 },
                 "metadata_extractor": {
+                    "step_name": "metadata_extraction",
                     "request_topic": "metadata.requests",
                     "response_topics": {"success": "metadata.completed", "failure": "metadata.failed"},
                     "event_models": {"request": "MetadataExtractionRequestEvent", "success": "MetadataExtractionCompletedEvent", "failure": "MetadataExtractionFailedEvent"}

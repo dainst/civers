@@ -88,6 +88,8 @@ services:
       context: ./civers_archive_web_interface
       dockerfile: Dockerfile
     container_name: civers-web-interface
+    ports:
+      - "8000:8000"
     environment:
       - HOST=0.0.0.0
       - PORT=8000
@@ -97,6 +99,7 @@ services:
       - CONFIG_DIR=/shared-configs
       # Override for Docker network
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_CONSUMER_GROUP_ID=civers_web_interface
       # Callback URL for orchestrator (must use Docker service name)
       - CALLBACK_BASE_URL=http://web-interface:8000
     volumes:
@@ -127,6 +130,7 @@ services:
       - CONFIG_ENVIRONMENT=docker
       - CONFIG_DIR=/shared-configs
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_CONSUMER_GROUP_ID=civers_orchestrator
       - LOG_LEVEL=INFO
     volumes:
       - ./configs:/shared-configs:ro
@@ -144,9 +148,9 @@ services:
 
   # ============================================================================
   # Archive Generator - Web Archiving
-  # NOTE: Uses host network to work with VPN - external URL archiving requires
-  # access to host's network stack. Kafka and Web Interface are accessed via
-  # localhost since they expose ports to the host.
+  # NOTE: Uses host network in dev (docker-compose.dev.yml override) so
+  # Chromium's out-of-process network service inherits the host network stack,
+  # enabling VPN-based URL access. In base/test, uses bridge networking.
   # ============================================================================
   archive-generator:
     build:
@@ -157,6 +161,7 @@ services:
       - CONFIG_ENVIRONMENT=docker
       - CONFIG_DIR=/shared-configs
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_CONSUMER_GROUP_ID=civers_archive_generator
       - CIVERS_API_URL=http://web-interface:8000
       - LOG_LEVEL=INFO
     volumes:
@@ -175,7 +180,6 @@ services:
   # Metadata Extractor Service
   # ============================================================================
   # Extracts metadata from archived web pages and publishes to Kafka
-  # Uses network_mode: host for VPN compatibility
   # Note: Uses internal configs, NOT shared configs (different schema for domains)
   # ============================================================================
   metadata-extractor:
@@ -187,6 +191,7 @@ services:
       - CONFIG_ENVIRONMENT=docker
       - CONFIG_DIR=/shared-configs
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_CONSUMER_GROUP_ID=civers_metadata_extractor
       - CIVERS_API_URL=http://web-interface:8000
       - LOG_LEVEL=INFO
     volumes:

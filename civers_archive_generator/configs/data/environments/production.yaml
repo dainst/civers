@@ -6,13 +6,6 @@ environment: production
 app:
   archive_directory: ${ARCHIVE_DIRECTORY:-archives}
   
-  # Production Kafka settings 
-  transport:
-    kafka:
-      bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
-      # In production, this would typically be multiple brokers
-      # bootstrap_servers: broker1:9092,broker2:9092,broker3:9092
-  
   # Storage configuration for production
   # Enable CIVERS API for centralized storage
   storage:
@@ -30,13 +23,3 @@ app:
         verify_ssl: ${STORAGE_API_VERIFY_SSL:-true}
         auth:
           enabled: ${STORAGE_API_AUTH_ENABLED:-false}
-
-# Production-ready domains
-domains:
-  - name: arachne.dainst.org
-    artifacts: [warc, html, screenshots, singlefile]
-    webpage_types: dynamic
-    
-  - name: field.dainst.org
-    artifacts: [warc, html, singlefile]
-    webpage_types: dynamic

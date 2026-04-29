@@ -111,7 +111,7 @@ class Artifact(BaseModel):
     @property
     def is_replayable(self) -> bool:
         """Whether this artifact can be replayed with ReplayWeb.page."""
-        replayable_types = {'warc.file', 'archive.wacz'}
+        replayable_types = {'archive.warc', 'archive.wacz'}
         return self.artifact_type in replayable_types
     
     @property
@@ -139,7 +139,7 @@ class Artifact(BaseModel):
         
         # Default content types for common artifact types
         default_content_types = {
-            "warc.file": "application/warc",
+            "archive.warc": "application/warc",
             "archive.wacz": "application/zip",
             "screenshot.png": "image/png",
             "singlefile.html": "text/html",

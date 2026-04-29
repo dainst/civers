@@ -38,6 +38,7 @@ transport:
 
     component_mappings:
       archive_generator:
+        step_name: "archive_generation"
         request_topic: "test.archive.requests"
         response_topics:
           success: "test.archive.completed"
@@ -48,6 +49,7 @@ transport:
           failure: "ArchiveFailedEvent"
 
       metadata_extractor:
+        step_name: "metadata_extraction"
         request_topic: "test.metadata.requests"
         response_topics:
           success: "test.metadata.completed"
@@ -58,6 +60,7 @@ transport:
           failure: "MetadataExtractionFailedEvent"
 
       doi_service:
+        step_name: "doi_generation"
         request_topic: "test.doi.requests"
         response_topics:
           success: "test.doi.completed"

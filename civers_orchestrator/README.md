@@ -41,19 +41,29 @@ To keep the code clean and maintainable, we strictly separate **Decision Making*
 
 ### Prerequisites
 
-* **Python 3.11+**
+* **Python 3.12+**
 * **[uv](https://github.com/astral-sh/uv)**: A fast Python package manager.
 * **Docker**: To run the Kafka messenger locally.
 
 ### 1. Basic Setup
 
 ```bash
-# 1. Install all dependencies
+# Production dependencies only (what the app needs to run)
 uv sync
 
-# 2. Start the messenger (Kafka) 
+# Development dependencies (required for tests and scripts)
+# Includes kafka-python (used by test helpers and scripts/test_workflow.py),
+# pytest, ruff, mypy, and aiokafka extras.
+uv sync --extra dev
+
+# Start the Kafka broker and UI
 docker compose up -d kafka kafka-ui
 ```
+
+> **Why two packages?**  
+> The production app uses **aiokafka** (async).  
+> The manual test script and test helpers use **kafka-python** (sync, simpler for CLI tooling).  
+> `kafka-python` lives in `[project.optional-dependencies] dev` and is never shipped to production.
 
 ### 2. Running the Application
 
@@ -69,13 +79,25 @@ docker compose up -d kafka kafka-ui
 
 ### Real-Time Status Monitoring
 
-The Orchestrator now publishes every step change to the `orchestrator.status` topic. You can "watch" a workflow live using our utility script:
+The Orchestrator publishes every step change to the `orchestrator.status` topic. You can watch a workflow live using the manual test script:
 
 ```bash
+# Requires dev dependencies: uv sync --extra dev
 uv run python scripts/test_workflow.py --url https://arachne.test.dainst.org/entity/2003166
+
+# Override Kafka broker (default: localhost:29092)
+uv run python scripts/test_workflow.py \
+  --url https://arachne.test.dainst.org/entity/2003166 \
+  --kafka-broker localhost:29092 \
+  --timeout 600
+
+# Specify a workflow explicitly
+uv run python scripts/test_workflow.py \
+  --url https://example.com \
+  --workflow standard_archive_workflow
 ```
 
-*Note: This script provides a "Live Dashboard" view of the Kafka traffic.*
+The script requires a running Kafka broker and a running Orchestrator instance (`uv run python main.py`).
 
 ### Automated Background Tasks
 
@@ -88,31 +110,56 @@ The application includes a self-healing background task that runs every 30 secon
 
 ## 🧪 Testing Guide
 
-We use a three-tier testing strategy to ensure reliability.
-
-### 1. Logic Tests (Fast)
-
-Verifies the internal "Brain" without needing Kafka.
+**All tests require dev dependencies:**
 
 ```bash
-uv run pytest tests/unit/        # Smallest components
-uv run pytest tests/integration/ # Workflow logic
+uv sync --extra dev
 ```
 
-### 2. End-to-End Tests (Complete)
+We use a three-tier testing strategy to ensure reliability.
 
-Simulates the entire ecosystem. **Requires Docker/Kafka.**
+### 1. Unit Tests (Fast, no Kafka)
+
+Verifies pure business logic in isolation.
+
+```bash
+uv run pytest tests/unit/ -v
+```
+
+### 2. Integration Tests (Workflow logic, auto-starts Kafka via Docker)
+
+Tests the full orchestration flow. Kafka is started automatically via `docker compose` if `AUTO_START_KAFKA=true` (the default).
+
+```bash
+uv run pytest tests/integration/ -v
+
+# Disable automatic Kafka startup (if you already have Kafka running):
+AUTO_START_KAFKA=false uv run pytest tests/integration/ -v
+```
+
+### 3. End-to-End Tests (Full ecosystem, requires Docker)
+
+Spins up the entire stack including mock microservices.
 
 ```bash
 uv run pytest tests/e2e/ -v
 ```
 
-### 3. Manual Smoke Testing
+### 4. Manual Smoke Test Script
 
-Use the development script to verify plumbing against real infrastructure.
+Use `scripts/test_workflow.py` to fire a real request at a running Orchestrator and watch it progress step-by-step.
+
+**Prerequisites:** Kafka running, Orchestrator running (`uv run python main.py`).
 
 ```bash
-uv run python scripts/test_workflow.py --url [YOUR_URL]
+# Start infrastructure
+docker compose up -d kafka kafka-ui
+
+# Start orchestrator (in a separate terminal)
+uv run python main.py
+
+# Run the smoke test
+uv run python scripts/test_workflow.py --url https://arachne.test.dainst.org/entity/2003166
 ```
 
 ---

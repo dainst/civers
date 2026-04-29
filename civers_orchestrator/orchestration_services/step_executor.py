@@ -5,7 +5,6 @@ to pass data between workflow steps. This replaces hardcoded step-specific logic
 with a flexible, configuration-driven approach.
 """
 
-from typing import Dict
 
 from configs.logging_config import get_logger
 from configs.models import ConfigDataModel, WorkflowStepConfig

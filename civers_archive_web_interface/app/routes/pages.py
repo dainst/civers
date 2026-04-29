@@ -64,7 +64,7 @@ async def archive_page(request: Request, url_id: str):
     
     logger.debug(f"Archive page context: {context}")
     
-    return request.app.state.templates.TemplateResponse("url_archive.html", context)
+    return request.app.state.templates.TemplateResponse(request, "url_archive.html", context)
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -90,7 +90,7 @@ async def home_page(request: Request):
         "domains_json": json.dumps(domains)
     }
     
-    return request.app.state.templates.TemplateResponse("index.html", context)
+    return request.app.state.templates.TemplateResponse(request, "index.html", context)
 
 
 @router.get("/archive-request", response_class=HTMLResponse)
@@ -107,7 +107,7 @@ async def archive_request_page(request: Request):
         "domains_json": json.dumps(domains)
     }
     
-    return request.app.state.templates.TemplateResponse("archive_request.html", context)
+    return request.app.state.templates.TemplateResponse(request, "archive_request.html", context)
 
 
 @router.get("/status/{request_id}", response_class=HTMLResponse)
@@ -123,7 +123,7 @@ async def status_page(request: Request, request_id: str):
         "request_id": request_id
     }
     
-    return request.app.state.templates.TemplateResponse("status.html", context)
+    return request.app.state.templates.TemplateResponse(request, "status.html", context)
 
 
 @router.get("/my-requests", response_class=HTMLResponse)
@@ -139,7 +139,7 @@ async def my_requests_page(request: Request):
         "title": "My Archive Requests"
     }
     
-    return request.app.state.templates.TemplateResponse("my_requests.html", context)
+    return request.app.state.templates.TemplateResponse(request, "my_requests.html", context)
 
 
 @router.get("/replay/{snapshot_id}", response_class=HTMLResponse)
@@ -187,12 +187,19 @@ async def replay_page(request: Request, snapshot_id: str, view_type: str = Query
     available_views = []
     if snapshot.has_wacz:
         available_views.append('wacz')
+    if snapshot.has_warc:
+        available_views.append('warc')
     if snapshot.has_singlefile:
         available_views.append('singlefile')
 
     # Set default view if not specified
     if not view_type and available_views:
-        view_type = 'wacz' if 'wacz' in available_views else available_views[0]
+        if 'wacz' in available_views:
+            view_type = 'wacz'
+        elif 'warc' in available_views:
+            view_type = 'warc'
+        else:
+            view_type = available_views[0]
     
     # Validate requested view type is available
     if view_type and view_type not in available_views:
@@ -222,7 +229,7 @@ async def replay_page(request: Request, snapshot_id: str, view_type: str = Query
 
     logger.debug(f"Replay page context: {context}")
 
-    return request.app.state.templates.TemplateResponse("replay.html", context)
+    return request.app.state.templates.TemplateResponse(request, "replay.html", context)
 
 
 

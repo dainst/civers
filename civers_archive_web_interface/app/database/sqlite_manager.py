@@ -165,3 +165,27 @@ class SQLiteManager:
         except Exception as e:
             logger.error(f"Schema initialization failed: {e}")
             raise
+
+    def apply_migrations(self) -> None:
+        """
+        Apply incremental schema migrations for columns added after initial creation.
+
+        Uses PRAGMA table_info to detect missing columns and applies ALTER TABLE
+        to add them without touching existing data.
+        """
+        migrations: list[tuple[str, str, str]] = [
+            # (table, column, column_definition)
+            ("request_status", "workflow_name", "TEXT"),
+        ]
+
+        for table, column, definition in migrations:
+            existing = {
+                row[1]
+                for row in self._connection.execute(f"PRAGMA table_info({table})").fetchall()
+            }
+            if column not in existing:
+                self._connection.execute(
+                    f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+                )
+                self._connection.commit()
+                logger.info(f"Migration applied: added column '{column}' to '{table}'")

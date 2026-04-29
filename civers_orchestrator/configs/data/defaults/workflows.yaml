@@ -30,6 +30,16 @@ workflows:
         depends_on:
           - "archive_generation"
         timeout_seconds: 60
+        input_transformers:
+          - source_step: "archive_generation"
+            source_field: "snapshot_id"
+            target_field: "document_url"
+            transformer: "build_web_interface_url"
+            required: true
+            transformer_config:
+              base_url_config_path: "app.metadata.web_interface_url"
+              default_base_url: "http://localhost:8000"
+              url_template: "{base_url}/api/artifacts/serve?snapshot_id={value}&type=dom-snapshot.html"
 
       - name: "doi_assignment"
         component: "doi_service"
@@ -62,6 +72,16 @@ workflows:
         depends_on:
           - "archive_generation"
         timeout_seconds: 120
+        input_transformers:
+          - source_step: "archive_generation"
+            source_field: "snapshot_id"
+            target_field: "document_url"
+            transformer: "build_web_interface_url"
+            required: true
+            transformer_config:
+              base_url_config_path: "app.metadata.web_interface_url"
+              default_base_url: "http://localhost:8000"
+              url_template: "{base_url}/api/artifacts/serve?snapshot_id={value}&type=dom-snapshot.html"
 
       - name: "doi_assignment"
         component: "doi_service"
@@ -94,6 +114,16 @@ workflows:
         depends_on:
           - "archive_generation"
         timeout_seconds: 60
+        input_transformers:
+          - source_step: "archive_generation"
+            source_field: "snapshot_id"
+            target_field: "document_url"
+            transformer: "build_web_interface_url"
+            required: true
+            transformer_config:
+              base_url_config_path: "app.metadata.web_interface_url"
+              default_base_url: "http://localhost:8000"
+              url_template: "{base_url}/api/artifacts/serve?snapshot_id={value}&type=dom-snapshot.html"
 
       - name: "doi_assignment"
         component: "doi_service"
@@ -126,6 +156,16 @@ workflows:
         depends_on:
           - "archive_generation"
         timeout_seconds: 60
+        input_transformers:
+          - source_step: "archive_generation"
+            source_field: "snapshot_id"
+            target_field: "document_url"
+            transformer: "build_web_interface_url"
+            required: true
+            transformer_config:
+              base_url_config_path: "app.metadata.web_interface_url"
+              default_base_url: "http://localhost:8000"
+              url_template: "{base_url}/api/artifacts/serve?snapshot_id={value}&type=dom-snapshot.html"
 
       - name: "doi_assignment"
         component: "doi_service"

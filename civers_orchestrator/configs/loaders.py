@@ -128,8 +128,29 @@ class YamlFileConfigLoader:
         return config
 
     def _load_environment_overrides(self) -> Dict[str, Any]:
-        """Load environment-specific overrides."""
+        """Load environment-specific overrides.
+
+        Raises:
+            FileNotFoundError: If CONFIG_ENVIRONMENT was explicitly set but the
+                corresponding file does not exist.
+        """
         env_file = self.environments_dir / f"{self.environment}.yaml"
+        if not env_file.exists():
+            if os.getenv("CONFIG_ENVIRONMENT"):
+                available = sorted(
+                    f.stem for f in self.environments_dir.glob("*.yaml")
+                ) if self.environments_dir.exists() else []
+                raise FileNotFoundError(
+                    f"Environment '{self.environment}' was explicitly set via "
+                    f"CONFIG_ENVIRONMENT but no config file was found at {env_file}. "
+                    f"Available environments: {', '.join(available)}"
+                )
+            else:
+                logger.warning(
+                    f"⚠️ Config file not found for auto-detected environment "
+                    f"'{self.environment}' at {env_file}. Using defaults only."
+                )
+                return {}
         return self._load_yaml_file(env_file)
 
     def _expand_env_vars(self, config: Dict[str, Any]) -> Dict[str, Any]:

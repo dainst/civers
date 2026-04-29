@@ -4,7 +4,6 @@ Async Event Publisher for Kafka in CiVers Orchestrator.
 Handles asynchronous event publishing using aiokafka.
 """
 
-import logging
 from typing import Any, Dict
 from pydantic import BaseModel
 

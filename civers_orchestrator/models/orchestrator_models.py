@@ -47,7 +47,7 @@ class StepInstruction:
     component: str  # Component identifier (transport-agnostic)
     input_schema: str  # Data schema name (not event model)
     input_data: Dict[str, Any] = field(default_factory=dict)
-    workflow_instance: WorkflowInstance = field(default=None)  # Reference to full instance
+    workflow_instance: Optional[WorkflowInstance] = field(default=None)  # Reference to full instance
     metadata: Optional[Dict[str, Any]] = None
 
 

@@ -6,14 +6,14 @@ using aiokafka for asynchronous messaging.
 """
 
 import json
-import logging
-from typing import Dict, Any, Optional, List
+from typing import Optional, List
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 from aiokafka.errors import KafkaError
 
+from configs.logging_config import get_logger
 from configs.models import KafkaConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class KafkaConnectionManager:

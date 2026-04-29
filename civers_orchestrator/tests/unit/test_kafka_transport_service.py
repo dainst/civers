@@ -1,902 +1,467 @@
 # tests/unit/test_kafka_transport_service.py
 """Unit tests for Kafka Transport Service.
 
-Following TDD approach - these tests define the expected behavior
-of the KafkaTransportService before implementation.
+Tests are written against the actual aiokafka-based architecture:
+- KafkaTransportService.__init__ creates a KafkaConnectionManager but makes NO
+  network calls. Producer/consumer are None until start() is called.
+- Connections live on service.connection_manager.producer / .consumer
+- Async lifecycle methods (start/stop) are tested by mocking connection_manager
 """
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
-from typing import Dict, Any
+from unittest.mock import Mock, AsyncMock, patch
 
-from configs.models import ConfigDataModel, AppConfig, TransportConfig, KafkaConfig
-from configs.models import KafkaConsumerConfig, KafkaProducerConfig, KafkaTopicsConfig, KafkaComponentMapping
+from configs.models import (
+    ConfigDataModel, AppConfig, TransportConfig, KafkaConfig,
+    KafkaConsumerConfig, KafkaProducerConfig, KafkaTopicsConfig,
+    KafkaComponentMapping,
+)
 from transport_services.transport_service_interface import TransportServiceInterface
 
 
+# ---------------------------------------------------------------------------
+# Shared fixture
+# ---------------------------------------------------------------------------
+
 @pytest.fixture
 def minimal_kafka_config():
-    """Create minimal Kafka configuration for testing."""
+    """Minimal ConfigDataModel with two component mappings."""
     return ConfigDataModel(
-        app=AppConfig(
-            name="test-orchestrator",
-            version="1.0.0",
-            environment="testing"
-        ),
+        app=AppConfig(name="test-orchestrator", version="1.0.0", environment="testing"),
         transport=TransportConfig(
             enabled=["kafka"],
             kafka=KafkaConfig(
                 bootstrap_servers="localhost:29092",
                 consumer=KafkaConsumerConfig(
                     group_id="test-orchestrator-group",
-                    auto_offset_reset="earliest"
+                    auto_offset_reset="earliest",
                 ),
-                producer=KafkaProducerConfig(
-                    acks="all",
-                    retries=3
-                ),
+                producer=KafkaProducerConfig(acks="all", retries=3),
                 topics=KafkaTopicsConfig(
                     orchestrator_requests="test.orchestrator.requests",
                     orchestrator_status="test.orchestrator.status",
                     orchestrator_completed="test.orchestrator.completed",
-                    orchestrator_failed="test.orchestrator.failed"
+                    orchestrator_failed="test.orchestrator.failed",
                 ),
                 component_mappings={
                     "archive_generator": KafkaComponentMapping(
+                        step_name="archive_generation",
                         request_topic="archive.requests",
-                        response_topics={
-                            "success": "archive.completed",
-                            "failure": "archive.failed"
-                        },
+                        response_topics={"success": "archive.completed", "failure": "archive.failed"},
                         event_models={
                             "request": "ArchiveRequestEvent",
                             "success": "ArchiveCompletedEvent",
-                            "failure": "ArchiveFailedEvent"
-                        }
+                            "failure": "ArchiveFailedEvent",
+                        },
                     ),
                     "metadata_extractor": KafkaComponentMapping(
+                        step_name="metadata_extraction",
                         request_topic="metadata.requests",
-                        response_topics={
-                            "success": "metadata.completed",
-                            "failure": "metadata.failed"
-                        },
+                        response_topics={"success": "metadata.completed", "failure": "metadata.failed"},
                         event_models={
                             "request": "MetadataExtractionRequestEvent",
                             "success": "MetadataExtractionCompletedEvent",
-                            "failure": "MetadataExtractionFailedEvent"
-                        }
-                    )
-                }
-            )
+                            "failure": "MetadataExtractionFailedEvent",
+                        },
+                    ),
+                },
+            ),
         ),
         domains=[],
-        workflows=[]
+        workflows=[],
     )
 
 
-@pytest.mark.unit
+@pytest.fixture
+def service(minimal_kafka_config):
+    """Instantiated KafkaTransportService with a mock orchestrator."""
+    from transport_services.kafka.kafka_transport_service import KafkaTransportService
+    return KafkaTransportService(minimal_kafka_config, Mock())
+
+
+# ---------------------------------------------------------------------------
+# Initialization
+# ---------------------------------------------------------------------------
+
 class TestKafkaTransportServiceInitialization:
-    """Test Kafka transport service initialization."""
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_init_success(self, mock_producer_class, minimal_kafka_config):
-        """Test successful initialization of Kafka transport service."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Verify basic attributes
+    def test_init_stores_config(self, service, minimal_kafka_config):
         assert service.config == minimal_kafka_config
         assert service.kafka_config == minimal_kafka_config.transport.kafka
         assert service.topics == minimal_kafka_config.transport.kafka.topics
+
+    def test_init_not_running(self, service):
         assert service.running is False
-        assert service.producer is not None
-        assert service.orchestrator == mock_orchestrator_service
-        assert service.adapter is not None  # NEW: Adapter should be initialized
 
-        # Verify producer was created with correct config
-        mock_producer_class.assert_called_once()
-        call_kwargs = mock_producer_class.call_args[1]
-        assert call_kwargs['bootstrap_servers'] == "localhost:29092"
-        assert call_kwargs['acks'] == 1  # From implementation
-        assert call_kwargs['retries'] == 3
+    def test_init_no_connections(self, service):
+        """No Kafka connections are made during __init__."""
+        assert service.connection_manager.producer is None
+        assert service.connection_manager.consumer is None
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_init_creates_empty_event_handlers(self, mock_producer_class, minimal_kafka_config):
-        """Test that event_handlers dict is initialized empty."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
+    def test_init_empty_event_handlers(self, service):
         assert isinstance(service.event_handlers, dict)
         assert len(service.event_handlers) == 0
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_init_consumer_is_none(self, mock_producer_class, minimal_kafka_config):
-        """Test that consumer is not initialized in __init__ (only on start)."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
+    def test_init_adapter_created(self, service):
+        assert service.adapter is not None
 
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        assert service.consumer is None
-
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_init_producer_failure(self, mock_producer_class, minimal_kafka_config):
-        """Test initialization fails gracefully when producer creation fails."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.side_effect = Exception("Kafka connection failed")
-        mock_orchestrator_service = Mock()
-
-        with pytest.raises(Exception, match="Kafka connection failed"):
-            KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
+    def test_init_topic_to_step_name_map(self, service):
+        """Reverse map from response topics to step names is built at init."""
+        m = service._topic_to_step_name
+        assert m["archive.completed"] == "archive_generation"
+        assert m["archive.failed"] == "archive_generation"
+        assert m["metadata.completed"] == "metadata_extraction"
+        assert m["metadata.failed"] == "metadata_extraction"
 
 
-@pytest.mark.unit
+# ---------------------------------------------------------------------------
+# Interface compliance
+# ---------------------------------------------------------------------------
+
 class TestKafkaTransportServiceInterface:
-    """Test that KafkaTransportService implements TransportServiceInterface."""
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_implements_transport_service_interface(self, mock_producer_class, minimal_kafka_config):
-        """Test that KafkaTransportService is a subclass of TransportServiceInterface."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
+    def test_is_transport_service_interface(self, service):
         assert isinstance(service, TransportServiceInterface)
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_has_required_methods(self, mock_producer_class, minimal_kafka_config):
-        """Test that service has all required interface methods."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Check all required methods from TransportServiceInterface
-        assert hasattr(service, 'start')
-        assert hasattr(service, 'stop')
-        assert hasattr(service, 'register_handler')
-        assert hasattr(service, 'health_check')
-        assert hasattr(service, 'send_response')
-        assert hasattr(service, 'get_transport_info')
+    def test_has_required_methods(self, service):
+        for method in ("start", "stop", "register_handler", "health_check",
+                       "send_response", "get_transport_info"):
+            assert hasattr(service, method)
 
 
-@pytest.mark.unit
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
 class TestKafkaTransportServiceConfiguration:
-    """Test configuration handling in Kafka transport service."""
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_kafka_config_extraction(self, mock_producer_class, minimal_kafka_config):
-        """Test that Kafka config is correctly extracted from ConfigDataModel."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
+    def test_kafka_config_extraction(self, service):
         assert service.kafka_config.bootstrap_servers == "localhost:29092"
         assert service.kafka_config.consumer.group_id == "test-orchestrator-group"
         assert service.kafka_config.producer.acks == "all"
         assert service.kafka_config.producer.retries == 3
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_topics_configuration(self, mock_producer_class, minimal_kafka_config):
-        """Test that topic names are correctly loaded from config."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
+    def test_topics_configuration(self, service):
         assert service.topics.orchestrator_requests == "test.orchestrator.requests"
         assert service.topics.orchestrator_status == "test.orchestrator.status"
         assert service.topics.orchestrator_completed == "test.orchestrator.completed"
         assert service.topics.orchestrator_failed == "test.orchestrator.failed"
 
 
-@pytest.mark.unit
+# ---------------------------------------------------------------------------
+# Handler registration
+# ---------------------------------------------------------------------------
+
 class TestKafkaTransportServiceEventHandling:
-    """Test event handler registration."""
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_register_handler(self, mock_producer_class, minimal_kafka_config):
-        """Test registering event handlers for topics."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        def test_handler(message, data):
-            pass
-
-        service.register_handler("test.topic", test_handler)
-
+    def test_register_handler(self, service):
+        def handler(msg, data): pass
+        service.register_handler("test.topic", handler)
         assert "test.topic" in service.event_handlers
-        assert service.event_handlers["test.topic"] == test_handler
+        assert service.event_handlers["test.topic"] == handler
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_register_multiple_handlers(self, mock_producer_class, minimal_kafka_config):
-        """Test registering multiple handlers for different topics."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        def handler1(message, data):
-            pass
-
-        def handler2(message, data):
-            pass
-
-        service.register_handler("topic1", handler1)
-        service.register_handler("topic2", handler2)
-
+    def test_register_multiple_handlers(self, service):
+        def h1(m, d): pass
+        def h2(m, d): pass
+        service.register_handler("topic1", h1)
+        service.register_handler("topic2", h2)
         assert len(service.event_handlers) == 2
-        assert service.event_handlers["topic1"] == handler1
-        assert service.event_handlers["topic2"] == handler2
 
 
-@pytest.mark.unit
+# ---------------------------------------------------------------------------
+# get_transport_info
+# ---------------------------------------------------------------------------
+
 class TestKafkaTransportServiceGetTransportInfo:
-    """Test get_transport_info method."""
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_get_transport_info_structure(self, mock_producer_class, minimal_kafka_config):
-        """Test that get_transport_info returns correct structure."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
+    def test_structure(self, service):
         info = service.get_transport_info()
+        assert info["transport_type"] == "KafkaTransportService"
+        assert "kafka_config" in info
+        assert "status" in info
 
-        assert isinstance(info, dict)
-        assert 'transport_type' in info
-        assert info['transport_type'] == 'KafkaTransportService'
-        assert 'kafka_config' in info
-        assert 'status' in info
-        # capabilities is optional - not checking for it
+    def test_kafka_config_fields(self, service):
+        cfg = service.get_transport_info()["kafka_config"]
+        assert cfg["bootstrap_servers"] == "localhost:29092"
+        assert cfg["consumer_group"] == "test-orchestrator-group"
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_get_transport_info_kafka_config(self, mock_producer_class, minimal_kafka_config):
-        """Test that kafka_config is included in transport info."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        info = service.get_transport_info()
-
-        kafka_config = info['kafka_config']
-        assert kafka_config['bootstrap_servers'] == "localhost:29092"
-        assert kafka_config['consumer_group'] == "test-orchestrator-group"
-        # topics is no longer in kafka_config - moved to component_mappings
-
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_get_transport_info_status(self, mock_producer_class, minimal_kafka_config):
-        """Test that status information is included."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        info = service.get_transport_info()
-
-        status = info['status']
-        assert 'running' in status
-        assert 'producer_ready' in status
-        assert 'consumer_ready' in status
-        assert status['running'] is False  # Not started yet
-        assert status['producer_ready'] is True  # Producer created in __init__
-        assert status['consumer_ready'] is False  # Consumer not created yet
+    def test_status_before_start(self, service):
+        status = service.get_transport_info()["status"]
+        assert status["running"] is False
+        assert status["producer_ready"] is False   # not started yet
+        assert status["consumer_ready"] is False
 
 
-@pytest.mark.unit
+# ---------------------------------------------------------------------------
+# Safe JSON deserializer (lives on KafkaConnectionManager)
+# ---------------------------------------------------------------------------
+
 class TestSafeJsonDeserializer:
-    """Test the _safe_json_deserializer static method."""
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_deserialize_valid_json(self, mock_producer_class, minimal_kafka_config):
-        """Test deserializing valid JSON bytes."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        json_bytes = b'{"request_id": "123", "url": "https://example.com"}'
-        result = service._safe_json_deserializer(json_bytes)
-
-        assert result is not None
+    def test_valid_json(self):
+        from transport_services.kafka.kafka_connection_manager import KafkaConnectionManager
+        result = KafkaConnectionManager._safe_json_deserializer(
+            b'{"request_id": "123", "url": "https://example.com"}'
+        )
         assert isinstance(result, dict)
-        assert result['request_id'] == "123"
-        assert result['url'] == "https://example.com"
+        assert result["request_id"] == "123"
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_deserialize_none(self, mock_producer_class, minimal_kafka_config):
-        """Test deserializing None returns None."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
+    def test_none_returns_none(self):
+        from transport_services.kafka.kafka_connection_manager import KafkaConnectionManager
+        assert KafkaConnectionManager._safe_json_deserializer(None) is None
 
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        result = service._safe_json_deserializer(None)
-
-        assert result is None
-
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_deserialize_invalid_json(self, mock_producer_class, minimal_kafka_config):
-        """Test deserializing invalid JSON returns None with warning."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        invalid_bytes = b'not json at all'
-        result = service._safe_json_deserializer(invalid_bytes)
-
-        assert result is None
-
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    def test_deserialize_json_with_extra_text(self, mock_producer_class, minimal_kafka_config):
-        """Test extracting JSON from bytes with extra text."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # JSON embedded in other text
-        bytes_with_extra = b'Some prefix {"request_id": "123"} some suffix'
-        result = service._safe_json_deserializer(bytes_with_extra)
-
-        # Should extract the JSON object
+    def test_invalid_json_returns_raw(self):
+        from transport_services.kafka.kafka_connection_manager import KafkaConnectionManager
+        result = KafkaConnectionManager._safe_json_deserializer(b"not json at all")
+        # Falls back to raw bytes (not None, not a dict)
         assert result is not None
-        assert isinstance(result, dict)
-        assert result['request_id'] == "123"
+        assert not isinstance(result, dict)
 
 
-@pytest.mark.unit
+# ---------------------------------------------------------------------------
+# start()
+# ---------------------------------------------------------------------------
+
 class TestKafkaTransportServiceStart:
-    """Test starting the Kafka transport service."""
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    @patch('transport_services.kafka.kafka_transport_service.KafkaConsumer')
     @pytest.mark.asyncio
-    async def test_start_registers_default_handler(self, mock_consumer_class, mock_producer_class, minimal_kafka_config):
-        """Test that start() registers handler for orchestrator.requests topic."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_consumer_instance = Mock()
-        mock_consumer_class.return_value = mock_consumer_instance
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Mock the consuming loop to avoid blocking
-        service._start_consuming = AsyncMock()
+    async def test_start_registers_default_handlers(self, service):
+        service.connection_manager.setup_producer = AsyncMock()
+        service.connection_manager.setup_consumer = AsyncMock()
+        service._consume_loop = AsyncMock()
 
         await service.start()
 
-        # Verify handler was registered for orchestrator.requests
         assert "test.orchestrator.requests" in service.event_handlers
         assert service.running is True
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    @patch('transport_services.kafka.kafka_transport_service.KafkaConsumer')
     @pytest.mark.asyncio
-    async def test_start_creates_consumer(self, mock_consumer_class, mock_producer_class, minimal_kafka_config):
-        """Test that start() creates Kafka consumer."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_consumer_instance = Mock()
-        mock_consumer_class.return_value = mock_consumer_instance
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-        service._start_consuming = AsyncMock()
+    async def test_start_calls_setup_producer_and_consumer(self, service):
+        service.connection_manager.setup_producer = AsyncMock()
+        service.connection_manager.setup_consumer = AsyncMock()
+        service._consume_loop = AsyncMock()
 
         await service.start()
 
-        # Verify consumer was created
-        assert service.consumer is not None
-        mock_consumer_class.assert_called_once()
+        service.connection_manager.setup_producer.assert_called_once()
+        service.connection_manager.setup_consumer.assert_called_once()
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_start_failure_stops_service(self, mock_producer_class, minimal_kafka_config):
-        """Test that start() failure triggers cleanup."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Mock _setup_consumer to raise exception
-        service._setup_consumer = Mock(side_effect=Exception("Consumer setup failed"))
+    async def test_start_failure_calls_stop(self, service):
+        service.connection_manager.setup_producer = AsyncMock(
+            side_effect=Exception("Producer setup failed")
+        )
         service.stop = AsyncMock()
 
-        with pytest.raises(Exception, match="Consumer setup failed"):
+        with pytest.raises(Exception, match="Producer setup failed"):
             await service.start()
 
-        # Verify stop was called for cleanup
         service.stop.assert_called_once()
 
 
-@pytest.mark.unit
+# ---------------------------------------------------------------------------
+# Message processing
+# ---------------------------------------------------------------------------
+
 class TestKafkaTransportServiceMessageProcessing:
-    """Test message processing and routing."""
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_process_kafka_message_routes_to_handler(self, mock_producer_class, minimal_kafka_config):
-        """Test that _process_kafka_message routes to registered handler."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Create mock message
+    async def test_routes_to_registered_handler(self, service):
         mock_message = Mock()
         mock_message.topic = "test.topic"
-        mock_message.key = "test-request-123"
-        mock_message.value = {"request_id": "test-request-123", "url": "https://example.com"}
+        mock_message.value = {"request_id": "req-1", "url": "https://example.com"}
 
-        # Register a handler
         mock_handler = AsyncMock()
         service.register_handler("test.topic", mock_handler)
 
-        # Process the message
-        await service._process_kafka_message(mock_message)
+        await service._process_message(mock_message)
 
-        # Verify handler was called with message and data
-        mock_handler.assert_called_once()
-        call_args = mock_handler.call_args[0]
-        assert call_args[0] == mock_message
-        assert call_args[1] == mock_message.value
+        mock_handler.assert_called_once_with(mock_message, mock_message.value)
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_process_kafka_message_with_no_handler(self, mock_producer_class, minimal_kafka_config):
-        """Test that messages without handlers are logged but don't error."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Create mock message for unregistered topic
+    async def test_no_handler_does_not_raise(self, service):
         mock_message = Mock()
         mock_message.topic = "unregistered.topic"
-        mock_message.key = "test-request-123"
-        mock_message.value = {"request_id": "test-request-123"}
+        mock_message.value = {"request_id": "req-1"}
+        await service._process_message(mock_message)  # must not raise
 
-        # Should not raise exception
-        await service._process_kafka_message(mock_message)
-
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_process_kafka_message_with_malformed_data(self, mock_producer_class, minimal_kafka_config):
-        """Test that malformed messages are handled gracefully."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Create mock message with None value
+    async def test_none_value_skips_handler(self, service):
         mock_message = Mock()
         mock_message.topic = "test.topic"
-        mock_message.key = "test-request-123"
         mock_message.value = None
 
         mock_handler = AsyncMock()
         service.register_handler("test.topic", mock_handler)
 
-        # Should not raise exception or call handler
-        await service._process_kafka_message(mock_message)
+        await service._process_message(mock_message)
         mock_handler.assert_not_called()
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_process_kafka_message_handler_exception(self, mock_producer_class, minimal_kafka_config):
-        """Test that handler exceptions are caught and logged."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Create mock message
+    async def test_handler_exception_is_caught(self, service):
         mock_message = Mock()
         mock_message.topic = "test.topic"
-        mock_message.key = "test-request-123"
-        mock_message.value = {"request_id": "test-request-123", "url": "https://example.com"}
+        mock_message.value = {"request_id": "req-1", "url": "https://example.com"}
 
-        # Register a handler that raises exception
-        mock_handler = AsyncMock(side_effect=Exception("Handler error"))
-        service.register_handler("test.topic", mock_handler)
-
-        # Should not raise exception (logged internally)
-        await service._process_kafka_message(mock_message)
+        service.register_handler("test.topic", AsyncMock(side_effect=Exception("boom")))
+        await service._process_message(mock_message)  # must not raise
 
 
-@pytest.mark.unit
+# ---------------------------------------------------------------------------
+# _handle_orchestrator_request
+# ---------------------------------------------------------------------------
+
 class TestKafkaTransportServiceHandleOrchestratorRequest:
-    """Test _handle_orchestrator_request method."""
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_handle_orchestrator_request_valid_event(self, mock_producer_class, minimal_kafka_config):
-        """Test handling valid orchestrator request event."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
+    async def test_valid_request_calls_start_workflow(self, service):
         from models.orchestrator_models import StepInstruction
         from configs.models import WorkflowStepConfig
 
-        mock_producer_instance = Mock()
-        mock_producer_instance.send = Mock(return_value=Mock(get=Mock()))
-        mock_producer_class.return_value = mock_producer_instance
-
-        mock_orchestrator_service = Mock()
-
-        # Mock orchestrator service to return StepInstruction
-        mock_step_config = Mock(spec=WorkflowStepConfig)
-        mock_step_config.name = "archive_generation"
-        mock_step_config.component = "archive_generator"
+        mock_step = Mock(spec=WorkflowStepConfig)
+        mock_step.name = "archive_generation"
+        mock_step.component = "archive_generator"
 
         mock_instruction = Mock(spec=StepInstruction)
-        mock_instruction.step_config = mock_step_config
+        mock_instruction.step_config = mock_step
         mock_instruction.request_id = "test-123"
         mock_instruction.component = "archive_generator"
 
-        mock_orchestrator_service.start_workflow = Mock(return_value=mock_instruction)
+        service.orchestrator.start_workflow = Mock(return_value=mock_instruction)
+        service._execute_step_instruction = AsyncMock()
 
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
+        await service._handle_orchestrator_request(
+            Mock(),
+            {"request_id": "test-123", "url": "https://example.com", "created_at": "2025-01-01T12:00:00Z"},
+        )
 
-        # Create mock message
-        mock_message = Mock()
-        message_data = {
-            "request_id": "test-123",
-            "url": "https://example.com",
-            "created_at": "2025-01-01T12:00:00Z"
-        }
+        service.orchestrator.start_workflow.assert_called_once()
 
-        # Call handler
-        await service._handle_orchestrator_request(mock_message, message_data)
-
-        # Verify orchestrator service was called
-        mock_orchestrator_service.start_workflow.assert_called_once()
-
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_handle_orchestrator_request_invalid_event(self, mock_producer_class, minimal_kafka_config):
-        """Test handling invalid orchestrator request (missing fields)."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
+    async def test_missing_url_does_not_call_start_workflow(self, service):
+        service.orchestrator.start_workflow = Mock()
 
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = AsyncMock()
+        await service._handle_orchestrator_request(
+            Mock(),
+            {"request_id": "test-123"},  # missing url
+        )
 
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Create mock message with missing required fields
-        mock_message = Mock()
-        message_data = {
-            "request_id": "test-123"
-            # Missing 'url' field
-        }
-
-        # Should handle validation error gracefully
-        await service._handle_orchestrator_request(mock_message, message_data)
-
-        # Orchestrator service should not be called
-        mock_orchestrator_service.process_request.assert_not_called()
+        service.orchestrator.start_workflow.assert_not_called()
 
 
-@pytest.mark.unit
+# ---------------------------------------------------------------------------
+# send_response
+# ---------------------------------------------------------------------------
+
 class TestKafkaTransportServiceEventPublishing:
-    """Test event publishing methods."""
 
-    # REMOVED: _publish_event is no longer a method - EventPublisher handles this
-    # Tests removed: test_publish_event_success, test_publish_event_failure, test_publish_event_no_producer
-    # Event publishing is now tested via EventPublisher integration tests
-
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_send_response_calls_publish_event(self, mock_producer_class, minimal_kafka_config):
-        """Test that send_response delegates to _publish_event."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
+    async def test_send_response_with_producer_returns_true(self, service):
+        mock_producer = AsyncMock()
+        mock_producer.send = AsyncMock()
+        service.connection_manager.producer = mock_producer
 
-        mock_producer_instance = Mock()
-        mock_future = Mock()
-        mock_future.get = Mock(return_value=None)
-        mock_producer_instance.send = Mock(return_value=mock_future)
-        mock_producer_class.return_value = mock_producer_instance
-
-        mock_orchestrator_service = Mock()
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Send response
         result = await service.send_response(
             destination="test.topic",
-            message={"request_id": "test-123", "status": "completed"},
-            key="test-123"
+            message={"request_id": "test-123"},
+            key="test-123",
         )
 
-        # Verify success
         assert result is True
-        mock_producer_instance.send.assert_called_once()
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_send_response_without_key(self, mock_producer_class, minimal_kafka_config):
-        """Test send_response without providing a key."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
+    async def test_send_response_without_producer_returns_false(self, service):
+        service.connection_manager.producer = None
 
-        mock_producer_instance = Mock()
-        mock_future = Mock()
-        mock_future.get = Mock(return_value=None)
-        mock_producer_instance.send = Mock(return_value=mock_future)
-        mock_producer_class.return_value = mock_producer_instance
-
-        mock_orchestrator_service = Mock()
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Send response without key
         result = await service.send_response(
             destination="test.topic",
-            message={"request_id": "test-123"}
+            message={"request_id": "test-123"},
         )
 
-        # Verify success
-        assert result is True
-        # Key should be None
-        call_args = mock_producer_instance.send.call_args
-        assert call_args[1]['key'] is None
+        assert result is False
 
 
-@pytest.mark.unit
-class TestKafkaTransportServiceStatusPublishing:
-    """Test status event publishing methods."""
+# ---------------------------------------------------------------------------
+# stop() / lifecycle
+# ---------------------------------------------------------------------------
 
-    # REMOVED: All status publishing methods are now internal and tested via transitions
-    # Tests removed: test_publish_status_update, test_publish_orchestrator_completed,
-    #                test_publish_orchestrator_failed, test_publish_orchestrator_request
-    # Publishing is handled via _publish_workflow_completed and _publish_workflow_failed
-    # and tested via integration tests with workflow transitions
-    pass
-
-
-@pytest.mark.unit
 class TestKafkaTransportServiceLifecycle:
-    """Test lifecycle management methods (stop)."""
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_stop_closes_consumer(self, mock_producer_class, minimal_kafka_config):
-        """Test that stop() closes the Kafka consumer."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Mock consumer
-        mock_consumer = Mock()
-        service.consumer = mock_consumer
+    async def test_stop_calls_cleanup(self, service):
+        service.connection_manager.cleanup = AsyncMock()
         service.running = True
 
-        # Stop the service
         await service.stop()
 
-        # Verify consumer was closed
-        mock_consumer.close.assert_called_once()
+        service.connection_manager.cleanup.assert_called_once()
         assert service.running is False
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_stop_closes_producer(self, mock_producer_class, minimal_kafka_config):
-        """Test that stop() closes the Kafka producer."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_instance = Mock()
-        mock_producer_class.return_value = mock_producer_instance
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
+    async def test_stop_sets_running_false(self, service):
+        service.connection_manager.cleanup = AsyncMock()
         service.running = True
-
-        # Stop the service
         await service.stop()
-
-        # Verify producer was closed
-        mock_producer_instance.close.assert_called_once()
         assert service.running is False
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_stop_handles_consumer_close_error(self, mock_producer_class, minimal_kafka_config):
-        """Test that stop() handles consumer close errors gracefully."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Mock consumer that raises error on close
-        mock_consumer = Mock()
-        mock_consumer.close = Mock(side_effect=Exception("Close failed"))
-        service.consumer = mock_consumer
-        service.running = True
-
-        # Should not raise exception
-        await service.stop()
-
-        # Service should still be stopped
-        assert service.running is False
-
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    @pytest.mark.asyncio
-    async def test_stop_when_not_running(self, mock_producer_class, minimal_kafka_config):
-        """Test that stop() works even when service is not running."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_instance = Mock()
-        mock_producer_class.return_value = mock_producer_instance
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
+    async def test_stop_when_not_running(self, service):
+        service.connection_manager.cleanup = AsyncMock()
         service.running = False
-
-        # Should not raise exception
-        await service.stop()
-
+        await service.stop()  # must not raise
         assert service.running is False
 
 
-@pytest.mark.unit
+# ---------------------------------------------------------------------------
+# health_check()
+# ---------------------------------------------------------------------------
+
 class TestKafkaTransportServiceHealthCheck:
-    """Test health check functionality."""
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_health_check_when_healthy(self, mock_producer_class, minimal_kafka_config):
-        """Test health check returns healthy status when all components ready."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
+    async def test_healthy_when_running_with_producer(self, service):
         service.running = True
-        service.consumer = Mock()  # Simulate running consumer
+        service.connection_manager.producer = Mock()
+        service.connection_manager.consumer = Mock()
 
         health = await service.health_check()
 
-        assert health['healthy'] is True
-        assert health['running'] is True
-        assert health['details']['service'] == 'kafka_transport'
-        assert health['details']['running'] is True
-        assert health['details']['producer_ready'] is True
-        assert health['details']['consumer_ready'] is True
+        assert health["healthy"] is True
+        assert health["running"] is True
+        assert health["details"]["service"] == "kafka_transport"
+        assert health["details"]["producer_ready"] is True
+        assert health["details"]["consumer_ready"] is True
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_health_check_when_not_running(self, mock_producer_class, minimal_kafka_config):
-        """Test health check when service is not running."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
+    async def test_not_healthy_when_not_running(self, service):
         service.running = False
-        service.consumer = None
+        service.connection_manager.producer = None
+        service.connection_manager.consumer = None
 
         health = await service.health_check()
 
-        assert health['healthy'] is True  # Producer exists
-        assert health['running'] is False
-        assert health['details']['running'] is False
-        assert health['details']['consumer_ready'] is False
+        assert health["healthy"] is False
+        assert health["running"] is False
+        assert health["details"]["producer_ready"] is False
+        assert health["details"]["consumer_ready"] is False
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_health_check_includes_kafka_config(self, mock_producer_class, minimal_kafka_config):
-        """Test that health check includes Kafka configuration details."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        health = await service.health_check()
-
-        # Health check returns basic status - kafka_config not in details
-        assert 'details' in health
-        assert health['details']['service'] == 'kafka_transport'
-        # Kafka config is available via get_transport_info() instead
-
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
-    @pytest.mark.asyncio
-    async def test_health_check_includes_registered_topics(self, mock_producer_class, minimal_kafka_config):
-        """Test that health check includes list of registered topics."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Register some handlers
+    async def test_includes_registered_topics(self, service):
+        service.connection_manager.producer = None
+        service.connection_manager.consumer = None
         service.register_handler("topic1", lambda m, d: None)
         service.register_handler("topic2", lambda m, d: None)
 
         health = await service.health_check()
 
-        assert 'registered_topics' in health['details']
-        assert len(health['details']['registered_topics']) == 2
-        assert "topic1" in health['details']['registered_topics']
-        assert "topic2" in health['details']['registered_topics']
+        assert "registered_topics" in health["details"]
+        assert set(health["details"]["registered_topics"]) == {"topic1", "topic2"}
 
-    @patch('transport_services.kafka.kafka_transport_service.KafkaProducer')
     @pytest.mark.asyncio
-    async def test_health_check_error_handling(self, mock_producer_class, minimal_kafka_config):
-        """Test that health check handles errors gracefully."""
-        from transport_services.kafka.kafka_transport_service import KafkaTransportService
-
-        mock_producer_class.return_value = Mock()
-        mock_orchestrator_service = Mock()
-
-        service = KafkaTransportService(minimal_kafka_config, mock_orchestrator_service)
-
-        # Mock a property that raises an error
-        type(service).running = property(lambda self: (_ for _ in ()).throw(Exception("Test error")))
-
+    async def test_error_returns_unhealthy(self, service):
+        # Force an exception inside health_check
+        type(service).running = property(
+            lambda self: (_ for _ in ()).throw(Exception("internal error"))
+        )
         health = await service.health_check()
-
-        # Should return unhealthy status with error
-        assert health['healthy'] is False
-        assert 'error' in health
+        assert health["healthy"] is False
+        assert "error" in health

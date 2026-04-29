@@ -1,15 +1,55 @@
 domains:
   - name: "arachne.dainst.org"
     workflow: "archaeology_workflow"
+    webpage_types: dynamic
+    enabled: true
+    description: "iDAI.objects/Arachne - Archaeological object database"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
+    input_source: html_document
+    extractor: jsonld
 
   - name: "arachne.test.dainst.org"
     workflow: "archaeology_workflow"
+    webpage_types: dynamic
+    enabled: true
+    description: "Arachne test environment"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
+    input_source: html_document
+    extractor: jsonld
 
   - name: "field.dainst.org"
     workflow: "field_data_workflow"
+    webpage_types: static
+    enabled: true
+    description: "iDAI.field - Field documentation"
+    generators:
+      - name: scoop
+        artifacts: [warc]
 
   - name: "*.dainst.org"
     workflow: "standard_dainst_workflow"
+    webpage_types: dynamic
+    enabled: true
+    description: "Default pattern for DAI domains"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
 
   - name: "default"
     workflow: "standard_archive_workflow"
+    webpage_types: dynamic
+    enabled: true
+    description: "Default fallback for unknown domains"
+    generators:
+      - name: scoop
+        artifacts: [warc, dom-snapshot]

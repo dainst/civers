@@ -1,17 +1,3 @@
-# Development Environment Configuration
-# For local development on host machine
-
-environment: development
-
 transport:
   kafka:
-    bootstrap_servers: "localhost:29092"
-    consumer:
-      group_id: "civers-dev"
-
-storage:
-  enabled:
-    - local_file
-  backends:
-    local_file:
-      base_path: "archives"
+    bootstrap_servers: localhost:29092

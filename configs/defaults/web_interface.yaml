@@ -14,6 +14,9 @@ api:
   kafka:
     default_priority: ${KAFKA_DEFAULT_PRIORITY:-1}
 
+  # Base URL used in callback_url values sent to the orchestrator.
+  callback_base_url: "${CALLBACK_BASE_URL:-http://localhost:8000}"
+
 # Database settings for request status tracking
 database:
   connection_timeout_seconds: ${DB_CONNECTION_TIMEOUT_SECONDS:-10.0}

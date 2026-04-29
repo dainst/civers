@@ -6,11 +6,6 @@ environment: docker
 app:
   archive_directory: ${ARCHIVE_DIRECTORY:-archives}
   
-  # Docker Kafka settings (internal port with host networking)
-  transport:
-    kafka:
-      bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}
-  
   # Storage configuration for Docker
   # Enable both local and CIVERS API in containerized environment
   storage:

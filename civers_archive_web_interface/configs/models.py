@@ -215,20 +215,20 @@ class ValidationConfig(BaseModel):
     # Artifact types and content mappings
     allowed_artifact_types: Set[str] = Field(
         default={
-            "archive.wacz", "metadata.json", "screenshot.png", 
-            "singlefile.html", "warc.file", "document.html",
+            "archive.wacz", "archive.warc", "metadata.json", "screenshot.png",
+            "singlefile.html", "document.html",
             "dom-snapshot.html", "archive_generator_metadata.json"
         },
         description="Allowed artifact file types"
     )
-    
+
     content_type_mappings: Dict[str, str] = Field(
         default={
             "archive.wacz": "application/zip",
+            "archive.warc": "application/warc",
             "metadata.json": "application/json",
             "screenshot.png": "image/png",
-            "singlefile.html": "text/html", 
-            "warc.file": "application/warc",
+            "singlefile.html": "text/html",
             "document.html": "text/html",
             "dom-snapshot.html": "text/html",
             "archive_generator_metadata.json": "application/json"

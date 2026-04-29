@@ -3,14 +3,13 @@
 
 environment: testing
 
-app:
-  transport:
-    kafka:
-      bootstrap_servers: "localhost:29092"
-      consumer_group: "metadata-extractor-test"
-      health_check_enabled: false
-      monitoring_enabled: false
+transport:
+  kafka:
+    consumer_group: "metadata-extractor-test"
+    health_check_enabled: false
+    monitoring_enabled: false
 
+app:
   storage:
     enabled:
       - local_file

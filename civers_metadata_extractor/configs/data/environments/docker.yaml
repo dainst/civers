@@ -4,12 +4,6 @@
 environment: docker
 
 app:
-  transport:
-    kafka:
-      # Use localhost since we're on host network mode for VPN compatibility
-      bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
-      consumer_group: "${KAFKA_CONSUMER_GROUP_ID:-metadata-extractor-docker}"
-
   storage:
     enabled:
       - local_file

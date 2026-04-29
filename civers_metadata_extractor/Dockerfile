@@ -48,6 +48,9 @@ WORKDIR /app
 
 # Copy virtual environment and source code from builder
 COPY --from=builder /app/.venv /app/.venv
+
+# Install watchfiles for hot-reload in development
+RUN . /app/.venv/bin/activate && pip install watchfiles
 COPY --from=builder /app/configs /app/configs
 COPY --from=builder /app/models /app/models
 COPY --from=builder /app/metadata_extractors /app/metadata_extractors

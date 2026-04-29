@@ -19,12 +19,10 @@ Usage:
 """
 
 import argparse
-import asyncio
 import json
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -44,6 +42,9 @@ from configs.logging_config import setup_logging, get_logger
 
 # Logger will be initialized after setup_logging is called
 logger = None
+
+# How often to print a "still waiting" heartbeat (seconds)
+PROGRESS_INTERVAL = 30
 
 
 class WorkflowTester:
@@ -66,10 +67,14 @@ class WorkflowTester:
         self.consumer: Optional[KafkaConsumer] = None
 
     def start(self):
-        """Start Kafka producer and consumer."""
+        """Start Kafka producer and consumer.
+
+        The consumer is created here (before the request is published) so that
+        auto_offset_reset="latest" is safe — any response published after this
+        point will be received.
+        """
         logger.info(f"Connecting to Kafka broker: {self.kafka_broker}")
 
-        # Create producer
         self.producer = KafkaProducer(
             bootstrap_servers=self.kafka_broker,
             value_serializer=lambda v: json.dumps(v).encode("utf-8"),
@@ -77,16 +82,19 @@ class WorkflowTester:
         )
         logger.info("✅ Kafka producer connected")
 
-        # Create consumer for orchestrator response topics
+        # Consumer uses "latest" because it is created BEFORE the request is
+        # submitted (see start() → sleep → submit order in main).  "earliest"
+        # would cause the consumer to replay every historical message on these
+        # topics before reaching the new one, making the script appear idle.
         self.consumer = KafkaConsumer(
             "orchestrator.status",
             "orchestrator.completed",
             "orchestrator.failed",
             bootstrap_servers=self.kafka_broker,
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-            auto_offset_reset="earliest",  # Ensure we don't miss messages due to race conditions
+            auto_offset_reset="latest",
             group_id=f"workflow_tester_{uuid.uuid4().hex[:8]}",
-            consumer_timeout_ms=1000,  # Poll every second to allow timeout check
+            consumer_timeout_ms=1000,
         )
         logger.info("✅ Kafka consumer connected")
         logger.info("   Subscribed to: orchestrator.status, orchestrator.completed, orchestrator.failed")
@@ -121,7 +129,6 @@ class WorkflowTester:
         """
         request_id = f"test-{uuid.uuid4().hex[:12]}"
 
-        # Create orchestrator request event
         event = OrchestratorRequestEvent(
             request_id=request_id,
             url=url,
@@ -140,15 +147,14 @@ class WorkflowTester:
         logger.info(f"   Metadata: {metadata}")
         logger.info("=" * 80)
 
-        # Publish to orchestrator.requests topic
         future = self.producer.send(
             topic="orchestrator.requests",
             key=request_id.encode("utf-8"),
             value=event.model_dump(),
         )
-        future.get(timeout=10)  # Wait for send to complete
-
+        future.get(timeout=10)
         self.producer.flush()
+
         logger.info("✅ Request published to orchestrator.requests")
         logger.info("")
 
@@ -174,32 +180,34 @@ class WorkflowTester:
         logger.info("=" * 80)
         logger.info("")
 
-        import time
         start_time = time.time()
+        last_progress_log = start_time
         status_updates = []
 
         try:
             while True:
-                # Check global timeout
                 elapsed = time.time() - start_time
+
                 if elapsed > self.timeout:
                     raise TimeoutError(
                         f"Workflow did not complete within {self.timeout} seconds"
                     )
 
-                # Poll for messages
+                # Periodic heartbeat so the user knows the script is alive
+                if time.time() - last_progress_log >= PROGRESS_INTERVAL:
+                    logger.info(f"⏳ Still waiting... ({elapsed:.0f}s elapsed, timeout: {self.timeout}s)")
+                    last_progress_log = time.time()
+
                 message_batch = self.consumer.poll(timeout_ms=1000)
-                
+
                 for tp, messages in message_batch.items():
                     for message in messages:
                         topic = message.topic
                         event_data = message.value
 
-                        # Only process events for our request_id
                         if event_data.get("request_id") != request_id:
                             continue
 
-                        # Handle status updates
                         if topic == "orchestrator.status":
                             event = OrchestratorStatusEvent(**event_data)
                             status_updates.append(event)
@@ -209,8 +217,8 @@ class WorkflowTester:
                             if event.message:
                                 logger.info(f"   Message: {event.message}")
                             logger.info("")
+                            last_progress_log = time.time()  # reset heartbeat on real activity
 
-                        # Handle completion
                         elif topic == "orchestrator.completed":
                             event = OrchestratorCompletedEvent(**event_data)
                             elapsed_time = time.time() - start_time
@@ -224,8 +232,8 @@ class WorkflowTester:
                             logger.info(f"   Total E2E Time: {elapsed_time:.2f}s")
                             logger.info(f"   Status Updates Received: {len(status_updates)}")
                             logger.info("")
-                            logger.info("📊 RESULTS:")
-                            for key, value in event.results.items():
+                            logger.info("📊 STEP RESULTS:")
+                            for key, value in event.step_results.items():
                                 logger.info(f"   {key}: {value}")
                             logger.info("=" * 80)
 
@@ -236,7 +244,6 @@ class WorkflowTester:
                                 "elapsed_time": elapsed_time,
                             }
 
-                        # Handle failure
                         elif topic == "orchestrator.failed":
                             event = OrchestratorFailedEvent(**event_data)
                             elapsed_time = time.time() - start_time
@@ -264,7 +271,7 @@ class WorkflowTester:
                                 "elapsed_time": elapsed_time,
                             }
 
-        except TimeoutError as e:
+        except TimeoutError:
             logger.error("=" * 80)
             logger.error("⏰ WORKFLOW TIMEOUT")
             logger.error("=" * 80)
@@ -273,49 +280,6 @@ class WorkflowTester:
             logger.error(f"   Status Updates Received: {len(status_updates)}")
             logger.error("=" * 80)
             raise
-
-    def run_test(
-        self,
-        url: str,
-        workflow_name: Optional[str] = None,
-        priority: int = 5,
-        metadata: Optional[dict] = None,
-    ) -> dict:
-        """Run complete E2E workflow test.
-
-        Args:
-            url: URL to process
-            workflow_name: Optional workflow name
-            priority: Processing priority (1-10)
-            metadata: Optional metadata dictionary
-
-        Returns:
-            dict with test results
-        """
-        import time
-        try:
-            # Start Kafka connections
-            self.start()
-
-            # Give consumer time to establish connection and subscribe
-            time.sleep(2)
-
-            # Submit workflow request
-            request_id = self.submit_workflow_request(
-                url=url,
-                workflow_name=workflow_name,
-                priority=priority,
-                metadata=metadata,
-            )
-
-            # Monitor workflow execution
-            result = self.monitor_workflow(request_id)
-
-            return result
-
-        finally:
-            # Clean up
-            self.stop()
 
 
 def parse_args():
@@ -326,16 +290,16 @@ def parse_args():
         epilog="""
 Examples:
   # Test with default URL
-  python scripts/test_workflow.py
+  uv run python scripts/test_workflow.py
 
   # Test with specific URL
-  python scripts/test_workflow.py --url https://arachne.dainst.org/entity/12345
+  uv run python scripts/test_workflow.py --url https://arachne.dainst.org/entity/12345
 
   # Test with specific workflow
-  python scripts/test_workflow.py --url https://example.com --workflow standard_archive_workflow
+  uv run python scripts/test_workflow.py --url https://example.com --workflow standard_archive_workflow
 
   # Custom Kafka broker and timeout
-  python scripts/test_workflow.py --kafka-broker localhost:29092 --timeout 600
+  uv run python scripts/test_workflow.py --kafka-broker localhost:29092 --timeout 600
         """,
     )
 
@@ -345,14 +309,12 @@ Examples:
         default="https://arachne.test.dainst.org/entity/2003166?fl=20&q=*&resultIndex=2",
         help="URL to process (default: Arachne test URL)",
     )
-
     parser.add_argument(
         "--workflow",
         type=str,
         default=None,
         help="Workflow name to execute (default: auto-detect from domain)",
     )
-
     parser.add_argument(
         "--priority",
         type=int,
@@ -361,28 +323,24 @@ Examples:
         metavar="[1-10]",
         help="Processing priority (1=low, 10=high, default: 5)",
     )
-
     parser.add_argument(
         "--kafka-broker",
         type=str,
         default="localhost:29092",
         help="Kafka bootstrap server (default: localhost:29092)",
     )
-
     parser.add_argument(
         "--timeout",
         type=int,
         default=600,
-        help="Timeout in seconds to wait for workflow completion (default: 600 for archaeology workflow)",
+        help="Timeout in seconds to wait for workflow completion (default: 600)",
     )
-
     parser.add_argument(
         "--metadata",
         type=json.loads,
         default=None,
         help='Optional metadata as JSON string (e.g., \'{"key": "value"}\')',
     )
-
     parser.add_argument(
         "--log-level",
         type=str,
@@ -399,10 +357,7 @@ def main():
     global logger
     args = parse_args()
 
-    # Setup logging using centralized config
     setup_logging(level=args.log_level)
-
-    # Initialize logger after setup
     logger = get_logger(__name__)
 
     logger.info("=" * 80)
@@ -410,19 +365,16 @@ def main():
     logger.info("=" * 80)
     logger.info("")
 
-    # Create tester
     tester = WorkflowTester(
         kafka_broker=args.kafka_broker,
         timeout=args.timeout,
     )
 
     try:
-        # Run test
-        # Start Kafka connections
+        # Start consumer BEFORE submitting so we don't miss fast responses
         tester.start()
-        time.sleep(2) # Give consumer time to establish connection and subscribe
+        time.sleep(2)  # Allow consumer to finish partition assignment
 
-        # Submit workflow request
         request_id = tester.submit_workflow_request(
             url=args.url,
             workflow_name=args.workflow,
@@ -430,16 +382,9 @@ def main():
             metadata=args.metadata,
         )
 
-        # Monitor execution
         result = tester.monitor_workflow(request_id)
 
-        # Report result
-        if result is None:
-            logger.error("")
-            logger.error("❌ E2E test FAILED: No response received from orchestrator")
-            logger.error("   The workflow may still be running. Check orchestrator logs.")
-            sys.exit(3)
-        elif result["status"] == "completed":
+        if result["status"] == "completed":
             logger.info("")
             logger.info("✅ E2E test PASSED!")
             sys.exit(0)
@@ -453,11 +398,20 @@ def main():
         logger.error(f"❌ E2E test TIMEOUT: {e}")
         sys.exit(2)
 
+    except KafkaError as e:
+        logger.error("")
+        logger.error(f"❌ Kafka error: {e}")
+        logger.error("   Is the Kafka broker running? Check --kafka-broker address.")
+        sys.exit(3)
+
     except Exception as e:
         logger.error("")
         logger.error(f"❌ E2E test ERROR: {e}")
         logger.exception("Stack trace:")
         sys.exit(3)
+
+    finally:
+        tester.stop()
 
 
 if __name__ == "__main__":
