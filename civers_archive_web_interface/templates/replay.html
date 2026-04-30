@@ -174,6 +174,11 @@ endif %}
               {% include "components/wacz_replay.html" %}
             </div>
 
+            <!-- WARC Replay -->
+            <div x-show="currentView === 'warc'" class="w-full h-full">
+              {% include "components/warc_replay.html" %}
+            </div>
+
             <!-- SingleFile Display -->
             <div x-show="currentView === 'singlefile'" class="w-full h-full">
               <!-- New SingleFile Viewer Component -->
@@ -251,8 +256,8 @@ endif %}
 
 {% block scripts %}
 <script src="{{ url_for('static', path='js/replay.js') }}"></script>
-<!-- Only load ReplayWeb.page UI library when WACZ view is active -->
-{% if current_view == 'wacz' %}
+<!-- Only load ReplayWeb.page UI library when WACZ or WARC view is active -->
+{% if current_view == 'wacz' or current_view == 'warc' %}
 <script defer src="{{ url_for('static', path='lib/replaywebpage/ui.js') }}"></script>
 <script>
   // Initialize WACZ service worker when WACZ view is loaded

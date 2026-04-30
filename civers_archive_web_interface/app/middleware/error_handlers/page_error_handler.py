@@ -63,7 +63,7 @@ class PageErrorHandler:
             "title": "Page Not Found - Civers Archive"
         }
 
-        response = self.templates.TemplateResponse("404.html", context, status_code=404)
+        response = self.templates.TemplateResponse(request, "404.html", context, status_code=404)
         response.headers["X-Request-ID"] = get_correlation_id()
         return response
 
@@ -89,7 +89,7 @@ class PageErrorHandler:
                 "request": request,
                 "title": "Page Not Found - Civers Archive"
             }
-            response = self.templates.TemplateResponse("404.html", context, status_code=404)
+            response = self.templates.TemplateResponse(request, "404.html", context, status_code=404)
             response.headers["X-Request-ID"] = get_correlation_id()
             return response
 
@@ -101,7 +101,7 @@ class PageErrorHandler:
                 "error_code": 403
             }
             # Could create a 403.html template in the future
-            response = self.templates.TemplateResponse("404.html", context, status_code=403)
+            response = self.templates.TemplateResponse(request, "404.html", context, status_code=403)
             response.headers["X-Request-ID"] = get_correlation_id()
             return response
 
@@ -113,7 +113,7 @@ class PageErrorHandler:
                 "error_code": exc.status_code
             }
             # Could create a 500.html template in the future
-            response = self.templates.TemplateResponse("404.html", context, status_code=exc.status_code)
+            response = self.templates.TemplateResponse(request, "404.html", context, status_code=exc.status_code)
             response.headers["X-Request-ID"] = get_correlation_id()
             return response
 
@@ -125,7 +125,7 @@ class PageErrorHandler:
                 "error_message": str(exc.detail),
                 "error_code": exc.status_code
             }
-            response = self.templates.TemplateResponse("404.html", context, status_code=exc.status_code)
+            response = self.templates.TemplateResponse(request, "404.html", context, status_code=exc.status_code)
             response.headers["X-Request-ID"] = get_correlation_id()
             return response
 
@@ -170,7 +170,7 @@ class PageErrorHandler:
             "error_code": status_code
         }
 
-        response = self.templates.TemplateResponse("404.html", context, status_code=status_code)
+        response = self.templates.TemplateResponse(request, "404.html", context, status_code=status_code)
         response.headers["X-Request-ID"] = get_correlation_id()
         return response
 
@@ -192,7 +192,7 @@ class PageErrorHandler:
             "error_code": 400
         }
 
-        response = self.templates.TemplateResponse("404.html", context, status_code=400)
+        response = self.templates.TemplateResponse(request, "404.html", context, status_code=400)
         response.headers["X-Request-ID"] = get_correlation_id()
         return response
 
@@ -213,6 +213,6 @@ class PageErrorHandler:
             "error_code": 500
         }
 
-        response = self.templates.TemplateResponse("404.html", context, status_code=500)
+        response = self.templates.TemplateResponse(request, "404.html", context, status_code=500)
         response.headers["X-Request-ID"] = get_correlation_id()
         return response

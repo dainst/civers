@@ -1,42 +1,8 @@
-# Production Environment Configuration
-# For production deployment
-
-environment: production
-
 transport:
   kafka:
-    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}"
+    bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS}
     consumer:
-      group_id: "${KAFKA_CONSUMER_GROUP_ID:-civers-production}"
+      auto_offset_reset: ${KAFKA_CONSUMER_AUTO_OFFSET_RESET:-earliest}
     producer:
-      acks: "all"
-      retries: 5
-
-storage:
-  enabled:
-    - local_file
-    - civers_rest_api
-  backends:
-    local_file:
-      base_path: "${ARCHIVE_DIRECTORY:-/app/archives}"
-    civers_rest_api:
-      upload_url: "${CIVERS_API_URL:-http://civers-web:8000}/api/upload"
-      timeout_seconds: 60
-      retry_attempts: 5
-      verify_ssl: true
-      auth:
-        enabled: "${STORAGE_API_AUTH_ENABLED:-false}"
-
-# Production domains only
-domains:
-  - name: arachne.dainst.org
-    workflow: archaeology_workflow
-    artifacts: [warc, html, screenshots, singlefile]
-    webpage_types: dynamic
-    enabled: true
-
-  - name: field.dainst.org
-    workflow: field_data_workflow
-    artifacts: [warc, html, singlefile]
-    webpage_types: dynamic
-    enabled: true
+      acks: ${KAFKA_PRODUCER_ACKS:-all}
+      retries: ${KAFKA_PRODUCER_RETRIES:-5}

@@ -4,11 +4,6 @@
 environment: development
 
 app:
-  transport:
-    kafka:
-      bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
-      consumer_group: "${KAFKA_CONSUMER_GROUP_ID:-metadata-extractor-dev}"
-
   storage:
     backends:
       local_file:

@@ -22,7 +22,13 @@ function replayPage(snapshotId, initialView, availableViews) {
 
             // Set default view if none provided
             if (!this.currentView && this.availableViews.length > 0) {
-                this.currentView = this.availableViews.includes('wacz') ? 'wacz' : this.availableViews[0];
+                if (this.availableViews.includes('wacz')) {
+                    this.currentView = 'wacz';
+                } else if (this.availableViews.includes('warc')) {
+                    this.currentView = 'warc';
+                } else {
+                    this.currentView = this.availableViews[0];
+                }
             }
 
             // WACZ library and service worker are loaded via server-side template rendering
@@ -54,6 +60,7 @@ function replayPage(snapshotId, initialView, availableViews) {
                 // Map display type back to actual artifact type for API
                 const typeMapping = {
                     'wacz': 'archive.wacz',
+                    'warc': 'archive.warc',
                     'singlefile': 'singlefile.html',
                     'screenshot': 'screenshot.png',
                     'metadata': 'metadata.json',

@@ -110,3 +110,5 @@ scratch/
 arachne4-test_instance/
 docs/
 .github
+.claude
+.codex

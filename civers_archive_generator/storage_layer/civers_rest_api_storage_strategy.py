@@ -357,6 +357,7 @@ class CiversRestApiStorageStrategy(StorageStrategy):
         # Define recognized artifact files and their content types
         ARTIFACT_TYPES = {
             "archive.wacz": "application/octet-stream",
+            "archive.warc": "application/warc",
             "singlefile.html": "text/html",
             "document.html": "text/html",
             "dom-snapshot.html": "text/html",  # DOM snapshot from Scoop

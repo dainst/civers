@@ -71,8 +71,8 @@ class SnapshotDetail(BaseModel):
         # Fallback to common types if no config provided
         if allowed_artifact_types is None:
             allowed_artifact_types = {
-                "archive.wacz", "metadata.json", "screenshot.png", 
-                "singlefile.html", "warc.file", "document.html",
+                "archive.wacz", "archive.warc", "metadata.json", "screenshot.png",
+                "singlefile.html", "document.html",
                 "dom-snapshot.html", "archive_generator_metadata.json"
             }
         

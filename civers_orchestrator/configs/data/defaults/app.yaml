@@ -1,4 +1,4 @@
 app:
-  name: civers_orchestrator
-  version: 1.0.0
-  environment: development
+  name: "${APP_NAME:-civers_orchestrator}"
+  version: "1.0.0"
+  environment: "${CONFIG_ENVIRONMENT:-development}"

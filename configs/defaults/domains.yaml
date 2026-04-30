@@ -1,21 +1,26 @@
-# Merged Domain Configuration
-# Single source of truth for all CIVERS components
+# Shared domain configuration — superset for all Civers components
 #
-# Each domain entry contains attributes used by different components:
-# - workflow: Used by Orchestrator to route to appropriate workflow
-# - artifacts: Used by Generator to determine what to archive
-# - webpage_types: Used by Generator for archiving strategy
-# - input_source/mappings: Used by Metadata Extractor for parsing logic
+# Field guide (each component reads only the fields its model defines):
+#   workflow:       Orchestrator — routes request to the correct workflow
+#   generators:     Archive Generator — which tools to run and what artifacts to create
+#   webpage_types:  Archive Generator — archiving strategy (dynamic / static)
+#   input_source:   Metadata Extractor — how to parse the archived document
+#   extractor:      Metadata Extractor — which metadata extractor to apply
+#   mappings:       Metadata Extractor — source → target field mapping rules
 
 domains:
-  # Production domains
   - name: arachne.dainst.org
-    workflow: simple_archive_only
-    artifacts: [warc, html, screenshots, singlefile]
+    workflow: archive_generation_only_workflow
     webpage_types: dynamic
     enabled: true
     description: "iDAI.objects/Arachne - Archaeological object database"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
     input_source: html_document
+    extractor: jsonld
     mappings: &arachne_mappings
       "name": "Title.title"
       "description": "Description.description|description_type=Abstract"
@@ -26,9 +31,9 @@ domains:
       "publisher[*].name": "Publisher[*].publisher"
       "publisher[*].identifier.value": "Publisher[*].publisher_identifier"
       "publisher[*].identifier.propertyID": "Publisher[*].publisher_identifier_scheme"
-      "datePublished": "Date.date|date_type=Published"
+      "datePublished": "publication_year|transform=extract_year"
       "dateModified": "Date.date|date_type=Updated"
-      "@type": "ResourceType.resource_type"
+      "@type": "ResourceType.resource_type_general|constant=Dataset"
       "spatialCoverage[*].name": "GeoLocation.geo_location_place"
       "spatialCoverage[*].geo.latitude": "GeoLocation.geo_location_point.point_latitude"
       "spatialCoverage[*].geo.longitude": "GeoLocation.geo_location_point.point_longitude"
@@ -40,14 +45,18 @@ domains:
       "citation[*].identifier.value": "AlternateIdentifier.alternate_identifier"
       "image[*]": "AlternateIdentifier.alternate_identifier|alternate_identifier_type=URL"
 
-  # Test/Staging domains
   - name: arachne.test.dainst.org
-    workflow: archaeology_workflow
-    artifacts: [warc, html, screenshots, singlefile, json]
+    workflow: archive_and_metadata_workflow
     webpage_types: dynamic
     enabled: true
     description: "Arachne test environment"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
     input_source: html_document
+    extractor: jsonld
     mappings: &arachne_mappings_test
       "name": "Title.title"
       "description": "Description.description|description_type=Abstract"
@@ -58,9 +67,9 @@ domains:
       "publisher[*].name": "Publisher[*].publisher"
       "publisher[*].identifier.value": "Publisher[*].publisher_identifier"
       "publisher[*].identifier.propertyID": "Publisher[*].publisher_identifier_scheme"
-      "datePublished": "Date.date|date_type=Published"
+      "datePublished": "publication_year|transform=extract_year"
       "dateModified": "Date.date|date_type=Updated"
-      "@type": "ResourceType.resource_type"
+      "@type": "ResourceType.resource_type_general|constant=Dataset"
       "spatialCoverage[*].name": "GeoLocation.geo_location_place"
       "spatialCoverage[*].geo.latitude": "GeoLocation.geo_location_point.point_latitude"
       "spatialCoverage[*].geo.longitude": "GeoLocation.geo_location_point.point_longitude"
@@ -73,19 +82,26 @@ domains:
       "image[*]": "AlternateIdentifier.alternate_identifier|alternate_identifier_type=URL"
 
   - name: field.idai.world
-    workflow: simple_archive_only
-    artifacts: [warc, html, singlefile]
+    workflow: archive_generation_only_workflow
     webpage_types: dynamic
     enabled: true
-    description: "iDAI.field - Field documentation"
+    description: "iDAI.field - Field documentation (idai.world)"
+    generators:
+      - name: scoop
+        artifacts: [warc, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
 
   - name: publications.dainst.org
-    workflow: simple_archive_only
-    artifacts: [warc, html, screenshots]
+    workflow: archive_generation_only_workflow
     webpage_types: dynamic
     enabled: true
     description: "DAINST Publications"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
     input_source: html_document
+    extractor: jsonld
     mappings:
       "DC.Title": "Title.title"
       "DC.Title.Alternative": "Title.title"
@@ -101,10 +117,10 @@ domains:
       "DC.Rights": "Rights.rights"
       "DC.Source": "Publisher.publisher"
       "DC.Source.URI": "AlternateIdentifier.alternate_identifier"
-      "DC.Type": "ResourceType.resource_type"
+      "DC.Type": "ResourceType.resource_type_general|constant=Dataset"
       "citation_title": "Title.title"
       "citation_language": "Description.lang"
-      "citation_publication_date": "Date.date"
+      "citation_publication_date": "publication_year|transform=extract_year"
       "citation_author": "Creator.creator_name"
       "citation_abstract": "Description.description"
       "citation_doi": "AlternateIdentifier.alternate_identifier"
@@ -114,79 +130,114 @@ domains:
       "generator": "Description.description"
       "gs_meta_revision": "AlternateIdentifier.alternate_identifier"
 
-  # Wildcard pattern for other DAI domains
   - name: "*.dainst.org"
-    workflow: simple_archive_only
-    artifacts: [warc, html, screenshots]
+    workflow: archive_generation_only_workflow
     webpage_types: dynamic
     enabled: true
     description: "Default pattern for DAI domains"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
 
-  # Default fallback
   - name: default
-    workflow: simple_archive_only
-    artifacts: [warc, html]
+    workflow: archive_generation_only_workflow
     webpage_types: dynamic
     enabled: true
     description: "Default fallback for unknown domains"
+    generators:
+      - name: scoop
+        artifacts: [warc, dom-snapshot]
 
   - name: civers.widget.demo
-    workflow: standard_archive_workflow
-    artifacts: [warc, html, screenshots, singlefile]
+    workflow: archive_generation_only_workflow
     webpage_types: dynamic
     enabled: true
     description: "CIVERS Widget Demo Domain"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
 
-  # Integration test domain
   - name: httpbin.org
-    workflow: simple_archive_only
-    artifacts: [warc, html, screenshots]
+    workflow: archive_generation_only_workflow
     webpage_types: dynamic
     enabled: true
     description: "HTTP testing service for integration tests"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
 
   - name: civers.test.dainst.de
-    workflow: standard_archive_workflow
-    artifacts: [warc, html, screenshots, singlefile, json]
+    workflow: archive_generation_only_workflow
     webpage_types: dynamic
     enabled: true
     description: "CiVers Arachne frontend Test Environment Domain"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
     input_source: html_document
+    extractor: jsonld
     mappings: *arachne_mappings_test
 
   - name: "civers.test.dainst.de:8080"
-    workflow: standard_archive_workflow
-    artifacts: [warc, html, screenshots, singlefile, json]
+    workflow: archive_generation_only_workflow
     webpage_types: dynamic
     enabled: true
     description: "CiVers Arachne frontend Test Environment Domain (Port 8080)"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
     input_source: html_document
+    extractor: jsonld
     mappings: *arachne_mappings_test
 
   - name: localhost
-    workflow: standard_archive_workflow
-    artifacts: [warc, html, screenshots, singlefile, json]
+    workflow: archive_generation_only_workflow
     webpage_types: dynamic
     enabled: true
     description: "Local Development Host"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
     input_source: html_document
+    extractor: jsonld
     mappings: *arachne_mappings_test
 
   - name: 127.0.0.1
-    workflow: standard_archive_workflow
-    artifacts: [warc, html, screenshots, singlefile, json]
+    workflow: archive_generation_only_workflow
     webpage_types: dynamic
     enabled: true
     description: "Local Development IP"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
     input_source: html_document
+    extractor: jsonld
     mappings: *arachne_mappings_test
 
   - name: arachne_local_demo
-    workflow: standard_archive_workflow
-    artifacts: [warc, html, screenshots, singlefile, json]
+    workflow: archive_generation_only_workflow
     webpage_types: dynamic
     enabled: true
     description: "Arachne Local Demo Instance"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
     input_source: html_document
+    extractor: jsonld
     mappings: *arachne_mappings
-

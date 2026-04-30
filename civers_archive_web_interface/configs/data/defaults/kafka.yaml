@@ -1,6 +1,6 @@
 transport:
   kafka:
-    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-broker:9092}"
+    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
     producer:
       acks: "all"
       retries: 3

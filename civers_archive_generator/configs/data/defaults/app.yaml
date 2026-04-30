@@ -2,8 +2,8 @@
 # Common settings shared across all environments
 
 app:
-  name: archive_generator
-  version: 1.0.0
+  name: "${APP_NAME:-archive_generator}"
+  version: "1.0.0"
 
   # Scoop settings for web archiving
   scoop_cli_command: "node lib/scoop/bin/cli.js"
@@ -23,14 +23,14 @@ app:
     # Backend configurations
     backends:
       local_file:
-        base_path: archives
+        base_path: ${ARCHIVE_DIRECTORY:-archives}
         create_subdirectories: true
       
       # CIVERS REST API (disabled by default, enable in environment configs)
       civers_rest_api:
-        upload_url: "http://localhost:8000/api/upload"
+        upload_url: "${CIVERS_API_URL:-http://localhost:8000}/api/upload"
         timeout_seconds: 30
         retry_attempts: 3
-        verify_ssl: true
+        verify_ssl: false
         auth:
           enabled: false

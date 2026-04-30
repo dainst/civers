@@ -5,12 +5,48 @@ This allows systems like the web interface to receive real-time updates without
 polling or direct Kafka consumption.
 """
 
+import ipaddress
+from urllib.parse import urlparse
+
 import httpx
 import asyncio
 from typing import Any, Dict, Optional
 from configs.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+# Compiled once at import time
+_ALLOWED_SCHEMES = {"http", "https"}
+_PRIVATE_IP_NETWORKS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),  # link-local / cloud metadata
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+]
+
+
+def _is_safe_callback_url(url: str) -> bool:
+    """Return True only if url is http/https and not targeting a private address."""
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in _ALLOWED_SCHEMES:
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        # Reject raw IP addresses in private/link-local ranges
+        try:
+            addr = ipaddress.ip_address(hostname)
+            return not any(addr in net for net in _PRIVATE_IP_NETWORKS)
+        except ValueError:
+            # hostname is a domain name — allow it
+            return True
+    except Exception:
+        return False
+
 
 class CallbackService:
     """
@@ -44,6 +80,14 @@ class CallbackService:
             bool: True if successful, False otherwise
         """
         if not callback_url:
+            return False
+
+        if not _is_safe_callback_url(callback_url):
+            logger.error(
+                f"❌ Blocked callback to unsafe URL '{callback_url}' "
+                f"(request: {request_id or 'unknown'}). "
+                "Only http/https to public hosts are allowed."
+            )
             return False
 
         req_info = f"Request: {request_id or 'unknown'}"

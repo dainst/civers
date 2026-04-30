@@ -7,11 +7,6 @@ environment: development
 app:
   archive_directory: archives
   
-  # Development Kafka settings (external port)
-  transport:
-    kafka:
-      bootstrap_servers: localhost:29092
-  
   # Storage configuration for development
   # Enable both local file and CIVERS API for testing
   storage:

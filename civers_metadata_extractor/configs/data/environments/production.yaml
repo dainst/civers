@@ -4,13 +4,6 @@
 environment: production
 
 app:
-  transport:
-    kafka:
-      bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}"
-      consumer_group: "${KAFKA_CONSUMER_GROUP_ID:-metadata-extractor-prod}"
-      health_check_enabled: true
-      monitoring_enabled: true
-
   storage:
     enabled:
       - local_file

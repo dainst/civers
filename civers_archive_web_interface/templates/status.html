@@ -31,13 +31,13 @@
                 </div>
                 <!-- Success icon (hidden) -->
                 <div id="icon-success"
-                    class="hidden h-20 w-20 rounded-full bg-green-100 flex items-center justify-center">
+                    class="hidden h-20 w-20 rounded-full bg-green-100 items-center justify-center">
                     <svg class="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
                 <!-- Error icon (hidden) -->
-                <div id="icon-error" class="hidden h-20 w-20 rounded-full bg-red-100 flex items-center justify-center">
+                <div id="icon-error" class="hidden h-20 w-20 rounded-full bg-red-100 items-center justify-center">
                     <svg class="h-10 w-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M6 18L18 6M6 6l12 12" />
@@ -76,7 +76,7 @@
             </div>
 
             <!-- Success Actions (hidden by default) -->
-            <div id="success-actions" class="hidden w-full mt-4 flex flex-col sm:flex-row gap-3 justify-center">
+            <div id="success-actions" class="hidden w-full mt-4 flex-col sm:flex-row gap-3 justify-center">
                 <a id="view-archive-link" href="#"
                     class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
                     <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -134,15 +134,38 @@
         const STORAGE_KEY = 'civers_archive_requests';
         const MAX_STORED_REQUESTS = 20;
 
-        // Step definitions with progress percentages (current workflow: 2 steps)
-        const WORKFLOW_STEPS = {
-            'pending': { progress: 10, label: 'Step 1/3: Initializing Workflow' },
-            'in_progress': { progress: 25, label: 'Step 1/3: Processing...' },
-            'archive_generation': { progress: 50, label: 'Step 2/3: Generating Archive' },
-            'metadata_extraction': { progress: 80, label: 'Step 3/3: Extracting Metadata' },
-            'completed': { progress: 100, label: 'Complete!' },
-            'failed': { progress: 100, label: 'Failed' }
+        // Known workflow step sequences (must match workflows.yaml)
+        const WORKFLOW_DEFINITIONS = {
+            'archive_and_metadata_workflow': ['archive_generation', 'metadata_extraction'],
+            'archive_generation_only_workflow': ['archive_generation']
         };
+        const DEFAULT_WORKFLOW_STEPS = ['archive_generation'];
+
+        function getStepInfo(data) {
+            const status = data.status;
+            const workflowName = data.workflow_name;
+            const currentStep = data.current_step;
+            const completedSteps = data.completed_steps || [];
+
+            const steps = WORKFLOW_DEFINITIONS[workflowName] || DEFAULT_WORKFLOW_STEPS;
+            const total = steps.length;
+
+            if (status === 'completed') {
+                return { progress: 100, label: 'Complete!' };
+            }
+            if (status === 'failed') {
+                return { progress: 100, label: 'Failed' };
+            }
+            if (status === 'pending' || !currentStep) {
+                return { progress: 5, label: `Initializing Workflow...` };
+            }
+
+            // in_progress: step number = completed so far + 1
+            const stepNum = completedSteps.length + 1;
+            const stepLabel = currentStep.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            const progress = Math.round((stepNum / (total + 1)) * 100); // +1 so last step doesn't hit 100% until done
+            return { progress, label: `Step ${stepNum}/${total}: ${stepLabel}` };
+        }
 
         // Save current request to localStorage
         function saveRequestToStorage() {
@@ -254,14 +277,8 @@
             // Update last update time
             document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
 
-            // Determine progress and step label
-            // Priority: terminal status (completed/failed) > current_step > status
-            let stepInfo;
-            if (status === 'completed' || status === 'failed') {
-                stepInfo = WORKFLOW_STEPS[status];
-            } else {
-                stepInfo = WORKFLOW_STEPS[currentStep] || WORKFLOW_STEPS[status] || { progress: 20, label: `Processing: ${currentStep || status}` };
-            }
+            // Determine progress and step label dynamically from workflow definition
+            const stepInfo = getStepInfo(data);
 
             // Update progress bar
             document.getElementById('progress-bar').style.width = `${stepInfo.progress}%`;
@@ -304,7 +321,7 @@
             // Update icons
             document.getElementById('icon-loading').classList.add('hidden');
             document.getElementById('icon-success').classList.remove('hidden');
-            document.getElementById('icon-success').classList.add('flex');
+            document.getElementById('icon-success').style.display = 'flex';
 
             // Update title and message
             document.getElementById('status-title').textContent = 'Archive Complete!';
@@ -320,7 +337,7 @@
 
             // Show success actions
             if (snapshotId) {
-                document.getElementById('success-actions').classList.remove('hidden');
+                document.getElementById('success-actions').style.display = 'flex';
                 document.getElementById('replay-link').href = `/replay/${snapshotId}`;
 
                 // Use url_id from backend for archive page link
@@ -337,7 +354,7 @@
             // Update icons
             document.getElementById('icon-loading').classList.add('hidden');
             document.getElementById('icon-error').classList.remove('hidden');
-            document.getElementById('icon-error').classList.add('flex');
+            document.getElementById('icon-error').style.display = 'flex';
 
             // Update title and message
             document.getElementById('status-title').textContent = 'Archive Failed';

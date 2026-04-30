@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+import jinja2
 from fastapi.middleware.cors import CORSMiddleware
 from asgi_correlation_id import CorrelationIdMiddleware
 import os
@@ -76,12 +77,15 @@ async def lifespan(app: FastAPI):
             db_path = Path(_app_config.storage.sqlite.db_path)
             if not db_path.is_absolute():
                 db_path = Path.cwd() / db_path
-            
+
             db_manager = SQLiteManager(db_path)
             db_manager.connect()
             db_manager.initialize_schema(get_schema_sql())
             logger.info(f"Created separate SQLite database for status tracking at {db_path}")
-        
+
+        if db_manager:
+            db_manager.apply_migrations()
+
         if db_manager:
             app.state.request_status_service = RequestStatusService(db_manager)
             logger.info("Request status service initialized")
@@ -113,7 +117,11 @@ async def lifespan(app: FastAPI):
             logger.info("Kafka disabled in configuration")
         
         # Configure Jinja2 templates with auto-reload in debug mode
-        templates = Jinja2Templates(directory=_app_config.directories.templates, auto_reload=_app_config.server.debug)
+        _jinja_env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(str(_app_config.directories.templates)),
+            auto_reload=_app_config.server.debug,
+        )
+        templates = Jinja2Templates(env=_jinja_env)
         app.state.templates = templates
         logger.info("Jinja2 templates initialized")
 
@@ -207,9 +215,6 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=_trusted_proxies)
 
 # Register application-level exception handlers for consistent error formatting
 app.add_exception_handler(RequestValidationError, custom_validation_exception_handler)
-
-# Configure Jinja2 templates (moved to lifespan)
-# templates = Jinja2Templates(directory=_app_config.directories.templates, auto_reload=_app_config.server.debug)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=_app_config.directories.static), name="static")

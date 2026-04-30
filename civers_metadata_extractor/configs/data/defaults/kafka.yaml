@@ -1,28 +1,28 @@
 # Metadata Extractor - Kafka Transport Configuration
 # Transport layer settings for Kafka messaging
 
-app:
-  transport:
-    enabled:
-      - kafka
 
-    kafka:
-      bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
-      consumer_group: "${KAFKA_CONSUMER_GROUP_ID:-metadata_extraction_group}"
-      health_check_enabled: true
-      monitoring_enabled: true
+transport:
+  enabled:
+    - kafka
+
+  kafka:
+    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
+    consumer_group: "${KAFKA_CONSUMER_GROUP_ID}"
+    health_check_enabled: true
+    monitoring_enabled: true
+    
+    # Metadata extraction topics
+    # NOTE: These must match the shared kafka.yaml topic names
+    topics:
+      # Core extraction workflow topics (aligned with shared config)
+      metadata_extraction_requests: "metadata.requests"
+      metadata_extraction_started: "metadata.started"
+      metadata_extracted: "metadata.extracted"
+      metadata_extraction_failed: "metadata.failed"
+      metadata_extraction_completed: "metadata.completed"
       
-      # Metadata extraction topics
-      # NOTE: These must match the shared kafka.yaml topic names
-      topics:
-        # Core extraction workflow topics (aligned with shared config)
-        metadata_extraction_requests: "metadata.requests"
-        metadata_extraction_started: "metadata.started"
-        metadata_extracted: "metadata.extracted"
-        metadata_extraction_failed: "metadata.failed"
-        metadata_extraction_completed: "metadata.completed"
-        
-        # Validation and quality topics
-        metadata_validation_completed: "metadata.validation.completed"
-        metadata_status: "metadata.status"
-        metadata_quality: "metadata.quality"
+      # Validation and quality topics
+      metadata_validation_completed: "metadata.validation.completed"
+      metadata_status: "metadata.status"
+      metadata_quality: "metadata.quality"

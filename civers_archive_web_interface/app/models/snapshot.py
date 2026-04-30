@@ -179,8 +179,8 @@ class Snapshot(BaseModel):
     
     @property
     def has_warc(self) -> bool:
-        """Check if WARC file is available """
-        return 'warc.file' in self.available_artifacts
+        """Check if WARC file is available."""
+        return 'archive.warc' in self.available_artifacts
     
     @property
     def has_screenshot(self) -> bool:

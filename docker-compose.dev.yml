@@ -44,7 +44,8 @@ services:
       - ./civers_archive_web_interface/app:/app/app:ro
       - ./civers_archive_web_interface/static:/app/static:ro
       - ./civers_archive_web_interface/templates:/app/templates:ro
-    command: [ "bash", "-c", ". /opt/venv/bin/activate && exec watchfiles 'uvicorn app.main:app --host 0.0.0.0 --port 8000' app static templates /shared-configs" ]
+      - ./civers_archive_web_interface/configs:/app/configs:ro
+    command: [ "bash", "-c", ". /opt/venv/bin/activate && exec watchfiles 'uvicorn app.main:app --host 0.0.0.0 --port 8000' app static templates configs /shared-configs" ]
     # ============================================================================
     # Orchestrator - Local Development Override
     # Uses host network so document_url uses localhost (reachable by metadata-extractor)
@@ -58,12 +59,14 @@ services:
       # Use localhost since we're on host network
       - KAFKA_BOOTSTRAP_SERVERS=localhost:29092
       - CIVERS_API_URL=http://localhost:8000
+      - WEB_INTERFACE_URL=http://localhost:8000
       # Suppress verbose Kafka client logs
       - KAFKA_LOG_LEVEL=WARNING
     # Hot-reload: Mount source code and use watchfiles to auto-restart
     volumes:
-      - ./civers_orchestrator/orchestrator_services:/app/orchestrator_services:ro
+      - ./civers_orchestrator/orchestration_services:/app/orchestration_services:ro
       - ./civers_orchestrator/transport_services:/app/transport_services:ro
+      - ./civers_orchestrator/models:/app/models:ro
       - ./civers_orchestrator/configs:/app/configs:ro
       - ./civers_orchestrator/main.py:/app/main.py:ro
     command: [ "bash", "-c", ". /app/.venv/bin/activate && exec watchfiles 'python main.py' main.py orchestration_services transport_services models /shared-configs" ]
@@ -88,6 +91,7 @@ services:
       - ./civers_archive_generator/archive_generators:/app/archive_generators:ro
       - ./civers_archive_generator/archive_services:/app/archive_services:ro
       - ./civers_archive_generator/transport_services:/app/transport_services:ro
+      - ./civers_archive_generator/storage_layer:/app/storage_layer:ro
       - ./civers_archive_generator/configs:/app/configs:ro
       - ./civers_archive_generator/main.py:/app/main.py:ro
     command: [ "bash", "-c", ". /app/.venv/bin/activate && exec watchfiles 'python main.py' main.py archive_generators archive_services transport_services storage_layer /shared-configs" ]
@@ -112,6 +116,7 @@ services:
       - ./civers_metadata_extractor/metadata_extractors:/app/metadata_extractors:ro
       - ./civers_metadata_extractor/metadata_extraction_services:/app/metadata_extraction_services:ro
       - ./civers_metadata_extractor/transport_services:/app/transport_services:ro
+      - ./civers_metadata_extractor/storage_layer:/app/storage_layer:ro
       - ./civers_metadata_extractor/configs:/app/configs:ro
       - ./civers_metadata_extractor/models:/app/models:ro
       - ./civers_metadata_extractor/main.py:/app/main.py:ro

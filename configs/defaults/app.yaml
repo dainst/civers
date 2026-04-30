@@ -20,11 +20,17 @@ app:
     - "true"
     - "--log-level"
     - "info"
+    - "--capture-timeout"
+    - "120000"
+    - "--load-timeout"
+    - "60000"
+    - "--network-idle-timeout"
+    - "60000"
     - "--proxy-port"
     - "0"
 
   # SingleFile integration settings (Archive Generator)
-  singlefile_binary_path: "archive_generators/single-file-x86_64-linux"
+  singlefile_binary_path: "archive_generators/singlefile/single-file-x86_64-linux"
   singlefile_timeout_sec: 60
 
   # Transport configuration (included from kafka.yaml, but app section needs reference)
@@ -41,6 +47,10 @@ app:
         archive_status: "archive.status"
         archive_completed: "archive.completed"
         archive_failed: "archive.failed"
+
+  # Metadata extraction settings
+  metadata:
+    web_interface_url: "${WEB_INTERFACE_URL:-http://localhost:8000}"
 
   # Storage configuration
   storage:

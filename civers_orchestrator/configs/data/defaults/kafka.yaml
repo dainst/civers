@@ -2,9 +2,9 @@ transport:
   enabled:
     - kafka
   kafka:
-    bootstrap_servers: "localhost:29092"
+    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
     consumer:
-      group_id: "${KAFKA_CONSUMER_GROUP_ID:-civers_orchestrator}"
+      group_id: "${KAFKA_CONSUMER_GROUP_ID}"
       auto_offset_reset: "${KAFKA_AUTO_OFFSET_RESET:-earliest}"
     producer:
       acks: "all"
@@ -20,6 +20,7 @@ transport:
     # This keeps workflow definitions transport-agnostic.
     component_mappings:
       archive_generator:
+        step_name: "archive_generation"
         request_topic: "archive.requests"
         response_topics:
           success: "archive.completed"
@@ -30,6 +31,7 @@ transport:
           failure: "ArchiveFailedEvent"
 
       metadata_extractor:
+        step_name: "metadata_extraction"
         request_topic: "metadata.requests"
         response_topics:
           success: "metadata.completed"
@@ -40,6 +42,7 @@ transport:
           failure: "MetadataExtractionFailedEvent"
 
       doi_service:
+        step_name: "doi_assignment"
         request_topic: "doi.requests"
         response_topics:
           success: "doi.completed"

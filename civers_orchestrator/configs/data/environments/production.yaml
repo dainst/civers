@@ -16,7 +16,7 @@
 #   - KAFKA_BOOTSTRAP_SERVERS: Production Kafka cluster address
 #
 # Optional with production defaults:
-#   - KAFKA_CONSUMER_GROUP_ID: Defaults to civers_orchestrator_prod
+#   - KAFKA_CONSUMER_GROUP_ID: REQUIRED - set per-service in docker-compose/k8s (no default)
 #   - KAFKA_PRODUCER_RETRIES: Defaults to 5 (higher for production)
 #
 # ==============================================================================
@@ -33,7 +33,7 @@ transport:
     # REQUIRED: No default - must be explicitly set for production
     bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
     consumer:
-      group_id: "${KAFKA_CONSUMER_GROUP_ID:-civers_orchestrator_prod}"
+      group_id: "${KAFKA_CONSUMER_GROUP_ID}"
       auto_offset_reset: "${KAFKA_CONSUMER_AUTO_OFFSET_RESET:-earliest}"
     producer:
       acks: "${KAFKA_PRODUCER_ACKS:-all}"
@@ -47,6 +47,7 @@ transport:
 
     component_mappings:
       archive_generator:
+        step_name: "archive_generation"
         request_topic: "${KAFKA_TOPIC_ARCHIVE_REQUESTS:-archive.requests}"
         response_topics:
           success: "${KAFKA_TOPIC_ARCHIVE_COMPLETED:-archive.completed}"
@@ -57,6 +58,7 @@ transport:
           failure: "ArchiveFailedEvent"
 
       metadata_extractor:
+        step_name: "metadata_extraction"
         request_topic: "${KAFKA_TOPIC_METADATA_REQUESTS:-metadata.requests}"
         response_topics:
           success: "${KAFKA_TOPIC_METADATA_COMPLETED:-metadata.completed}"
@@ -67,6 +69,7 @@ transport:
           failure: "MetadataExtractionFailedEvent"
 
       doi_service:
+        step_name: "doi_generation"
         request_topic: "${KAFKA_TOPIC_DOI_REQUESTS:-doi.requests}"
         response_topics:
           success: "${KAFKA_TOPIC_DOI_COMPLETED:-doi.completed}"

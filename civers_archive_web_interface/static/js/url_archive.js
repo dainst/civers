@@ -166,6 +166,7 @@ function urlArchive(urlId) {
                 // Map display type back to actual artifact type for API
                 const typeMapping = {
                     'wacz': 'archive.wacz',
+                    'warc': 'archive.warc',
                     'singlefile': 'singlefile.html',
                     'screenshot': 'screenshot.png',
                     'metadata': 'metadata.json',
@@ -247,6 +248,7 @@ function urlArchive(urlId) {
             // Map actual artifact filenames to display names
             const filenameToDisplayType = {
                 'archive.wacz': 'wacz',
+                'archive.warc': 'warc',
                 'singlefile.html': 'singlefile',
                 'screenshot.png': 'screenshot',
                 'metadata.json': 'metadata',

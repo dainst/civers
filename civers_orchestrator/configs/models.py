@@ -75,6 +75,7 @@ class KafkaComponentMapping(BaseModel):
     event_models: Dict[str, str] = Field(
         description="Event model class names (request, success, failure)"
     )
+    step_name: NonEmptyStr = Field(description="Workflow step name this component implements")
 
 
     @field_validator("response_topics")

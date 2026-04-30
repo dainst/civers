@@ -1,5 +1,5 @@
 from typing import List, Literal, Dict, Optional, Any
-from pydantic import BaseModel, field_validator, Field
+from pydantic import BaseModel, field_validator, model_validator, Field
 from pathlib import Path
 import os
 
@@ -156,8 +156,8 @@ class AppConfig(BaseModel):
     singlefile_binary_path: str = "archive_generators/single-file-x86_64-linux"
     singlefile_timeout_sec: int = 60
     
-    # Transport configuration (required)
-    transport: TransportConfig
+    # Transport configuration — optional here; populated from root-level transport in ConfigDataModel
+    transport: Optional[TransportConfig] = None
     
     # Storage configuration (required)
     storage: StorageConfig
@@ -186,3 +186,11 @@ class AppConfig(BaseModel):
 class ConfigDataModel(BaseModel):
     domains: List[DomainConfig]
     app: AppConfig
+    transport: Optional[TransportConfig] = None
+
+    @model_validator(mode="after")
+    def sync_transport_config(self) -> "ConfigDataModel":
+        """Sync root-level transport into app.transport if not already set."""
+        if self.transport and not self.app.transport:
+            self.app.transport = self.transport
+        return self
