@@ -88,6 +88,8 @@ class OrchestratorStatusEvent(EventBaseModel):
     current_step: str = Field(..., description="Current workflow step being executed")
     status: str = Field(..., description="Current status (e.g. 'in_progress', 'processing')")
     message: Optional[str] = Field(None, description="Optional status message")
+    completed_steps: list[str] = Field(default_factory=list, description="Steps completed so far")
+    workflow_steps: list[str] = Field(default_factory=list, description="All steps in the workflow")
 
 
 class OrchestratorCompletedEvent(EventBaseModel):
@@ -102,6 +104,9 @@ class OrchestratorCompletedEvent(EventBaseModel):
     )
     completed_steps: list[str] = Field(
         default_factory=list, description="List of steps that were successfully completed"
+    )
+    workflow_steps: list[str] = Field(
+        default_factory=list, description="All steps in the workflow"
     )
     step_results: Dict[str, Any] = Field(
         default_factory=dict, description="Aggregated results from all workflow steps"
@@ -127,6 +132,9 @@ class OrchestratorFailedEvent(EventBaseModel):
     error_message: str = Field(..., description="Error message describing the failure")
     completed_steps: list[str] = Field(
         default_factory=list, description="Steps that completed successfully before failure"
+    )
+    workflow_steps: list[str] = Field(
+        default_factory=list, description="All steps in the workflow"
     )
     error_details: Dict[str, Any] = Field(
         default_factory=dict, description="Additional error details"

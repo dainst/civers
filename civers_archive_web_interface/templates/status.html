@@ -62,10 +62,9 @@
                 Step 1/5: Initializing Workflow
             </div>
 
-            <!-- Completed Steps List -->
-            <div id="completed-steps" class="w-full mt-4 hidden">
-                <h4 class="text-sm font-medium text-gray-700 mb-2">Completed Steps:</h4>
-                <ul id="steps-list" class="space-y-1 text-sm text-gray-600">
+            <!-- Workflow Step Progress List -->
+            <div id="workflow-steps-panel" class="w-full mt-4 hidden">
+                <ul id="steps-list" class="space-y-2 text-sm">
                 </ul>
             </div>
 
@@ -134,21 +133,12 @@
         const STORAGE_KEY = 'civers_archive_requests';
         const MAX_STORED_REQUESTS = 20;
 
-        // Known workflow step sequences (must match workflows.yaml)
-        const WORKFLOW_DEFINITIONS = {
-            'archive_and_metadata_workflow': ['archive_generation', 'metadata_extraction'],
-            'archive_generation_only_workflow': ['archive_generation']
-        };
-        const DEFAULT_WORKFLOW_STEPS = ['archive_generation'];
-
         function getStepInfo(data) {
             const status = data.status;
-            const workflowName = data.workflow_name;
             const currentStep = data.current_step;
             const completedSteps = data.completed_steps || [];
-
-            const steps = WORKFLOW_DEFINITIONS[workflowName] || DEFAULT_WORKFLOW_STEPS;
-            const total = steps.length;
+            const workflowSteps = data.workflow_steps || [];
+            const total = workflowSteps.length || 1; // fallback before first update arrives
 
             if (status === 'completed') {
                 return { progress: 100, label: 'Complete!' };
@@ -157,7 +147,7 @@
                 return { progress: 100, label: 'Failed' };
             }
             if (status === 'pending' || !currentStep) {
-                return { progress: 5, label: `Initializing Workflow...` };
+                return { progress: 5, label: 'Initializing Workflow...' };
             }
 
             // in_progress: step number = completed so far + 1
@@ -284,17 +274,38 @@
             document.getElementById('progress-bar').style.width = `${stepInfo.progress}%`;
             document.getElementById('step-display').textContent = stepInfo.label;
 
-            // Show completed steps if any
-            if (completedSteps.length > 0) {
-                document.getElementById('completed-steps').classList.remove('hidden');
-                document.getElementById('steps-list').innerHTML = completedSteps.map(step =>
-                    `<li class="flex items-center text-green-600">
-                    <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                    </svg>
-                    ${step.replace(/_/g, ' ')}
-                </li>`
-                ).join('');
+            // Render full step progress list whenever workflow_steps is known
+            const workflowSteps = data.workflow_steps || [];
+            if (workflowSteps.length > 0) {
+                document.getElementById('workflow-steps-panel').classList.remove('hidden');
+                document.getElementById('steps-list').innerHTML = workflowSteps.map(step => {
+                    const isCompleted = completedSteps.includes(step);
+                    const isRunning = !isCompleted && step === currentStep;
+                    const label = step.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+                    if (isCompleted) {
+                        return `<li class="flex items-center text-green-600 font-medium">
+                            <svg class="h-4 w-4 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            ${label}
+                        </li>`;
+                    } else if (isRunning) {
+                        return `<li class="flex items-center text-indigo-600 font-medium">
+                            <svg class="h-4 w-4 mr-2 flex-shrink-0 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            ${label}
+                        </li>`;
+                    } else {
+                        return `<li class="flex items-center text-gray-400">
+                            <svg class="h-4 w-4 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            ${label}
+                        </li>`;
+                    }
+                }).join('');
             }
 
             // Handle different statuses

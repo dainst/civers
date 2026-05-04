@@ -31,6 +31,7 @@ class WebhookPayload(BaseModel):
     status: str
     current_step: Optional[str] = None
     completed_steps: Optional[List[str]] = None
+    workflow_steps: Optional[List[str]] = None
     failed_step: Optional[str] = None
     error_message: Optional[str] = None
     message: Optional[str] = None
@@ -99,6 +100,7 @@ async def status_webhook(
         workflow_name=workflow_name,
         current_step=current_step,
         completed_steps=completed_steps,
+        workflow_steps=payload.workflow_steps,
         error_message=error_message,
         snapshot_id=snapshot_id
     )
