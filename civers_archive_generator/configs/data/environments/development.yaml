@@ -6,6 +6,7 @@ environment: development
 # Override archive directory for development
 app:
   archive_directory: archives
+  ssrf_protection_enabled: false
   
   # Storage configuration for development
   # Enable both local file and CIVERS API for testing

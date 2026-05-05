@@ -102,34 +102,7 @@ domains:
         artifacts: [warc, screenshot, dom-snapshot]
     input_source: html_document
     extractor: jsonld
-    mappings:
-      "DC.Title": "Title.title"
-      "DC.Title.Alternative": "Title.title"
-      "DC.Creator.PersonalName": "Creator.creator_name"
-      "DC.Date.created": "Date.date"
-      "DC.Date.dateSubmitted": "Date.date"
-      "DC.Date.modified": "Date.date"
-      "DC.Description": "Description.description"
-      "DC.Identifier": "AlternateIdentifier.alternate_identifier"
-      "DC.Identifier.DOI": "AlternateIdentifier.alternate_identifier"
-      "DC.Identifier.URI": "AlternateIdentifier.alternate_identifier"
-      "DC.Language": "Title.lang"
-      "DC.Rights": "Rights.rights"
-      "DC.Source": "Publisher.publisher"
-      "DC.Source.URI": "AlternateIdentifier.alternate_identifier"
-      "DC.Type": "ResourceType.resource_type_general|constant=Dataset"
-      "citation_title": "Title.title"
-      "citation_language": "Description.lang"
-      "citation_publication_date": "publication_year|transform=extract_year"
-      "citation_author": "Creator.creator_name"
-      "citation_abstract": "Description.description"
-      "citation_doi": "AlternateIdentifier.alternate_identifier"
-      "citation_pdf_url": "AlternateIdentifier.alternate_identifier"
-      "citation_publisher": "Publisher.publisher"
-      "title": "Title.title"
-      "generator": "Description.description"
-      "gs_meta_revision": "AlternateIdentifier.alternate_identifier"
-
+    
   - name: "*.dainst.org"
     workflow: archive_generation_only_workflow
     webpage_types: dynamic
@@ -141,14 +114,16 @@ domains:
       - name: singlefile
         artifacts: [singlefile]
 
-  - name: default
+  - name: product-site.local
     workflow: archive_generation_only_workflow
     webpage_types: dynamic
     enabled: true
-    description: "Default fallback for unknown domains"
+    description: "test shop site for development and integration testing"
     generators:
       - name: scoop
-        artifacts: [warc, dom-snapshot]
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
 
   - name: civers.widget.demo
     workflow: archive_generation_only_workflow

@@ -5,6 +5,7 @@ environment: docker
 
 app:
   archive_directory: ${ARCHIVE_DIRECTORY:-archives}
+  ssrf_protection_enabled: false
   
   # Storage configuration for Docker
   # Enable both local and CIVERS API in containerized environment
