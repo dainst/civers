@@ -9,25 +9,32 @@ app:
 
   # Archive directory (used by Archive Generator)
   archive_directory: "${ARCHIVE_DIRECTORY:-archives}"
+  ssrf_protection_enabled: false # This value must be set to true in production mode
 
   # Scoop integration settings (Archive Generator)
+  # scoop_extra_args: static CLI flags appended to every Scoop invocation.
+  # Dynamic flags (--screenshot, --dom-snapshot, --export-attachments-output,
+  # -o, -f, URL) are added by scoop_generator.py per request.
   scoop_cli_command: "node lib/scoop/bin/cli.js"
-  scoop_timeout_sec: 300
+  scoop_timeout_sec: 120
   scoop_extra_args:
-    - "--screenshot"
-    - "true"
-    - "--dom-snapshot"
-    - "true"
+    - "--capture-certificates-as-attachment"
+    - "false"
+    - "--provenance-summary"
+    - "false"
+    - "--capture-video-as-attachment"
+    - "false"
+    - "--auto-play-media"
+    - "false"
     - "--log-level"
     - "info"
-    - "--capture-timeout"
-    - "120000"
-    - "--load-timeout"
-    - "60000"
     - "--network-idle-timeout"
-    - "60000"
-    - "--proxy-port"
-    - "0"
+    - "10000"
+    - "--behaviors-timeout"
+    - "10000"
+    - "--blocklist" # Dummy value to enable testing of local sites , must be removed in production
+    - "http://dummy.org/"
+    
 
   # SingleFile integration settings (Archive Generator)
   singlefile_binary_path: "archive_generators/singlefile/single-file-x86_64-linux"

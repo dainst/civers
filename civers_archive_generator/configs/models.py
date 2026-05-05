@@ -159,6 +159,9 @@ class AppConfig(BaseModel):
     # Transport configuration — optional here; populated from root-level transport in ConfigDataModel
     transport: Optional[TransportConfig] = None
     
+    # Security configuration
+    ssrf_protection_enabled: bool = True
+
     # Storage configuration (required)
     storage: StorageConfig
     

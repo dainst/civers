@@ -1,6 +1,6 @@
 import asyncio
+import time as time_module
 import os
-import socket
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any
@@ -64,12 +64,6 @@ class ScoopGenerator(BaseGenerator):
         except Exception as e:
             raise RuntimeError(f"Scoop CLI not working: {e}")
 
-    def _find_free_port(self) -> int:
-        """Find an available TCP port on localhost."""
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.bind(("127.0.0.1", 0))
-            _, port = sock.getsockname()
-        return int(port)
 
     async def _run_scoop(self, url: str, output_folder: str, requested_artifacts: List[str]) -> Dict[str, Any]:
         """Invoke Scoop CLI and save logs to output folder."""
@@ -86,30 +80,27 @@ class ScoopGenerator(BaseGenerator):
         cmd.extend(base_cmd.split())
         cmd += ["-o", output_file, "-f", output_format]
         
-        # Precision control via CLI flags
+        # Dynamic per-request flags (depend on requested artifacts)
         screenshot_flag = "true" if "screenshot" in requested_artifacts else "false"
         dom_snapshot_flag = "true" if "dom-snapshot" in requested_artifacts else "false"
         
         cmd += [
             "--screenshot", screenshot_flag,
             "--dom-snapshot", dom_snapshot_flag,
-            "--capture-certificates-as-attachment", "false",
-            "--provenance-summary", "false",
             "--export-attachments-output", output_folder,
-            "--log-level", "info",
         ]
 
         if "summary" in requested_artifacts:
             cmd += ["--json-summary-output", os.path.join(output_folder, "summary.json")]
         
+        # Static default flags from config (timeouts, features, log-level, etc.)
         if self.config.app.scoop_extra_args:
             cmd += list(self.config.app.scoop_extra_args)
 
-        free_port = self._find_free_port()
-        cmd += ["--proxy-host", "127.0.0.1", "--proxy-port", str(free_port)]
         cmd += ["--", url]
 
         self.logger.info(f"🚀 Running Scoop: {' '.join(cmd)}")
+        scoop_start_time = time_module.time()
 
         project_dir = Path(__file__).resolve().parents[2]
         env = os.environ.copy()
@@ -134,6 +125,9 @@ class ScoopGenerator(BaseGenerator):
             stdout, stderr = b"", b"Scoop process timed out"
             exit_code = None
             timed_out = True
+
+        scoop_elapsed = time_module.time() - scoop_start_time
+        self.logger.info(f"⏱️ Scoop subprocess completed in {scoop_elapsed:.2f}s (exit_code={exit_code}, timed_out={timed_out})")
 
         await self._save_log_to_file(stdout, output_folder, "scoop_stdout.log")
         await self._save_log_to_file(stderr, output_folder, "scoop_stderr.log")
