@@ -203,8 +203,7 @@ async def get_request_status(
         logger.debug(f"Technical error for {request_id}: {raw_error}")
         user_error = f"Failed to archive this page. Please try again or contact support."
     
-    # Workflow steps are managed by the orchestrator
-    workflow_steps = []
+    workflow_steps = record.get("workflow_steps") or []
 
 
     return {

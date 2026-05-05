@@ -359,12 +359,16 @@ class KafkaTransportService(TransportServiceInterface):
 
             if success:
                 logger.info(f"✅ Published {kafka_op['event_model']} to {kafka_op['topic']}")
+                wf = instruction.workflow_instance
+                workflow = self.orchestrator.resolver.get_workflow(wf.workflow_name)
                 await self._publish_status_update(
                     request_id=instruction.request_id,
                     url=instruction.url,
-                    workflow_name=instruction.workflow_instance.workflow_name,
+                    workflow_name=wf.workflow_name,
                     current_step=instruction.step_config.name,
-                    status="in_progress"
+                    status="in_progress",
+                    completed_steps=list(wf.completed_steps),
+                    workflow_steps=[s.name for s in workflow.steps]
                 )
         except Exception as e:
             logger.error(f"❌ Failed to execute step instruction: {e}")
@@ -373,11 +377,13 @@ class KafkaTransportService(TransportServiceInterface):
         """Publish workflow completion."""
         try:
             wf = transition.workflow_instance
+            workflow = self.orchestrator.resolver.get_workflow(wf.workflow_name)
             event = OrchestratorCompletedEvent(
                 request_id=wf.request_id,
                 url=wf.url,
                 workflow_name=wf.workflow_name,
                 completed_steps=list(wf.completed_steps),
+                workflow_steps=[s.name for s in workflow.steps],
                 processing_time_seconds=wf.processing_time_seconds or 0.0,
                 step_results=wf.step_results
             )
@@ -403,13 +409,15 @@ class KafkaTransportService(TransportServiceInterface):
         """Publish workflow failure."""
         try:
             wf = transition.workflow_instance
+            workflow = self.orchestrator.resolver.get_workflow(wf.workflow_name)
             event = OrchestratorFailedEvent(
                 request_id=wf.request_id,
                 url=wf.url,
                 workflow_name=wf.workflow_name,
                 failed_step=transition.failed_step,
                 error_message=transition.error_message,
-                completed_steps=list(wf.completed_steps)
+                completed_steps=list(wf.completed_steps),
+                workflow_steps=[s.name for s in workflow.steps]
             )
 
             success = await self.event_publisher.publish_event(

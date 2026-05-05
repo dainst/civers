@@ -76,6 +76,7 @@ class RequestStatusService:
         workflow_name: Optional[str] = None,
         current_step: Optional[str] = None,
         completed_steps: Optional[List[str]] = None,
+        workflow_steps: Optional[List[str]] = None,
         error_message: Optional[str] = None,
         snapshot_id: Optional[str] = None
     ) -> bool:
@@ -111,7 +112,10 @@ class RequestStatusService:
                 
             if completed_steps is not None:
                 update_values["completed_steps"] = json.dumps(completed_steps)
-                
+
+            if workflow_steps is not None:
+                update_values["workflow_steps"] = json.dumps(workflow_steps)
+
             if error_message is not None:
                 update_values["error_message"] = error_message
                 
@@ -164,6 +168,11 @@ class RequestStatusService:
                         result['completed_steps'] = json.loads(result['completed_steps'])
                     except json.JSONDecodeError:
                         result['completed_steps'] = []
+                if result.get('workflow_steps'):
+                    try:
+                        result['workflow_steps'] = json.loads(result['workflow_steps'])
+                    except json.JSONDecodeError:
+                        result['workflow_steps'] = []
                 return result
             return None
         except Exception as e:

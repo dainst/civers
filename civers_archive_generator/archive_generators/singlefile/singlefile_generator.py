@@ -1,4 +1,5 @@
 import asyncio
+import time as time_module
 import os
 import subprocess
 from pathlib import Path
@@ -90,6 +91,7 @@ class SingleFileGenerator(BaseGenerator):
             stderr=asyncio.subprocess.PIPE,
         )
         
+        singlefile_start_time = time_module.time()
         timeout = max(1, int(self.config.app.singlefile_timeout_sec or 60))
         try:
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
@@ -101,6 +103,9 @@ class SingleFileGenerator(BaseGenerator):
             stdout, stderr = b"", b"SingleFile timed out"
             exit_code = None
             timed_out = True
+        
+        singlefile_elapsed = time_module.time() - singlefile_start_time
+        self.logger.info(f"⏱️ SingleFile subprocess completed in {singlefile_elapsed:.2f}s (exit_code={exit_code}, timed_out={timed_out})")
             
         await self._save_log_to_file(stdout, output_folder, "singlefile_stdout.log")
         await self._save_log_to_file(stderr, output_folder, "singlefile_stderr.log")

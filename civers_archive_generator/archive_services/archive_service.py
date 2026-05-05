@@ -66,20 +66,23 @@ class ArchiveService(ArchiveServiceInterface):
             logger.info(f"✅ Found domain config: {domain_config.name}")
             
             # Step 2: SSRF Protection
-            try:
-                await self._validate_url_for_ssrf(url)
-            except ValueError as e:
-                processing_time = time.time() - start_time_ts
-                logger.error(f"🚨 SSRF Protection: {e}")
-                return {
-                    'success': False,
-                    'request_id': request_id,
-                    'url': url,
-                    'error': str(e),
-                    'error_type': 'ssrf_blocked',
-                    'processing_time_seconds': processing_time,
-                    'priority': priority
-                }
+            if self.config.app.ssrf_protection_enabled:
+                try:
+                    await self._validate_url_for_ssrf(url)
+                except ValueError as e:
+                    processing_time = time.time() - start_time_ts
+                    logger.error(f"🚨 SSRF Protection: {e}")
+                    return {
+                        'success': False,
+                        'request_id': request_id,
+                        'url': url,
+                        'error': str(e),
+                        'error_type': 'ssrf_blocked',
+                        'processing_time_seconds': processing_time,
+                        'priority': priority
+                    }
+            else:
+                logger.warning(f"⚠️ SSRF protection is disabled — skipping IP check for: {url}")
 
             # Step 3: Create output folder
             output_folder = self._create_output_folder(url, request_id)
@@ -93,6 +96,7 @@ class ArchiveService(ArchiveServiceInterface):
             all_artifacts = []
             overall_success = True
             error_messages = []
+            generator_timings = []
             
             for gen_config in domain_config.generators:
                 generator = next((g for g in generators if g.__class__.__name__.lower().startswith(gen_config.name)), None)
@@ -100,8 +104,12 @@ class ArchiveService(ArchiveServiceInterface):
                     continue
                 
                 logger.info(f"📦 Running {gen_config.name} generator for {url}")
+                gen_start = time.time()
                 try:
                     artifact_results = await generator.generate_archive(url, output_folder, gen_config.artifacts)
+                    gen_elapsed = time.time() - gen_start
+                    generator_timings.append((gen_config.name, gen_elapsed))
+                    logger.info(f"⏱️ {gen_config.name} generator completed in {gen_elapsed:.2f}s")
                     all_artifacts.extend(artifact_results)
                     
                     # Check for failures in requested artifacts
@@ -111,7 +119,9 @@ class ArchiveService(ArchiveServiceInterface):
                         for a in failed:
                             error_messages.append(f"{gen_config.name}: {a.name} failed - {a.error}")
                 except Exception as e:
-                    logger.error(f"❌ {gen_config.name} generator failed: {e}")
+                    gen_elapsed = time.time() - gen_start
+                    generator_timings.append((gen_config.name, gen_elapsed))
+                    logger.error(f"❌ {gen_config.name} generator failed after {gen_elapsed:.2f}s: {e}")
                     overall_success = False
                     error_messages.append(f"{gen_config.name} catastrophic failure: {e}")
             
@@ -142,14 +152,18 @@ class ArchiveService(ArchiveServiceInterface):
                 )
 
             # Step 8: Final metadata generation
+            meta_start = time.time()
             metadata = self._generate_metadata(url, output_folder, start_time, all_artifacts, request_id)
             await self._save_metadata(metadata, output_folder)
+            meta_elapsed = time.time() - meta_start
             
             # Step 9: Store archive
+            storage_start = time.time()
             storage_result = await self._store_archive(
                 archive_result.archive_path, url, domain_config, request_id
             )
-            logger.info("💾 Archive stored successfully")
+            storage_elapsed = time.time() - storage_start
+            logger.info(f"💾 Archive stored successfully ({storage_elapsed:.2f}s)")
             
             result = {
                 'success': archive_result.success,
@@ -172,6 +186,11 @@ class ArchiveService(ArchiveServiceInterface):
                 result['error_type'] = archive_result.error_type
             
             logger.info(f"🎉 Archive creation completed for request {request_id} in {processing_time:.2f}s")
+            # Timing summary
+            timing_parts = [f"{name}: {elapsed:.2f}s" for name, elapsed in generator_timings]
+            timing_parts.append(f"metadata: {meta_elapsed:.2f}s")
+            timing_parts.append(f"storage: {storage_elapsed:.2f}s")
+            logger.info(f"📊 Timing breakdown: {' | '.join(timing_parts)} | total: {processing_time:.2f}s")
             return result
             
         except Exception as e:
