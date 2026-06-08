@@ -1,0 +1,18 @@
+# CiVers ChangeDetection — Kafka Transport Configuration
+
+app:
+  transport:
+    enabled:
+      - kafka
+
+    kafka:
+      bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
+      consumer_group: "${KAFKA_CONSUMER_GROUP_ID:-change_detection_group}"
+      health_check_enabled: true
+      monitoring_enabled: true
+
+      topics:
+        requests: "change.detection.requests"
+        completed: "change.detection.completed"
+        failed: "change.detection.failed"
+        status: "change.detection.status"
