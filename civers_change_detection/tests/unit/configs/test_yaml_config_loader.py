@@ -1,12 +1,12 @@
-"""Unit tests for Archive Generator YamlFileConfigLoader.
+"""Unit tests for Change Detection YamlFileConfigLoader.
 
 Base loader behaviour (env detection, deep merge, env-var expansion, CONFIG_DIR,
 missing-file error, etc.) is covered exhaustively in civers_common/tests/test_yaml_loader.py.
 
-Only Archive Generator-specific behaviour is tested here:
+Only Change Detection-specific behaviour is tested here:
   1. The default config directory points to this service's own configs/data/ folder.
-  2. load() returns a valid AG ConfigDataModel from the real testing YAML files.
-  3. Isolated load with AG-specific model structure works end-to-end.
+  2. load() returns a valid CD ConfigDataModel from the real testing YAML files.
+  3. Isolated load with CD-specific model structure works end-to-end.
 """
 
 import inspect
@@ -29,55 +29,53 @@ class TestYamlFileConfigLoader:
         assert loader.environments_dir == expected / "environments"
 
     def test_load_testing_environment_returns_valid_config_data_model(self):
-        """load() returns the AG ConfigDataModel with correctly merged testing config."""
+        """load() returns the CD ConfigDataModel with correctly merged testing config."""
         loader = YamlFileConfigLoader()
         config = loader.load()
 
         assert isinstance(config, ConfigDataModel)
-        assert config.app.name == "archive_generator"
+        assert config.app.name == "change_detection_system"
         assert config.app.environment == "testing"
+
+        kafka = config.app.get_kafka_config()
+        assert kafka is not None
+        assert kafka.bootstrap_servers == "localhost:29092"
+        assert kafka.consumer_group == "change_detection_group_test"
+        assert "requests" in kafka.topics
+
         assert len(config.domains) >= 1
-        assert all(len(d.generators) > 0 for d in config.domains)
-        transport = config.app.transport
-        assert transport is not None
-        assert transport.kafka is not None
+        arachne = config.resolve_domain_for_url("https://arachne.test.dainst.org/item/1")
+        assert arachne.change_detection.detection_strategy == "css_selector"
 
     def test_load_isolated_config_dir(self, tmp_path):
-        """Isolated load: defaults + testing.yaml merge into a valid AG ConfigDataModel."""
+        """Isolated load: defaults + testing.yaml merge into a valid CD ConfigDataModel."""
         defaults_dir = tmp_path / "defaults"
         defaults_dir.mkdir()
         (defaults_dir / "app.yaml").write_text(
             """
 app:
-  name: isolated_ag
+  name: isolated_app
   version: 1.0.0
-  archive_directory: /tmp/archives
-  storage:
-    enabled:
-      - local_file
-    backends:
-      local_file:
-        base_path: archives
 domains:
   - name: test.local
-    generators:
-      - name: scoop
-        artifacts: [warc]
+    enabled: true
+    change_detection:
+      detection_strategy: css_selector
+      comparison_algorithm: simple_text
     webpage_types: dynamic
 """
         )
-        # AG puts transport at root level; the sync_transport_config validator
-        # copies it into app.transport when app.transport is not explicitly set.
         (defaults_dir / "kafka.yaml").write_text(
             """
-transport:
-  enabled:
-    - kafka
-  kafka:
-    bootstrap_servers: broker:9092
-    consumer_group: isolated_default_group
-    topics:
-      requests: archive.requests
+app:
+  transport:
+    enabled:
+      - kafka
+    kafka:
+      bootstrap_servers: broker:9092
+      topics:
+        requests: test.requests
+        completed: test.completed
 """
         )
 
@@ -87,17 +85,18 @@ transport:
             """
 app:
   environment: testing
-transport:
-  kafka:
-    consumer_group: isolated_test_group
+  transport:
+    kafka:
+      consumer_group: isolated_test_group
 """
         )
 
         config = YamlFileConfigLoader(config_dir=tmp_path).load()
 
         assert isinstance(config, ConfigDataModel)
-        assert config.app.name == "isolated_ag"
+        assert config.app.name == "isolated_app"
         assert config.app.environment == "testing"
         assert config.app.get_kafka_config().consumer_group == "isolated_test_group"
-        domain = next(d for d in config.domains if d.name == "test.local")
-        assert domain.generators[0].name == "scoop"
+
+        domain = config.resolve_domain_for_url("https://test.local/page")
+        assert domain.change_detection.detection_strategy == "css_selector"

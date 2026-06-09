@@ -154,9 +154,10 @@ services:
   # ============================================================================
   archive-generator:
     build:
-      context: ./civers_archive_generator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: civers_archive_generator/Dockerfile
     container_name: civers-archive-generator
+    shm_size: '2gb'
     environment:
       - CONFIG_ENVIRONMENT=docker
       - CONFIG_DIR=/shared-configs
@@ -164,6 +165,11 @@ services:
       - KAFKA_CONSUMER_GROUP_ID=civers_archive_generator
       - CIVERS_API_URL=http://web-interface:8000
       - LOG_LEVEL=INFO
+      # Force IPv4 DNS resolution for Node.js (Scoop/Portal proxy).
+      # Node.js 17+ defaults to verbatim DNS order, which returns IPv6 first on most
+      # systems; Docker's IPv6 routing can cause ~8s delays per connection attempt in
+      # the Portal intercepting proxy, making Scoop's default 20s loadTimeout fail.
+      - NODE_OPTIONS=--dns-result-order=ipv4first
     volumes:
       - ./configs:/shared-configs:ro
       - generator-archives:/app/archives

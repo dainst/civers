@@ -335,12 +335,11 @@ domains:
 ### Debugging Configuration
 
 ```python
-from config import ConfigLoaderFactory
+from configs.loaders import YamlFileConfigLoader
 
-# Check which loader and environment is being used
-loader = ConfigLoaderFactory.create()
-print(f"Loader type: {loader.__class__.__name__}")
+loader = YamlFileConfigLoader()
 print(f"Detected environment: {loader.environment}")
+print(f"Config dir: {loader.config_dir}")
 
 config = loader.load()
 print(f"Storage backends: {config.app.storage.get_enabled_backends()}")
@@ -421,7 +420,7 @@ Unit tests are isolated and have no external dependencies. They take ~5 seconds 
 
 ```bash
 # Run all unit tests with coverage
-uv run pytest tests/unit/ -v
+uv run --extra dev pytest tests/unit/ -v
 ```
 
 > [!TIP]

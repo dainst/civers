@@ -121,12 +121,20 @@ class BaseKafkaConfig(BaseModel):
 
 class BaseTransportConfig(BaseModel):
     # TODO: This might change when we refactor the transport service.
-    """Base transport configuration shared across all CiVers services."""
+    """Base transport configuration shared across all CiVers services.
+
+    Supports two transport kinds:
+    - ``kafka``: first-class field with typed config.
+    - Generic/future transports: arbitrary dict entries in ``transports``.
+      Enable a generic transport by adding it to ``enabled`` and providing
+      its config under the same key in ``transports``.
+    """
 
     model_config = ConfigDict(extra="ignore")
 
     enabled: list[str]
     kafka: BaseKafkaConfig | None = None
+    transports: dict[str, dict[str, Any]] = {}
 
     @field_validator("enabled")
     @classmethod
@@ -139,20 +147,35 @@ class BaseTransportConfig(BaseModel):
     @model_validator(mode="after")
     def validate_enabled_have_config(self) -> "BaseTransportConfig":
         """Ensure every enabled transport has a corresponding configuration."""
-        transport_config_mapping = {"kafka": self.kafka}
+        known = {"kafka": self.kafka}
         errors = []
         for t in self.enabled:
-            if t not in transport_config_mapping:
+            if t in known:
+                if known[t] is None:
+                    errors.append(f"Transport '{t}' is enabled but not configured")
+            elif t in self.transports:
+                pass  # generic transport — configured via transports dict
+            else:
                 errors.append(f"Transport '{t}' is not supported")
-            elif transport_config_mapping[t] is None:
-                errors.append(
-                    f"Transport '{t}' is enabled but not configured"
-                )
         if errors:
             raise ValueError(
                 f"Transport configuration errors: {'; '.join(errors)}"
             )
         return self
+
+    def is_transport_enabled(self, transport: str) -> bool:
+        """Return True if the given transport name is in the enabled list."""
+        return transport in self.enabled
+
+    def get_transport_config(self, transport: str) -> dict[str, Any] | None:
+        """Return the config dict for a transport, or None if unknown.
+
+        For ``kafka``, returns ``kafka.model_dump()``.
+        For generic transports, returns the entry from ``transports``.
+        """
+        if transport == "kafka" and self.kafka is not None:
+            return self.kafka.model_dump()
+        return self.transports.get(transport)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

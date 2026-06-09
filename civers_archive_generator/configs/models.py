@@ -1,195 +1,122 @@
-from typing import List, Literal, Dict, Optional, Any
-from pydantic import BaseModel, field_validator, model_validator, Field
-from pathlib import Path
+"""Pydantic configuration models for CiVers Archive Generator.
+
+Extends the shared civers_common base config models. AG-specific additions:
+- ``GeneratorConfig`` / ``DomainConfig.generators`` — per-domain archiver list
+- ``StorageConfig`` — multi-backend storage (enabled is required in AG)
+- ``AppConfig`` — archive directory, scoop/singlefile settings, storage
+"""
+
 import os
+from pathlib import Path
+from typing import Any
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from civers_common import (
+    BaseAppConfig,
+    BaseDomainConfig,
+    BaseKafkaConfig,
+    BaseStorageConfig,
+    BaseTransportConfig,
+)
+
 
 class GeneratorConfig(BaseModel):
-    """Configuration for a specific generator within a domain"""
-    name: str
-    artifacts: List[str]
+    """Configuration for a specific generator within a domain."""
 
-class DomainConfig(BaseModel):
-    """Configuration for a specific domain's archiving behavior"""
     name: str
-    generators: List[GeneratorConfig]
-    webpage_types: Literal["dynamic", "static"]
-    enabled: bool = True
-    description: str = ""
+    artifacts: list[str]
 
-    @property
-    def is_wildcard(self) -> bool:
-        """Check if this is a wildcard domain pattern."""
-        return "*" in self.name
+
+class DomainConfig(BaseDomainConfig):
+    """Archive Generator domain config = shared base + per-domain generators list."""
+
+    generators: list[GeneratorConfig]
 
     @field_validator("generators")
-    def check_generators(cls, v):
+    @classmethod
+    def check_generators(cls, v: list[GeneratorConfig]) -> list[GeneratorConfig]:
         if not v:
             raise ValueError("Domain must have at least one generator defined")
         return v
 
-class KafkaConfig(BaseModel):
-    """Kafka transport configuration"""
-    bootstrap_servers: str
-    topics: Dict[str, str]
-    consumer_group: str
-    # Kafka-specific monitoring and health check settings
-    # TODO: These can be extended in the future
-    health_check_enabled: bool = True
-    monitoring_enabled: bool = True
 
-class TransportConfig(BaseModel):
-    """
-    Extensible transport configuration using a plugin-style approach.
-    
-    New transports can be added by:
-    1. Adding their config to the YAML under 'transports.{transport_name}'
-    2. The transport implementation reads its config from the generic 'transports' dict
-    
-    Example YAML:
-    app:
-      transports:
-        kafka:
-          bootstrap_servers: "localhost:29092"
-          topics: {...}
-        http:
-          host: "localhost"
-          port: 8000
-        custom_transport:
-          any_custom_config: "value"
-    """
-    # Currently enabled transports (at least one required)
-    enabled: List[str]
-    
-    # Transport-specific configurations (extensible)
-    kafka: Optional[KafkaConfig] = None
-    
-    # Generic transport configurations for extensibility
-    # New transports can add their config here without changing the model
-    transports: Dict[str, Dict[str, Any]] = {}
-    
-    @field_validator("enabled")
-    def validate_enabled_transports(cls, v):
-        """Validate that at least one transport is enabled"""
-        if not v:
-            raise ValueError("At least one transport must be enabled")
-        return v
-    
-    def is_transport_enabled(self, transport: str) -> bool:
-        """Check if a specific transport is enabled"""
-        return transport in self.enabled
-    
-    def get_transport_config(self, transport: str) -> Optional[Dict[str, Any]]:
-        """Get configuration for a specific transport"""
-        if transport == "kafka" and self.kafka:
-            return self.kafka.model_dump()
-        return self.transports.get(transport)
+class KafkaConfig(BaseKafkaConfig):
+    """Archive Generator Kafka config — uses shared base defaults unchanged."""
 
-class StorageConfig(BaseModel):
-    """
-    Extensible storage configuration with multi-backend support.
-    
-    Storage backends can be added by:
-    1. Adding their config to the YAML under 'storage.backends.{backend_name}'
-    2. The storage implementation reads its config from the 'backends' dict
-    
-    Example YAML:
-    app:
-      storage:
-        enabled:
-          - local_file
-          - civers_rest_api
-        backends:
-          local_file:
-            base_path: "archives/metadata"
-          civers_rest_api:
-            upload_url: "http://localhost:8000/api/upload"
-    """
-    # List of enabled storage backends (required)
-    enabled: List[str]
-    
-    # Backend-specific configurations
-    backends: Dict[str, Dict[str, Any]] = {
-        "local_file": {"base_path": "archives"}
-    }
-    
-    @field_validator('enabled')
-    @classmethod
-    def validate_enabled_backends(cls, v):
-        """Validate that enabled list is not empty."""
-        if len(v) == 0:
-            raise ValueError("'enabled' list cannot be empty")
-        return v
-    
-    def model_post_init(self, __context):
-        """Validate that all enabled backends have configurations."""
-        for backend_name in self.enabled:
-            if backend_name not in self.backends:
-                raise ValueError(
-                    f"Backend '{backend_name}' is enabled but not configured in 'backends'"
-                )
-    
-    def get_enabled_backends(self) -> List[str]:
-        """Get list of enabled storage backends."""
-        return self.enabled
-    
-    def get_backend_config(self, backend: str) -> Dict[str, Any]:
-        """Get configuration for the specified storage backend."""
-        return self.backends.get(backend, {})
 
-class AppConfig(BaseModel):
-    """Core application configuration"""
-    name: str = Field(default="Civers Archive Generator", description="Application name")
-    version: str = Field(default="0.1.0", description="Application version")
-    
-    # Core application settings
+class TransportConfig(BaseTransportConfig):
+    """Archive Generator transport config = shared base with the AG KafkaConfig type."""
+
+    kafka: KafkaConfig | None = None
+
+
+class StorageConfig(BaseStorageConfig):
+    """Archive Generator storage config.
+
+    ``enabled`` is required in AG (no single-backend legacy mode).
+    All validators and helper methods are inherited from ``BaseStorageConfig``.
+
+    TODO (domain-resolution follow-up): when AG's service layer is refactored,
+    add ``DomainResolutionMixin`` to ``ConfigDataModel`` and update
+    ``ArchiveService.get_domain_config()`` to use ``config.resolve_domain()``.
+    """
+
+    enabled: list[str]  # required (overrides Optional default in BaseStorageConfig)
+
+
+class AppConfig(BaseAppConfig):
+    """Archive Generator app config = shared base + AG-specific settings."""
+
+    name: str = "archive_generator"
+    version: str = "1.0.0"
+    transport: TransportConfig | None = None
+
     archive_directory: str
 
-    # Scoop integration settings
-    # Command to invoke Scoop (can be an absolute path or a command on PATH). Examples: "scoop", "npx scoop"
     scoop_cli_command: str = "scoop"
-    # Additional CLI arguments to pass to Scoop
-    scoop_extra_args: Optional[List[str]] = None
-    # Timeout for Scoop process in seconds
+    scoop_extra_args: list[str] | None = None
     scoop_timeout_sec: int = 120
-    
-    # SingleFile integration settings
+
     singlefile_binary_path: str = "archive_generators/single-file-x86_64-linux"
     singlefile_timeout_sec: int = 60
-    
-    # Transport configuration — optional here; populated from root-level transport in ConfigDataModel
-    transport: Optional[TransportConfig] = None
-    
-    # Security configuration
+
     ssrf_protection_enabled: bool = True
 
-    # Storage configuration (required)
     storage: StorageConfig
-    
-    def is_transport_enabled(self, transport: str) -> bool:
-        """Check if a specific transport is enabled"""
-        return self.transport.is_transport_enabled(transport)
-    
-    def get_kafka_config(self) -> Optional[KafkaConfig]:
-        """Get Kafka configuration from transport settings"""
-        return self.transport.kafka
-    
+
     def get_storage_config(self) -> StorageConfig:
-        """Get storage configuration"""
+        """Return the storage configuration."""
         return self.storage
-    
-    def validate_singlefile_config(self):
-        """Validate SingleFile binary exists and is executable"""
+
+    def validate_singlefile_config(self) -> bool:
+        """Validate that the SingleFile binary exists and is executable."""
         binary_path = Path(self.singlefile_binary_path)
         if not binary_path.exists():
-            raise ValueError(f"SingleFile binary not found: {self.singlefile_binary_path}")
+            raise ValueError(
+                f"SingleFile binary not found: {self.singlefile_binary_path}"
+            )
         if not os.access(binary_path, os.X_OK):
-            raise ValueError(f"SingleFile binary not executable: {self.singlefile_binary_path}")
+            raise ValueError(
+                f"SingleFile binary not executable: {self.singlefile_binary_path}"
+            )
         return True
 
+
 class ConfigDataModel(BaseModel):
-    domains: List[DomainConfig]
+    """Root configuration model for CiVers Archive Generator.
+
+    Transport sync is kept locally for now; it will be revisited in the
+    Kafka/Transport unification plan.
+
+    Domain resolution follow-up: ``DomainResolutionMixin`` will be added here
+    and ``ArchiveService.get_domain_config()`` updated when AG's service layer
+    is refactored (see ``StorageConfig`` docstring).
+    """
+
+    domains: list[DomainConfig]
     app: AppConfig
-    transport: Optional[TransportConfig] = None
+    transport: TransportConfig | None = None
 
     @model_validator(mode="after")
     def sync_transport_config(self) -> "ConfigDataModel":
