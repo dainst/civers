@@ -5,6 +5,8 @@ description = "CiVers Orchestrator - Workflow coordination service for web archi
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    # Shared CiVers config models and loaders
+    "civers-common",
     "pydantic>=2.11.5",
     "pyyaml>=6.0.2",
     "aiokafka>=0.10.0",
@@ -26,6 +28,9 @@ dev = [
     "aiokafka>=0.12.0",
     "httpx>=0.28.0",
 ]
+
+[tool.uv.sources]
+civers-common = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

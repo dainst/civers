@@ -123,8 +123,8 @@ services:
   # ============================================================================
   orchestrator:
     build:
-      context: ./civers_orchestrator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: civers_orchestrator/Dockerfile
     container_name: civers-orchestrator
     environment:
       - CONFIG_ENVIRONMENT=docker
