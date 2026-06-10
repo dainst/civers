@@ -8,6 +8,11 @@ ensuring type safety and validation.
 from typing import Literal, Optional, Set, Dict, List
 
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+from civers_common import (
+    BaseDomainConfig,
+    BaseKafkaConfig,
+    BaseTransportConfig,
+)
 
 
 class AppInfoConfig(BaseModel):
@@ -317,39 +322,14 @@ class KafkaConfig(BaseModel):
         description="Delay between connection retries in ms"
     )
 
-    @field_validator('bootstrap_servers')
-    @classmethod
-    def validate_bootstrap_servers(cls, v):
-        if not v or not v.strip():
-            raise ValueError("bootstrap_servers cannot be empty")
-        return v.strip()
-    
-    def get_topic(self, topic_name: str) -> Optional[str]:
-        """Get Kafka topic name for a specific event type."""
-        return self.topics.get(topic_name)
 
 
-class TransportConfig(BaseModel):
-    """Transport layer configuration."""
-    enabled: List[str] = Field(default=["kafka"], description="Enabled transport mechanisms")
-    kafka: KafkaConfig = Field(default_factory=KafkaConfig, description="Kafka configuration")
-    
-    @property
-    def kafka_enabled(self) -> bool:
-        """Helper to check if Kafka is enabled."""
-        return "kafka" in self.enabled
-
-
-class DomainConfig(BaseModel):
+class DomainConfig(BaseDomainConfig):
     """Domain configuration for archiving.
     
     Consistent with the shared domains.yaml structure.
     """
     model_config = ConfigDict(extra='ignore')
-    
-    name: str = Field(..., description="Domain name or pattern (e.g., 'arachne.dainst.org' or '*.dainst.org')")
-    enabled: bool = Field(default=True, description="Whether this domain is enabled")
-    description: str = Field(default="", description="Human-readable description")
     
     @property
     def display_name(self) -> str:
@@ -357,17 +337,61 @@ class DomainConfig(BaseModel):
         if self.description:
             return f"{self.name} - {self.description}"
         return self.name
-    
-    @property
-    def is_wildcard(self) -> bool:
-        """Check if this is a wildcard domain pattern."""
-        return "*" in self.name
-    
-    @property
-    def is_default(self) -> bool:
-        """Check if this is the default fallback domain."""
-        return self.name.lower() == "default"
 
+
+class KafkaConfig(BaseKafkaConfig):
+    """Kafka transport configuration."""
+    model_config = ConfigDict(extra='ignore')
+    
+    # Shared Kafka settings override default or add custom
+    bootstrap_servers: str = Field(
+        default="localhost:29092",
+        description="Kafka bootstrap servers"
+    )
+    topics: Dict[str, str] = Field(
+        default={
+            "orchestrator_requests": "orchestrator.requests",
+            "orchestrator_status": "orchestrator.status",
+        },
+        description="Topic configuration as dictionary"
+    )
+    producer: KafkaProducerConfig = Field(
+        default_factory=KafkaProducerConfig,
+        description="Producer configuration"
+    )
+    health_check_enabled: bool = Field(
+        default=True,
+        description="Enable health check for Kafka connection"
+    )
+    monitoring_enabled: bool = Field(
+        default=True,
+        description="Enable Kafka monitoring"
+    )
+    connection_retry_attempts: int = Field(
+        default=5,
+        ge=1,
+        description="Number of connection retry attempts"
+    )
+    connection_retry_delay_ms: int = Field(
+        default=2000,
+        ge=100,
+        description="Delay between connection retries in ms"
+    )
+
+    def get_topic(self, topic_name: str) -> Optional[str]:
+        """Get Kafka topic name for a specific event type."""
+        return self.topics.get(topic_name)
+
+
+class TransportConfig(BaseTransportConfig):
+    """Transport layer configuration."""
+    enabled: list[str] = Field(default_factory=lambda: ["kafka"], description="Enabled transports")
+    kafka: KafkaConfig = Field(default_factory=KafkaConfig, description="Kafka configuration")
+    
+    @property
+    def kafka_enabled(self) -> bool:
+        """Helper to check if Kafka is enabled."""
+        return self.is_transport_enabled("kafka")
 
 
 class LoggingConfig(BaseModel):

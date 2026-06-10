@@ -17,11 +17,16 @@ dependencies = [
     "requests>=2.32.5",
     "uvicorn>=0.35.0",
     "pytest>=8.4.1",
+    "civers-common",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 asyncio_mode = "strict"
+
+[tool.uv.sources]
+civers-common = { workspace = true }
+
 
 [dependency-groups]
 dev = [

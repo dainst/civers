@@ -1,5 +1,5 @@
 domains:
-  - name: localhost:8080
+  - name: localhost
     enabled: true
     description: "local Arachne instance"
 app:

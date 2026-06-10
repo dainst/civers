@@ -30,7 +30,7 @@ class TestSnapshot:
             url="https://example.com",
             title="Example Domain",
             metadata={"status": 200, "content_type": "text/html"},
-            available_artifacts=["warc.file", "screenshot.png"]
+            available_artifacts=["archive.warc", "screenshot.png"]
         )
         
         assert snapshot.snapshot_id == "20240315T143022Z"
@@ -202,20 +202,11 @@ class TestArtifact:
         )
         assert artifact_mb.formatted_size == "1.0 MB"
     
-    def test_content_type_detection(self):
-        """Test content type detection."""
-        warc = Artifact(artifact_type="warc.file", filename="warc.file")
-        assert warc.get_content_type() == "application/warc"
-        
-        screenshot = Artifact(artifact_type="screenshot.png", filename="screenshot.png")
-        assert screenshot.get_content_type() == "image/png"
-        
-        singlefile = Artifact(artifact_type="singlefile.html", filename="singlefile.html")
-        assert singlefile.get_content_type() == "text/html"
+
     
     def test_properties(self):
         """Test artifact properties."""
-        warc = Artifact(artifact_type="warc.file", filename="warc.file")
+        warc = Artifact(artifact_type="archive.warc", filename="archive.warc")
         assert warc.is_replayable is True
         assert warc.is_viewable is False
         

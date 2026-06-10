@@ -45,7 +45,7 @@ services:
       - ./civers_archive_web_interface/static:/app/static:ro
       - ./civers_archive_web_interface/templates:/app/templates:ro
       - ./civers_archive_web_interface/configs:/app/configs:ro
-    command: [ "bash", "-c", ". /opt/venv/bin/activate && exec watchfiles 'uvicorn app.main:app --host 0.0.0.0 --port 8000' app static templates configs /shared-configs" ]
+    command: [ "bash", "-c", ". /app/.venv/bin/activate && exec watchfiles 'uvicorn app.main:app --host 0.0.0.0 --port 8000' app static templates configs /shared-configs" ]
     # ============================================================================
     # Orchestrator - Local Development Override
     # Uses host network so document_url uses localhost (reachable by metadata-extractor)

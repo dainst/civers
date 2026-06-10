@@ -24,4 +24,5 @@ members = [
     "civers_archive_generator",
     "civers_metadata_extractor",
     "civers_orchestrator",
+    "civers_archive_web_interface",
 ]

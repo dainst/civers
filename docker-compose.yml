@@ -85,8 +85,8 @@ services:
   # ============================================================================
   web-interface:
     build:
-      context: ./civers_archive_web_interface
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: civers_archive_web_interface/Dockerfile
     container_name: civers-web-interface
     ports:
       - "8000:8000"
