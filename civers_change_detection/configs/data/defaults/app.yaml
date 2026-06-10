@@ -1,0 +1,16 @@
+# CiVers ChangeDetection — Core Application Configuration
+
+app:
+  name: "${APP_NAME:-change_detection_system}"
+  version: "0.1.0"
+  environment: "${CONFIG_ENVIRONMENT:-development}"
+
+logging:
+  level: "${LOG_LEVEL:-INFO}"
+  file: "change_detection.log"
+  suppress_kafka_logs: true
+
+performance:
+  max_concurrent_requests: 10
+  request_timeout_seconds: 60
+  retry_attempts: 3

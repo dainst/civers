@@ -1,0 +1,12 @@
+# Testing environment overrides for CiVers ChangeDetection
+# Loaded automatically by pytest via conftest.py (CONFIG_ENVIRONMENT=testing)
+
+app:
+  environment: testing
+  transport:
+    kafka:
+      bootstrap_servers: "localhost:29092"
+      consumer_group: "change_detection_group_test"
+
+logging:
+  level: WARNING

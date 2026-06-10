@@ -1,6 +1,9 @@
 # Configuration Architecture
 
-This directory contains the complete configuration management system for the CIVERS Archive Generator. The architecture provides environment-aware, hierarchical configuration loading with validation and type safety.
+This directory contains the configuration management system for the Archive Generator.
+All config classes subclass shared base classes from `civers_common` (Phase 3.1 complete).
+Base behaviour (env detection, deep merge, env-var expansion, domain resolution) lives in
+`civers_common`; only AG-specific fields and validators are defined here.
 
 ## 📁 Directory Structure
 
@@ -72,13 +75,14 @@ Transport layer configuration supporting multiple transports:
 
 #### `KafkaConfig`
 
-Kafka transport settings:
+Thin subclass of `civers_common.BaseKafkaConfig`. Inherits all fields and validators.
 
 - `bootstrap_servers`: Kafka broker connection string - **required**
 - `topics`: Topic names for different event types - **required**
-- `consumer_group`: Consumer group ID - **required**
-- `health_check_enabled`: Enable health monitoring (default: `true`)
-- `monitoring_enabled`: Enable metrics collection (default: `true`)
+- `consumer_group`: Consumer group ID (default: `"civers_default_group"`)
+
+> `health_check_enabled` and `monitoring_enabled` were removed — unused fields that
+> were silently ignored by `extra="ignore"` in the base model.
 
 #### `DomainConfig`
 
@@ -119,16 +123,19 @@ storage_config = StorageConfig(
 
 ### `YamlFileConfigLoader`
 
-The primary configuration loader that manages the hierarchical loading and merging process.
+Subclass of `civers_common.BaseYamlConfigLoader`. Only overrides:
+- `_default_config_dir()` — points to `configs/data/` inside this package
+- `load()` — returns AG's own `ConfigDataModel`
+
+All loading mechanics (merge, env-var expansion, file discovery) are inherited from `BaseYamlConfigLoader`.
 
 #### Environment Detection
 
 The system automatically detects the environment using this priority:
 
 1. **`CONFIG_ENVIRONMENT` environment variable**: Explicitly set to `development`, `testing`, `docker`, or `production`.
-2. **Docker Detection**: Presence of the `/.dockerenv` file.
-3. **Pytest Detection**: Automatically detected when running under `pytest`.
-4. **Default**: Falls back to `development`.
+2. **Pytest Detection**: Automatically detected when running under `pytest` (`PYTEST_CURRENT_TEST` is set).
+3. **Default**: Falls back to `development`.
 
 #### Environment Variable Expansion
 
@@ -149,9 +156,8 @@ app:
 ```python
 from configs.loaders import YamlFileConfigLoader
 
-# Initialize and load
 loader = YamlFileConfigLoader()
-config = loader.load()
+config = loader.load()  # returns ConfigDataModel
 
 print(f"Detected Environment: {loader.environment}")
 ```
@@ -208,66 +214,34 @@ app:
 
 ## 🧪 Testing Architecture
 
-### Test Coverage
+### Test Layer Ownership
 
-The configuration system is thoroughly tested across multiple test suites:
+| Layer | Location | Tests |
+|---|---|---|
+| Base classes | `civers_common/tests/` | Loader mechanics, env detection, transport, kafka, storage, app |
+| AG-specific | `tests/unit/configs/` | AG model fields, loaders with real AG YAML, storage subclass |
 
-#### Unit Tests
+### AG Config Tests
 
-- **Location**: `tests/unit/configs/`
-- **Coverage**:
-  - Configuration loading logic
-  - Environment detection
-  - Data model validation
-  - Error handling
+- `test_config_models.py` — AG-specific: `generators` validation, `AppConfig` AG fields, `ConfigDataModel` transport sync
+- `test_storage_config.py` — AG `StorageConfig` subclass behaviour (required `enabled`)
+- `test_yaml_config_loader.py` — 3 service-specific loader tests (default dir, real load, isolated load)
 
-#### Integration Tests
+### Running Tests
 
-- **Location**: `tests/integration/`
-- **Coverage**:
-  - End-to-end configuration loading
-  - Environment-specific behavior
-  - Real service integration
+```bash
+cd civers_archive_generator
+uv run --extra dev pytest tests/unit/configs/ -v
+```
 
-### Mock Configuration for Tests
+### Fixture for Tests
+
+Use the `testing_config` fixture (defined in `tests/conftest.py`) to get a fully loaded `ConfigDataModel` from the testing YAML environment:
 
 ```python
-from config.models import (
-    ConfigDataModel, AppConfig, KafkaConfig, 
-    TransportConfig, StorageConfig, DomainConfig
-)
-
-# Create test configuration with all required fields
-test_config = ConfigDataModel(
-    app=AppConfig(
-        name="test-app",
-        version="1.0.0",
-        archive_directory="test_archives",
-        singlefile_binary_path="/usr/bin/singlefile",
-        transport=TransportConfig(
-            enabled=["kafka"],
-            kafka=KafkaConfig(
-                bootstrap_servers="localhost:29093",
-                topics={
-                    "archive_requests": "test.archive.requests",
-                    "archive_status": "test.archive.status"
-                },
-                consumer_group="test_group"
-            )
-        ),
-        storage=StorageConfig(
-            enabled=["local_file"],
-            backends={"local_file": {"base_path": "test_archives"}}
-        )
-    ),
-    domains=[
-        DomainConfig(
-            name="example.com",
-            artifacts=["warc", "html"],
-            webpage_types="dynamic"
-        )
-    ]
-)
+def test_something(testing_config):
+    assert testing_config.app.name == "archive_generator"
+    assert testing_config.app.environment == "testing"
 ```
 
 ## 🏗️ Modular Generator Configuration
@@ -299,10 +273,9 @@ test_config = ConfigDataModel(
 ### Basic Configuration Loading
 
 ```python
-from config import ConfigLoaderFactory
+from configs.loaders import YamlFileConfigLoader
 
-# Load configuration with automatic environment detection
-loader = ConfigLoaderFactory.create()
+loader = YamlFileConfigLoader()
 config = loader.load()
 
 # Access configuration values
@@ -314,15 +287,11 @@ storage_backends = config.app.storage.get_enabled_backends()
 ### Service Integration
 
 ```python
-from config import ConfigLoaderFactory
-from transport_services import KafkaTransportService
-from archive_services import ArchiveService
+from configs.loaders import YamlFileConfigLoader
+from transport_services.kafka.kafka_transport_service import KafkaTransportService
+from archive_services.archive_service import ArchiveService
 
-# Load configuration
-loader = ConfigLoaderFactory.create()
-config = loader.load()
-
-# Initialize services with configuration
+config = YamlFileConfigLoader().load()
 archive_service = ArchiveService(config)
 transport_service = KafkaTransportService(config, archive_service)
 ```
@@ -384,27 +353,24 @@ storage:
 ### Environment Detection Problems
 
 ```python
-from config import ConfigLoaderFactory
+from configs.loaders import YamlFileConfigLoader
 
-loader = ConfigLoaderFactory.create()
-print(f"Loader type: {loader.__class__.__name__}")
+loader = YamlFileConfigLoader()
 print(f"Detected environment: {loader.environment}")
+print(f"Config dir: {loader.config_dir}")
 ```
 
 ### Configuration Loading Problems
 
 ```python
-from config import ConfigLoaderFactory
+from configs.loaders import YamlFileConfigLoader
 from pydantic import ValidationError
 
 try:
-    loader = ConfigLoaderFactory.create()
-    config = loader.load()
+    config = YamlFileConfigLoader().load()
     print("✅ Configuration loaded successfully")
-    print(f"   Environment: {loader.environment}")
     print(f"   Storage backends: {config.app.storage.get_enabled_backends()}")
 except ValidationError as e:
-    print("Configuration validation errors:")
     for error in e.errors():
         print(f"  - {error['loc']}: {error['msg']}")
 except Exception as e:
@@ -415,14 +381,13 @@ except Exception as e:
 
 ### Configuration Caching
 
-The configuration is loaded once per application instance. For better performance in testing:
+The configuration is loaded once per application instance. For testing, use the shared
+`testing_config` fixture from `tests/conftest.py` instead of loading manually:
 
 ```python
-# Cache configuration for multiple tests
-@pytest.fixture(scope="session")
-def app_config():
-    loader = ConfigLoaderFactory.create()
-    return loader.load()
+def test_something(testing_config):
+    # testing_config is a session-scoped ConfigDataModel
+    assert testing_config.app.name == "archive_generator"
 ```
 
 ### Memory Usage

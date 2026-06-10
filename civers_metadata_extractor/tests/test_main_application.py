@@ -177,9 +177,9 @@ class TestMetadataExtractionAppInitialization:
         ):
             # Setup mocks
             mock_metadata_instance = AsyncMock()
-            mock_metadata_instance.config_data_model.get_supported_domains.return_value = [
-                "test.domain.org"
-            ]
+            _domain = MagicMock()
+            _domain.name = "test.domain.org"
+            mock_metadata_instance.config_data_model.domains = [_domain]
             mock_metadata_service.return_value = mock_metadata_instance
 
             mock_kafka_instance = AsyncMock()
@@ -633,8 +633,8 @@ class TestErrorScenarios:
             patch("main.KafkaTransportService"),
         ):
             mock_instance = MagicMock()
-            # Simulate failure in the service check
-            mock_instance.config_data_model.get_supported_domains.side_effect = Exception(
+            # Simulate failure in the service check (iterating domains raises)
+            mock_instance.config_data_model.domains.__iter__.side_effect = Exception(
                 "Check failed"
             )
             mock_service.return_value = mock_instance

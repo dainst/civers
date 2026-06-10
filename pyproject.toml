@@ -14,4 +14,15 @@ dependencies = [
 [dependency-groups]
 dev = [
     "deepdiff>=9.0.0",
+    "pytest>=9.0.3",
+]
+
+[tool.uv.workspace]
+members = [
+    "civers_common",
+    "civers_change_detection",
+    "civers_archive_generator",
+    "civers_metadata_extractor",
+    "civers_orchestrator",
+    "civers_archive_web_interface",
 ]

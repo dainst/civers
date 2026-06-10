@@ -6,12 +6,20 @@ The configuration system provides YAML-based, domain-specific configuration for 
 
 The configuration system enables flexible, maintainable metadata extraction by separating extraction logic from domain-specific mapping rules. It supports:
 
+- **Shared Base Models**: Config models subclass `civers_common` base classes
+  (`BaseAppConfig`, `BaseDomainConfig`, `BaseKafkaConfig`, `BaseTransportConfig`,
+  `BaseStorageConfig`); `ConfigDataModel` mixes in `DomainResolutionMixin`
+- **Unified Domain Resolution**: `resolve_domain(hostname)` / `resolve_domain_for_url(url)`
+  follow the shared exact → wildcard → default order, raising
+  `civers_common.ConfigurationError` when unmatched
+- **Hierarchical Loading**: `YamlFileConfigLoader` (subclass of
+  `civers_common.BaseYamlConfigLoader`) merges `defaults/*.yaml` → `environments/<env>.yaml`
+  and expands `${VAR:-default}` placeholders
 - **Domain-Specific Configuration**: Custom extraction rules per website/domain
 - **Explicit Mapping Syntax**: `ClassName.property` targeting prevents ambiguity
 - **Dynamic Array Mapping**: `[*]` patterns handle unlimited array elements
 - **Implicit Value Mapping**: Automatic semantic type inference with `|syntax`
 - **JSON-LD Specialization**: Focused configuration for JSON-LD extraction
-- **Future Extractor Support**: Planned support for meta tags and CSS selector extraction
 
 ## Architecture
 
@@ -45,8 +53,8 @@ graph TD
 
 | File | Purpose |
 |------|---------|
-| `yaml_file_loader_config.py` | YAML loading and parsing |
-| `models.py` | Pydantic models for configuration validation |
+| `loaders.py` | `YamlFileConfigLoader` — hierarchical YAML loading (subclass of `civers_common.BaseYamlConfigLoader`) |
+| `models.py` | Pydantic models subclassing `civers_common` bases + `DomainResolutionMixin` |
 | `logging_config.py` | Logging system configuration |
 
 ## Configuration Schema
@@ -466,16 +474,19 @@ domains:
 
 ### Automatic Validation
 
-The system validates configuration at startup:
+The system validates configuration at startup. `ConfigDataModel` inherits domain
+resolution from the shared `DomainResolutionMixin`:
 
 ```python
 # Validation in models.py
-class ConfigDataModel(BaseModel):
+class ConfigDataModel(DomainResolutionMixin, BaseModel):
     app: AppConfig
-    domains: List[DomainConfig]
-    
-    def get_supported_domains(self) -> List[str]:
-        return [domain.name for domain in self.domains]
+    domains: list[DomainConfig]
+    transport: TransportConfig | None = None
+
+# Domain lookup (exact → wildcard → default → ConfigurationError):
+domain_config = config.resolve_domain("arachne.dainst.org")
+domain_config = config.resolve_domain_for_url("https://arachne.dainst.org/entity/1")
 ```
 
 ### Validation Errors
@@ -538,7 +549,7 @@ UV_LOG_LEVEL=debug uv run python3 main.py
 
 ## Implementation References
 
-- **Configuration Loading**: `configs/yaml_file_loader_config.py:15-45`
-- **Data Model Validation**: `configs/models.py:25-150`
-- **Domain Configuration Usage**: `metadata_extraction_services/metadata_extraction_service.py:45-80`
+- **Configuration Loading**: `configs/loaders.py` (subclass of `civers_common.BaseYamlConfigLoader`)
+- **Data Model Validation**: `configs/models.py` (subclasses `civers_common` bases + `DomainResolutionMixin`)
+- **Domain Resolution Usage**: `metadata_extraction_services/url_validator.py`, `metadata_extraction_services/metadata_extraction_service.py`
 - **Mapping Rule Application**: `metadata_extractors/mappers/explicit_mapping/explicit_mapping_processor.py:32-136`

@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
-
 class Artifact(BaseModel):
     """
     Represents a single artifact file associated with a snapshot.
@@ -119,37 +118,7 @@ class Artifact(BaseModel):
         """Suggested filename for downloads."""
         return self.filename
     
-    def get_content_type(self) -> str:
-        """Get appropriate Content-Type header for serving.
-        
-        Uses config if available, falls back to common defaults.
-        """
-        if self.mime_type:
-            return self.mime_type
-        
-        # Try to get from config
-        try:
-            from app.config.loader import load_config
-            config = load_config()
-            content_type = config.validation.content_type_mappings.get(self.artifact_type)
-            if content_type:
-                return content_type
-        except Exception:
-            pass  # Fall back to defaults if config loading fails
-        
-        # Default content types for common artifact types
-        default_content_types = {
-            "archive.warc": "application/warc",
-            "archive.wacz": "application/zip",
-            "screenshot.png": "image/png",
-            "singlefile.html": "text/html",
-            "document.html": "text/html",
-            "dom-snapshot.html": "text/html",
-            "metadata.json": "application/json",
-            "archive_generator_metadata.json": "application/json",
-        }
-        
-        return default_content_types.get(self.artifact_type, "application/octet-stream")
+
     
     @classmethod
     def create_from_file(cls, artifact_type: str, file_path: Path) -> 'Artifact':

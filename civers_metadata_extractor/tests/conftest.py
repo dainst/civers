@@ -22,6 +22,21 @@ sys.path.insert(0, _component_root)
 os.environ.setdefault("CONFIG_ENVIRONMENT", "testing")
 
 
+@pytest.fixture(autouse=True)
+def set_testing_env(monkeypatch):
+    """Ensure CONFIG_ENVIRONMENT=testing for every test."""
+    monkeypatch.setenv("CONFIG_ENVIRONMENT", "testing")
+
+
+@pytest.fixture
+def testing_config():
+    """Load a real ConfigDataModel from the testing.yaml environment."""
+    from configs.loaders import YamlFileConfigLoader
+
+    loader = YamlFileConfigLoader(environment="testing")
+    return loader.load()
+
+
 # Shared fixtures
 @pytest.fixture(scope="session")
 def project_root():

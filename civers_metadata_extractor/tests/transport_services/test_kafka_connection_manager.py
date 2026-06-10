@@ -22,12 +22,15 @@ def mock_kafka_config():
     """Load Kafka configuration from test_app_config.yaml."""
     import os
 
-    from configs.yaml_file_loader_config import YamlFileConfigLoader
+    import yaml
+
+    from configs.models import ConfigDataModel
 
     # Get path to test config file
     test_config_path = os.path.join(os.path.dirname(__file__), "..", "test_app_config.yaml")
-    config_loader = YamlFileConfigLoader(test_config_path)
-    config = config_loader.load()
+    with open(test_config_path) as f:
+        data = yaml.safe_load(f)
+    config = ConfigDataModel(**data)
 
     return config.app.transport.kafka
 

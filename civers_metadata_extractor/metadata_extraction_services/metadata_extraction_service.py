@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any
 
 import httpx
+from civers_common import ConfigurationError
 
 from configs.logging_config import get_logger
 from configs.models import ConfigDataModel
@@ -164,14 +165,15 @@ class MetadataExtractionService(MetadataExtractionServiceInterface):
                     source_url=url,
                 )
 
-            # Get domain configuration directly from ConfigDataModel
-            domain_config = self.config_data_model.get_domain_config_as_dict(domain)
-            if not domain_config:
+            # Resolve domain configuration via shared domain resolution
+            try:
+                domain_config = self.config_data_model.resolve_domain(domain).model_dump()
+            except ConfigurationError as e:
                 processing_time = time.time() - start_time
                 return ExtractionResult.failure_result(
                     request_id=request_id,
                     processing_time=processing_time,
-                    error_message=f"Failed to load configuration for domain: {domain}",
+                    error_message=f"Failed to load configuration for domain {domain}: {e}",
                     error_type="ConfigurationError",
                     failed_stage="configuration_loading",
                     source_url=url,

@@ -4,6 +4,7 @@
 environment: testing
 
 app:
+  environment: testing
   # Test-specific archive directory
   archive_directory: ${ARCHIVE_DIRECTORY:-test_archives}
   ssrf_protection_enabled: false

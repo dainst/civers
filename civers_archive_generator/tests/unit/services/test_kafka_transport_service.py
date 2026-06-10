@@ -33,25 +33,26 @@ class TestKafkaTransportServiceInitialization:
         mock_publisher_class.assert_called_once_with(service.connection_manager, service.topics)
     
     def test_init_no_kafka_config(self):
-        """Test initialization fails when no Kafka config is available."""
-        config = ConfigDataModel(
-            domains=[],
-            app=AppConfig(
-                name="test-app",
-                version="1.0.0",
-                transport=TransportConfig(enabled=["kafka"]),  # No kafka config inside transport
-                storage=StorageConfig(
-                    enabled=["local_file"],
-                    backends={"local_file": {"base_path": "/tmp/archives"}}
+        """Config creation fails when kafka is enabled but not configured.
+
+        The validation now happens at config build time (Pydantic) rather than at
+        service initialization — earlier detection of the same invalid state.
+        """
+        with pytest.raises(Exception):  # ValidationError — kafka enabled without config
+            ConfigDataModel(
+                domains=[],
+                app=AppConfig(
+                    name="test-app",
+                    version="1.0.0",
+                    transport=TransportConfig(enabled=["kafka"]),  # no kafka config
+                    storage=StorageConfig(
+                        enabled=["local_file"],
+                        backends={"local_file": {"base_path": "/tmp/archives"}},
+                    ),
+                    archive_directory="/tmp/archives",
+                    singlefile_binary_path="/usr/bin/singlefile",
                 ),
-                archive_directory="/tmp/archives",
-                singlefile_binary_path="/usr/bin/singlefile"
             )
-        )
-        
-        with pytest.raises(ValueError, match="Kafka configuration not found"):
-            mock_archive_service = Mock()
-            KafkaTransportService(config, mock_archive_service)
 
 
 @pytest.mark.unit

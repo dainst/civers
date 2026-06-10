@@ -1,10 +1,14 @@
 # tests/conftest.py
 """
 Pytest configuration and shared fixtures for the archive generator test suite.
-This file imports shared fixtures and configures the test environment.
 """
+import logging
+import os
 import sys
+import tempfile
 from pathlib import Path
+
+import pytest
 
 # Add the project root to Python path for imports
 project_root = Path(__file__).parent.parent
@@ -13,15 +17,31 @@ if str(project_root) not in sys.path:
 
 # Import shared fixtures from the fixtures package after sys.path is updated
 from tests.fixtures.shared_fixtures import *  # noqa: E402, F401, F403
-import pytest  # noqa: E402
-import tempfile  # noqa: E402
-import logging  # noqa: E402
+
+# Force testing environment before any module-level config loading
+os.environ.setdefault("CONFIG_ENVIRONMENT", "testing")
 
 # Configure test logging
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+
+
+@pytest.fixture(autouse=True)
+def set_testing_env(monkeypatch):
+    """Ensure CONFIG_ENVIRONMENT=testing is set for every test."""
+    monkeypatch.setenv("CONFIG_ENVIRONMENT", "testing")
+
+
+@pytest.fixture
+def testing_config():
+    """
+    Load a real ConfigDataModel from the testing.yaml environment.
+    Mirrors the same fixture in civers_change_detection/tests/conftest.py.
+    """
+    from configs.loaders import YamlFileConfigLoader
+    return YamlFileConfigLoader(environment="testing").load()
 
 def pytest_addoption(parser):
     """Add custom command line options."""

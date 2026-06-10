@@ -5,7 +5,8 @@ This package provides centralized configuration loading and management
 for the entire application.
 """
 
-from .loaders import YamlFileConfigLoader, ConfigurationError
+from civers_common import ConfigurationError
+from .loaders import YamlFileConfigLoader
 from .models import (
     AppConfig,
     AppInfoConfig,
