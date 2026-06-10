@@ -22,4 +22,5 @@ members = [
     "civers_common",
     "civers_change_detection",
     "civers_archive_generator",
+    "civers_metadata_extractor",
 ]

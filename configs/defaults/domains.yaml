@@ -148,7 +148,7 @@ domains:
         artifacts: [singlefile]
 
   - name: civers.test.dainst.de
-    workflow: archive_generation_only_workflow
+    workflow: archive_and_metadata_workflow
     webpage_types: dynamic
     enabled: true
     description: "CiVers Arachne frontend Test Environment Domain"
@@ -162,7 +162,7 @@ domains:
     mappings: *arachne_mappings_test
 
   - name: "civers.test.dainst.de:8080"
-    workflow: archive_generation_only_workflow
+    workflow: archive_and_metadata_workflow
     webpage_types: dynamic
     enabled: true
     description: "CiVers Arachne frontend Test Environment Domain (Port 8080)"

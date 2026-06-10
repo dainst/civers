@@ -190,8 +190,8 @@ services:
   # ============================================================================
   metadata-extractor:
     build:
-      context: ./civers_metadata_extractor
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: civers_metadata_extractor/Dockerfile
     container_name: civers-metadata-extractor
     environment:
       - CONFIG_ENVIRONMENT=docker

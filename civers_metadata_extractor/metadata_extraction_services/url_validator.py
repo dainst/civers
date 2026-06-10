@@ -10,6 +10,8 @@ Works directly with ConfigDataModel - no unnecessary delegation.
 from typing import Any
 from urllib.parse import urlparse
 
+from civers_common import ConfigurationError
+
 from configs.logging_config import get_logger
 from configs.models import ConfigDataModel
 
@@ -71,8 +73,12 @@ class UrlValidator:
                     "reason": "Could not extract domain from URL",
                 }
 
-            # Check domain support using ConfigDataModel directly
-            domain_supported = self.config_data_model.is_domain_supported(domain)
+            # Check domain support via shared domain resolution
+            try:
+                self.config_data_model.resolve_domain(domain)
+                domain_supported = True
+            except ConfigurationError:
+                domain_supported = False
             if domain_supported:
                 return {
                     "valid": True,

@@ -4,7 +4,8 @@ Tests for metadata_extraction_services/url_validator.py
 UrlValidator validates URLs in three steps:
 1. Format check — must be non-empty string, have scheme+netloc, and use http/https
 2. Domain extraction — pulls netloc from the parsed URL
-3. Domain support check — calls config_data_model.is_domain_supported(domain)
+3. Domain support check — calls config_data_model.resolve_domain(domain), treating a
+   civers_common.ConfigurationError as "not supported"
 
 Returns a dict with keys: valid (bool), domain_supported (bool), reason (str), domain (str).
 """
@@ -12,15 +13,22 @@ Returns a dict with keys: valid (bool), domain_supported (bool), reason (str), d
 from unittest.mock import Mock
 
 import pytest
+from civers_common import ConfigurationError
 
 from metadata_extraction_services.url_validator import UrlValidator
 
 
 @pytest.fixture
 def supported_config():
-    """Mock ConfigDataModel that treats arachne.dainst.org as supported."""
+    """Mock ConfigDataModel that resolves only arachne.dainst.org."""
     config = Mock()
-    config.is_domain_supported.side_effect = lambda domain: domain == "arachne.dainst.org"
+
+    def _resolve(domain):
+        if domain == "arachne.dainst.org":
+            return Mock()
+        raise ConfigurationError(f"No domain configuration for '{domain}'")
+
+    config.resolve_domain.side_effect = _resolve
     return config
 
 
