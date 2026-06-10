@@ -8,7 +8,8 @@ This module provides workflow resolution capabilities including:
 
 from collections import defaultdict, deque
 from typing import Dict, List, Optional, Set
-from urllib.parse import urlparse
+
+from civers_common import ConfigurationError, DomainResolutionMixin
 
 from configs.logging_config import get_logger
 from configs.models import DomainConfig, WorkflowConfig, WorkflowStepConfig
@@ -17,7 +18,7 @@ from orchestration_services.exceptions import CircularDependencyError, WorkflowN
 logger = get_logger(__name__)
 
 
-class WorkflowResolver:
+class WorkflowResolver(DomainResolutionMixin):
     """Resolves workflows, dependencies, and step navigation.
 
     This class provides all workflow resolution logic:
@@ -72,50 +73,17 @@ class WorkflowResolver:
         if not url or not isinstance(url, str) or not url.strip():
             raise ValueError("Invalid URL: URL cannot be empty or None")
 
-        # Parse URL to extract domain
+        # Delegate matching to the shared resolution logic
+        # (exact → wildcard → default), translating ConfigurationError to the
+        # ValueError contract expected by callers.
         try:
-            parsed = urlparse(url)
-            domain = parsed.netloc.lower()  # Case-insensitive
+            domain_config = self.resolve_domain_for_url(url)
+        except ConfigurationError as e:
+            logger.error(f"❌ No workflow found for URL '{url}': {e}")
+            raise ValueError(f"No workflow configured for URL '{url}': {e}") from e
 
-            # Remove port if present
-            if ":" in domain:
-                domain = domain.split(":")[0]
-
-            if not domain:
-                raise ValueError(f"Invalid URL: Could not extract domain from '{url}'")
-
-        except Exception as e:
-            raise ValueError(f"Invalid URL: {str(e)}")
-
-        logger.debug(f"Matching domain '{domain}' to workflow")
-
-        # Strategy 1: Exact match
-        for domain_config in self.domains:
-            if domain_config.name.lower() == domain:
-                logger.info(f"✅ Exact domain match: {domain} → {domain_config.workflow}")
-                return domain_config.workflow
-
-        # Strategy 2: Wildcard matches
-        for domain_config in self.domains:
-            if "*" in domain_config.name:
-                pattern = domain_config.name.lower().replace("*", "")
-                if pattern and domain.endswith(pattern):
-                    logger.info(
-                        f"✅ Wildcard domain match: {domain} → {domain_config.workflow}"
-                    )
-                    return domain_config.workflow
-
-        # Strategy 3: Default workflow
-        for domain_config in self.domains:
-            if domain_config.name == "default":
-                logger.info(f"✅ Default workflow match: {domain} → {domain_config.workflow}")
-                return domain_config.workflow
-
-        # No match found
-        logger.error(f"❌ No workflow found for domain: {domain}")
-        raise ValueError(
-            f"No workflow configured for domain '{domain}' and no default workflow defined"
-        )
+        logger.info(f"✅ Domain matched: {url} → {domain_config.workflow}")
+        return domain_config.workflow
 
     def get_workflow(self, workflow_name: str) -> WorkflowConfig:
         """Get workflow definition by name.

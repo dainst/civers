@@ -65,6 +65,12 @@ docker compose up -d kafka kafka-ui
 > The manual test script and test helpers use **kafka-python** (sync, simpler for CLI tooling).  
 > `kafka-python` lives in `[project.optional-dependencies] dev` and is never shipped to production.
 
+> **Shared config package:** the Orchestrator depends on **`civers_common`**
+> (a `uv` workspace member) for its base config models, domain resolution mixin,
+> and YAML loader. Docker builds therefore use the **repo root** as the build
+> context (`docker compose build orchestrator`), not this sub-directory.
+> See `configs/README.md` for what ORCH inherits vs. keeps service-specific.
+
 ### 2. Running the Application
 
 | Environment | Command | Use Case |

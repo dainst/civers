@@ -84,8 +84,10 @@ class MetadataExtractionApp:
 
             # Perform metadata service basic check
             try:
-                # Check if config model is working by getting supported domains
-                supported_domains = metadata_service.config_data_model.get_supported_domains()
+                # Check if config model is working by listing configured domains
+                supported_domains = [
+                    d.name for d in metadata_service.config_data_model.domains
+                ]
                 logger.info("✅ Metadata extraction service initialized successfully")
                 logger.info(f"   Supported domains: {len(supported_domains)}")
                 if supported_domains:

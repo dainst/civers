@@ -2,38 +2,41 @@
 # CiVers Archive Generator - Dockerfile
 # ==============================================================================
 #
-# Multi-stage build for minimal production image with Playwright support.
+# Build context: repo root (required — civers_common is a workspace dependency)
 #
-# Build:
-#   docker build -t civers-archive-generator .
+#   docker build -t civers-archive-generator -f civers_archive_generator/Dockerfile .
 #
-# Run standalone:
-#   docker run --env-file .env civers-archive-generator
+# Or via docker-compose (context: . already set):
+#   docker compose build archive-generator
 #
 # ==============================================================================
 
-# Stage 1: Build stage with uv
+# Stage 1: Build — resolve workspace deps and install civers_common properly
 FROM python:3.12-slim AS builder
 
-# Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Set working directory
-WORKDIR /app
+# Use /workspace so the uv workspace layout matches the repo structure
+WORKDIR /workspace
 
-# Copy dependency files first (for better caching)
+# ---- Workspace metadata (cache layer: only changes when deps change) ----
 COPY pyproject.toml uv.lock ./
+# civers_common is a workspace dependency of AG — must be present for resolution
+COPY civers_common/ ./civers_common/
+# AG's own pyproject.toml inside the workspace
+COPY civers_archive_generator/pyproject.toml ./civers_archive_generator/pyproject.toml
 
-# Install dependencies (ensure lockfile is updated if needed)
-RUN uv sync --no-dev --no-install-project
+# Install AG's dependencies only (civers_common as a real package, not editable)
+RUN uv sync --package archive-generator --no-dev --no-install-project --no-editable
 
-# Copy source code
-COPY . .
+# ---- Copy full AG source ----
+COPY civers_archive_generator/ ./civers_archive_generator/
 
-# Install the project
-RUN uv sync --no-dev
+# Install AG itself
+RUN uv sync --package archive-generator --no-dev --no-editable
 
-# Stage 2: Runtime stage
+
+# Stage 2: Runtime
 FROM python:3.12-slim AS runtime
 
 ENV PIP_NO_CACHE_DIR=1 \
@@ -44,8 +47,7 @@ ENV PIP_NO_CACHE_DIR=1 \
     PYTHONPATH="/app" \
     CONFIG_ENVIRONMENT="docker"
 
-# 1. Install System Dependencies (keep this stable at top)
-# Base OS packages and Chromium deps used by Playwright
+# 1. System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates gnupg bash tar wget unzip \
     fonts-liberation \
@@ -54,7 +56,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libatspi2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Install Node.js 20.x
+# 2. Node.js 20.x
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get update \
     && apt-get install -y --no-install-recommends nodejs \
@@ -64,48 +66,40 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 RUN groupadd --gid 1000 appgroup && \
     useradd --uid 1000 --gid 1000 --shell /bin/bash --create-home appuser
 
-# Set working directory
 WORKDIR /app
 
-# 3. Copy Application Code & Artifacts
-# Copy virtual environment from builder
-COPY --from=builder /app/.venv /app/.venv
+# 3. Copy virtual environment (civers_common is installed inside as a real package)
+COPY --from=builder /workspace/.venv /app/.venv
 
-# Copy source code (explicitly copying required directories/files)
-COPY --from=builder /app/configs /app/configs
-COPY --from=builder /app/archive_generators /app/archive_generators
-COPY --from=builder /app/archive_services /app/archive_services
-COPY --from=builder /app/transport_services /app/transport_services
-COPY --from=builder /app/storage_layer /app/storage_layer
-COPY --from=builder /app/lib/scoop /app/lib/scoop
-COPY --from=builder /app/main.py /app/main.py
+# 4. Copy AG source files flat to /app/ (preserves import layout: configs.*, archive_generators.*, etc.)
+COPY --from=builder /workspace/civers_archive_generator/configs /app/configs
+COPY --from=builder /workspace/civers_archive_generator/archive_generators /app/archive_generators
+COPY --from=builder /workspace/civers_archive_generator/archive_services /app/archive_services
+COPY --from=builder /workspace/civers_archive_generator/transport_services /app/transport_services
+COPY --from=builder /workspace/civers_archive_generator/storage_layer /app/storage_layer
+COPY --from=builder /workspace/civers_archive_generator/lib/scoop /app/lib/scoop
+COPY --from=builder /workspace/civers_archive_generator/main.py /app/main.py
 
-# 4. Final Setup & Permissions
-# Create necessary directories
+# 5. Final setup
 RUN mkdir -p /app/archives /app/lib/scoop/tmp \
     && touch /app/archive_generator.log \
     && chown -R appuser:appgroup /app
 
-# Switch to non-root user for npm/playwright install
 USER appuser
 
-# Install watchfiles for development/hot-reload
+# Install watchfiles for development hot-reload
 RUN pip install --no-warn-script-location watchfiles
 
-# 5. Install Scoop Dependencies (npm)
+# 6. Scoop npm dependencies
 WORKDIR /app/lib/scoop
 RUN npm ci --omit=dev
 
-# 6. Install Playwright Browsers
-# This MUST happen as the user who runs the app to be found correctly in default paths
+# 7. Playwright browser
 RUN npx playwright install chromium
 
-# Reset workdir
 WORKDIR /app
 
-# Health check (basic python import check)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python -c "import sys; sys.exit(0)"
 
-# Default command
 CMD ["python", "-u", "main.py"]

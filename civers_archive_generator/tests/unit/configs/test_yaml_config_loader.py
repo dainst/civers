@@ -1,175 +1,103 @@
-# tests/unit/configs/test_yaml_config_loader.py
-"""
-Tests for YamlFileConfigLoader.
+"""Unit tests for Archive Generator YamlFileConfigLoader.
 
-These tests verify that YamlFileConfigLoader properly:
-1. Loads configuration from hierarchical YAML files
-2. Detects environment correctly
-3. Merges default and environment configs
-4. Validates configuration against Pydantic models
+Base loader behaviour (env detection, deep merge, env-var expansion, CONFIG_DIR,
+missing-file error, etc.) is covered exhaustively in civers_common/tests/test_yaml_loader.py.
+
+Only Archive Generator-specific behaviour is tested here:
+  1. The default config directory points to this service's own configs/data/ folder.
+  2. load() returns a valid AG ConfigDataModel from the real testing YAML files.
+  3. Isolated load with AG-specific model structure works end-to-end.
 """
-import os
+
+import inspect
+from pathlib import Path
+
 import pytest
+
 from configs.loaders import YamlFileConfigLoader
+from configs.models import ConfigDataModel
 
 
-# =============================================================================
-# Environment Detection Tests
-# =============================================================================
+class TestYamlFileConfigLoader:
 
-@pytest.mark.unit
-def test_environment_detection_default():
-    """Test that default environment is 'testing' when running under pytest."""
-    # Ensure CONFIG_ENVIRONMENT is not set to test default
-    if "CONFIG_ENVIRONMENT" in os.environ:
-        os.environ.pop("CONFIG_ENVIRONMENT")
-    loader = YamlFileConfigLoader()
-    # When running under pytest, should detect 'testing' environment
-    assert loader.environment == "testing"
+    def test_config_dir_is_set_to_default(self):
+        """Default config_dir resolves to <loader_module_dir>/data/."""
+        loader = YamlFileConfigLoader()
+        expected = Path(inspect.getfile(YamlFileConfigLoader)).parent / "data"
+        assert loader.config_dir == expected
+        assert loader.defaults_dir == expected / "defaults"
+        assert loader.environments_dir == expected / "environments"
 
+    def test_load_testing_environment_returns_valid_config_data_model(self):
+        """load() returns the AG ConfigDataModel with correctly merged testing config."""
+        loader = YamlFileConfigLoader()
+        config = loader.load()
 
-@pytest.mark.unit
-def test_environment_detection_from_env_var(monkeypatch):
-    """Test that CONFIG_ENVIRONMENT environment variable overrides detection."""
-    monkeypatch.setenv("CONFIG_ENVIRONMENT", "production")
-    loader = YamlFileConfigLoader()
-    assert loader.environment == "production"
+        assert isinstance(config, ConfigDataModel)
+        assert config.app.name == "archive_generator"
+        assert config.app.environment == "testing"
+        assert len(config.domains) >= 1
+        assert all(len(d.generators) > 0 for d in config.domains)
+        transport = config.app.transport
+        assert transport is not None
+        assert transport.kafka is not None
 
+    def test_load_isolated_config_dir(self, tmp_path):
+        """Isolated load: defaults + testing.yaml merge into a valid AG ConfigDataModel."""
+        defaults_dir = tmp_path / "defaults"
+        defaults_dir.mkdir()
+        (defaults_dir / "app.yaml").write_text(
+            """
+app:
+  name: isolated_ag
+  version: 1.0.0
+  archive_directory: /tmp/archives
+  storage:
+    enabled:
+      - local_file
+    backends:
+      local_file:
+        base_path: archives
+domains:
+  - name: test.local
+    generators:
+      - name: scoop
+        artifacts: [warc]
+    webpage_types: dynamic
+"""
+        )
+        # AG puts transport at root level; the sync_transport_config validator
+        # copies it into app.transport when app.transport is not explicitly set.
+        (defaults_dir / "kafka.yaml").write_text(
+            """
+transport:
+  enabled:
+    - kafka
+  kafka:
+    bootstrap_servers: broker:9092
+    consumer_group: isolated_default_group
+    topics:
+      requests: archive.requests
+"""
+        )
 
-@pytest.mark.unit
-def test_config_dir_path():
-    """Test that config_dir points to the correct location."""
-    loader = YamlFileConfigLoader()
-    assert loader.config_dir.exists()
-    assert (loader.config_dir / "defaults").exists()
-    assert (loader.config_dir / "environments").exists()
+        env_dir = tmp_path / "environments"
+        env_dir.mkdir()
+        (env_dir / "testing.yaml").write_text(
+            """
+app:
+  environment: testing
+transport:
+  kafka:
+    consumer_group: isolated_test_group
+"""
+        )
 
+        config = YamlFileConfigLoader(config_dir=tmp_path).load()
 
-# =============================================================================
-# Valid Configuration Loading Tests
-# =============================================================================
-
-@pytest.mark.unit
-def test_config_loading():
-    """Test that configuration loads correctly from hierarchical YAML files."""
-    loader = YamlFileConfigLoader()
-    config = loader.load()
-
-    # Basic app assertions
-    assert config.app.name == "archive_generator"
-    assert config.app.version == "1.0.0"
-    
-    # Test transport configuration
-    transport_config = config.app.transport
-    assert hasattr(transport_config, "kafka")
-    assert transport_config.kafka is not None
-    assert hasattr(transport_config.kafka, "topics")
-    assert isinstance(transport_config.kafka.topics, dict)
-    
-    # Test domains exist
-    assert config.domains
-    assert len(config.domains) > 0
-    assert all(hasattr(d, "name") for d in config.domains)
-
-
-@pytest.mark.unit
-def test_load_storage_config():
-    """Test that storage configuration is loaded correctly."""
-    loader = YamlFileConfigLoader()
-    config = loader.load()
-    
-    storage_config = config.app.get_storage_config()
-    assert storage_config is not None
-    assert hasattr(storage_config, 'enabled')
-    assert len(storage_config.get_enabled_backends()) > 0
-
-
-@pytest.mark.unit
-def test_load_transport_config():
-    """Test that transport configuration is loaded correctly."""
-    loader = YamlFileConfigLoader()
-    config = loader.load()
-    
-    transport_config = config.app.transport
-    assert transport_config.enabled == ["kafka"]
-    assert transport_config.kafka is not None
-
-
-
-# =============================================================================
-# Deep Merge Tests
-# =============================================================================
-
-@pytest.mark.unit
-def test_deep_merge_basic():
-    """Test basic deep merge functionality."""
-    loader = YamlFileConfigLoader()
-    
-    dict1 = {"a": 1, "b": {"c": 2}}
-    dict2 = {"b": {"d": 3}, "e": 4}
-    
-    result = loader._deep_merge(dict1, dict2)
-    
-    assert result["a"] == 1
-    assert result["b"]["c"] == 2
-    assert result["b"]["d"] == 3
-    assert result["e"] == 4
-
-
-@pytest.mark.unit
-def test_deep_merge_override():
-    """Test that later dicts override earlier ones."""
-    loader = YamlFileConfigLoader()
-    
-    dict1 = {"a": 1, "b": 2}
-    dict2 = {"b": 3}
-    
-    result = loader._deep_merge(dict1, dict2)
-    
-    assert result["a"] == 1
-    assert result["b"] == 3
-
-
-@pytest.mark.unit
-def test_deep_merge_domains_override():
-    """Test that domains list from override replaces base (simple override, not merge by name)."""
-    loader = YamlFileConfigLoader()
-    
-    dict1 = {
-        "domains": [
-            {"name": "example.com", "generators": [{"name": "scoop", "artifacts": ["warc"]}]},
-            {"name": "test.com", "generators": [{"name": "scoop", "artifacts": ["html"]}]}
-        ]
-    }
-    dict2 = {
-        "domains": [
-            {"name": "example.com", "generators": [{"name": "scoop", "artifacts": ["warc", "html"]}]},
-            {"name": "new.com", "generators": [{"name": "scoop", "artifacts": ["screenshots"]}]}
-        ]
-    }
-    
-    result = loader._deep_merge(dict1, dict2)
-    
-    # Override replaces the entire domains list
-    assert len(result["domains"]) == 2
-    
-    # Should have the domains from dict2
-    domain_names = [d["name"] for d in result["domains"]]
-    assert "example.com" in domain_names
-    assert "new.com" in domain_names
-
-
-# =============================================================================
-# Error Handling Tests
-# =============================================================================
-
-@pytest.mark.unit
-def test_invalid_environment_raises_error(monkeypatch):
-    """Test that non-existent environment config file causes error."""
-    monkeypatch.setenv("CONFIG_ENVIRONMENT", "nonexistent_environment")
-    
-    loader = YamlFileConfigLoader()
-    
-    # Should raise FileNotFoundError because the environment config was explicitly set but file doesn't exist
-    with pytest.raises(FileNotFoundError):
-        loader.load()
+        assert isinstance(config, ConfigDataModel)
+        assert config.app.name == "isolated_ag"
+        assert config.app.environment == "testing"
+        assert config.app.get_kafka_config().consumer_group == "isolated_test_group"
+        domain = next(d for d in config.domains if d.name == "test.local")
+        assert domain.generators[0].name == "scoop"

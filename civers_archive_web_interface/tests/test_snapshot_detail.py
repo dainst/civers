@@ -99,7 +99,7 @@ class TestSnapshotDetail:
             assert f"type={artifact_type}" in artifacts[artifact_type]["download_url"]
         
         # Check unavailable artifacts
-        for artifact_type in ["warc.file", "document.html"]:
+        for artifact_type in ["archive.warc", "document.html"]:
             assert artifact_type in artifacts
             assert artifacts[artifact_type]["available"] == False
             assert artifacts[artifact_type]["download_url"] is None
@@ -143,7 +143,7 @@ class TestSnapshotDetail:
         assert wacz_artifact["download_url"] == f"http://testserver/api/artifacts/serve?snapshot_id={snapshot_id}&type=archive.wacz"
         
         # Verify that unavailable artifacts have no download URL
-        warc_artifact = data["artifacts"]["warc.file"]
+        warc_artifact = data["artifacts"]["archive.warc"]
         assert warc_artifact["available"] == False
         assert warc_artifact["download_url"] is None
     
@@ -170,7 +170,7 @@ class TestSnapshotDetail:
         assert isinstance(data.get("content_length"), (int, type(None)))
         
         # Artifacts should include all expected types
-        expected_artifact_types = ["archive.wacz", "metadata.json", "screenshot.png", "singlefile.html", "warc.file", "document.html"]
+        expected_artifact_types = ["archive.wacz", "metadata.json", "screenshot.png", "singlefile.html", "archive.warc", "document.html"]
         for artifact_type in expected_artifact_types:
             assert artifact_type in data["artifacts"]
             artifact_info = data["artifacts"][artifact_type]
@@ -209,7 +209,7 @@ class TestSnapshotDetail:
                 snapshot_id="req_test-warc_20250904_061411",
                 timestamp=datetime(2025, 9, 4, 6, 14, 11, tzinfo=timezone.utc),
                 url="https://example.com",
-                available_artifacts=["warc.file", "metadata.json"]
+                available_artifacts=["archive.warc", "metadata.json"]
             )
             mock_get.return_value = warc_snapshot
             

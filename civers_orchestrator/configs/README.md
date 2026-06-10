@@ -18,6 +18,26 @@ The configuration system uses a **hierarchical YAML-based approach** with enviro
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### Shared base (`civers_common`)
+
+The Orchestrator builds on the shared `civers_common` package:
+
+| ORCH model / module | civers_common base | Notes |
+|---------------------|--------------------|-------|
+| `AppConfig` | `BaseAppConfig` | adds `metadata` (ORCH transport lives at the root `ConfigDataModel`) |
+| `DomainConfig` | `BaseDomainConfig` | adds `workflow`; inherits `name` validation, `enabled`, `description`, `webpage_types` |
+| `ConfigDataModel` | `DomainResolutionMixin` | shared exact → wildcard → default resolution; `get_workflow_for_domain()` builds on `resolve_domain` |
+| `YamlFileConfigLoader` | `BaseYamlConfigLoader` | thin wrapper: `_default_config_dir()` + `load()` |
+
+**Deferred:** `KafkaConfig` / `TransportConfig` and the typed Kafka sub-models
+(`KafkaTopicsConfig`, `KafkaConsumerConfig`, `KafkaProducerConfig`,
+`KafkaComponentMapping`) stay ORCH-specific. Their typed-topics shape is
+incompatible with the base's flat `topics: dict[str, str]`; Kafka/Transport
+unification is owned by the dedicated transport-refactor plan.
+
+`WorkflowConfig`, `WorkflowStepConfig`, `DataTransformerConfig` and
+`MetadataConfig` are ORCH-only and have no base equivalent.
+
 ## Directory Structure
 
 ```text
@@ -70,10 +90,11 @@ If you explicitly set `CONFIG_ENVIRONMENT` to a non-existent file, the loader ra
 ```bash
 CONFIG_ENVIRONMENT=non-existent uv run python main.py
 # FileNotFoundError: Environment file '.../environments/non-existent.yaml' not found.
-# Environment 'non-existent' was explicitly set via CONFIG_ENVIRONMENT but no
-# corresponding configuration file exists.
-# Available environments: development, docker, production, testing
+# Available: development, docker, production, testing
 ```
+
+> The loader (and this error message) comes from
+> `civers_common.BaseYamlConfigLoader`; see `civers_common/configs/configs.md`.
 
 **Note:** The variable must be set on the **same command line** or exported first:
 

@@ -28,6 +28,8 @@ app:
     - "false"
     - "--log-level"
     - "info"
+    - "--load-timeout"
+    - "60000"
     - "--network-idle-timeout"
     - "10000"
     - "--behaviors-timeout"

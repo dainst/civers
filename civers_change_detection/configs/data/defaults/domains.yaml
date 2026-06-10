@@ -1,0 +1,38 @@
+# Base domain configurations
+# Per-domain change_detection settings; other CiVers keys are ignored by this component.
+
+domains:
+  - name: arachne.test.dainst.org
+    enabled: true
+    change_detection:
+      detection_strategy: css_selector
+      comparison_algorithm: simhash
+      css_selectors:
+        - "div.con10t-page"
+      simhash_threshold: 3
+      archive_interval: "1m"
+      request_timeout_seconds: 30
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
+    webpage_types: dynamic
+
+  - name: example.com
+    enabled: true
+    change_detection:
+      detection_strategy: css_selector
+      comparison_algorithm: simple_text
+      css_selectors:
+        - "article.content"
+        - "div.main-text"
+      rendering_engine: httpx
+      archive_interval: "7d"
+      request_timeout_seconds: 30
+    generators:
+      - name: scoop
+        artifacts: [warc, dom-snapshot, screenshot]
+      - name: singlefile
+        artifacts: [singlefile]
+    webpage_types: dynamic

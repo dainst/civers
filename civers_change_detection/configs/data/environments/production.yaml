@@ -1,0 +1,14 @@
+# Production environment overrides for CiVers ChangeDetection
+# Copy from .env.example and fill in secrets.
+
+app:
+  environment: production
+
+app:
+  transport:
+    kafka:
+      bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
+      consumer_group: "${KAFKA_CONSUMER_GROUP_ID}"
+
+logging:
+  level: WARNING

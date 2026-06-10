@@ -1,0 +1,12 @@
+# Docker environment overrides for CiVers ChangeDetection
+# Applied when CONFIG_ENVIRONMENT=docker (set automatically in Dockerfile)
+
+app:
+  environment: docker
+  transport:
+    kafka:
+      bootstrap_servers: "broker:9092"
+      consumer_group: "${KAFKA_CONSUMER_GROUP_ID:-change_detection_group}"
+
+logging:
+  level: INFO

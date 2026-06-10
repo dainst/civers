@@ -1,4 +1,4 @@
-# CIVERS - Coordinated Infrastructure for Versioned and Extensible Repository Systems
+# CIVERS - Citation of Versioned Web Pages by PID
 
 A comprehensive system for archiving web pages, extracting metadata, and managing digital artifacts. CIVERS integrates web archiving (WACZ), metadata extraction, and storage into a unified workflow.
 

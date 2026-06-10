@@ -1,4 +1,6 @@
 transport:
+  enabled:
+    - "kafka"
   kafka:
     bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
     producer:

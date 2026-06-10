@@ -18,6 +18,8 @@ classifiers = [
     "Topic :: Text Processing :: Markup :: HTML",
 ]
 dependencies = [
+    # Shared CiVers config models and loaders
+    "civers-common",
     # Core dependencies for data validation and models
     "pydantic>=2.11.5",
     # Kafka messaging (async native)
@@ -43,6 +45,9 @@ Homepage = "https://github.com/dainst/civers-metadata-extractor"
 Documentation = "https://github.com/dainst/civers-metadata-extractor/blob/main/README.md"
 Repository = "https://github.com/dainst/civers-metadata-extractor"
 Issues = "https://github.com/dainst/civers-metadata-extractor/issues"
+
+[tool.uv.sources]
+civers-common = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

@@ -21,6 +21,7 @@ Mock strategy:
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
+from civers_common import ConfigurationError
 
 from metadata_extraction_services.extraction_result import ExtractionResult
 from metadata_extraction_services.metadata_extraction_service import (
@@ -162,7 +163,9 @@ class TestExtractMetadata:
 
     async def test_domain_config_not_found_returns_failure(self, service):
         service.url_validator.validate_url.return_value = _url_valid_supported()
-        service.config_data_model.get_domain_config_as_dict.return_value = None
+        service.config_data_model.resolve_domain.side_effect = ConfigurationError(
+            "Domain not configured"
+        )
 
         result = await service.extract_metadata(
             url="https://arachne.dainst.org/entity/1",
@@ -175,7 +178,9 @@ class TestExtractMetadata:
 
     async def test_extractor_not_found_returns_failure(self, service):
         service.url_validator.validate_url.return_value = _url_valid_supported()
-        service.config_data_model.get_domain_config_as_dict.return_value = _domain_config()
+        service.config_data_model.resolve_domain.return_value.model_dump.return_value = (
+            _domain_config()
+        )
 
         with patch(
             "metadata_extraction_services.metadata_extraction_service.extractor_factory"
@@ -193,7 +198,9 @@ class TestExtractMetadata:
 
     async def test_extraction_failure_returns_failure(self, service):
         service.url_validator.validate_url.return_value = _url_valid_supported()
-        service.config_data_model.get_domain_config_as_dict.return_value = _domain_config()
+        service.config_data_model.resolve_domain.return_value.model_dump.return_value = (
+            _domain_config()
+        )
 
         failed_extractor_result = Mock()
         failed_extractor_result.is_successful.return_value = False
@@ -219,7 +226,9 @@ class TestExtractMetadata:
 
     async def test_mapping_failure_returns_failure(self, service):
         service.url_validator.validate_url.return_value = _url_valid_supported()
-        service.config_data_model.get_domain_config_as_dict.return_value = _domain_config()
+        service.config_data_model.resolve_domain.return_value.model_dump.return_value = (
+            _domain_config()
+        )
 
         mock_extractor = Mock()
         mock_extractor.extract.return_value = _successful_extractor_result()
@@ -246,7 +255,9 @@ class TestExtractMetadata:
 
     async def test_successful_extraction_with_html(self, service):
         service.url_validator.validate_url.return_value = _url_valid_supported()
-        service.config_data_model.get_domain_config_as_dict.return_value = _domain_config()
+        service.config_data_model.resolve_domain.return_value.model_dump.return_value = (
+            _domain_config()
+        )
 
         mock_extractor = Mock()
         mock_extractor.extract.return_value = _successful_extractor_result()

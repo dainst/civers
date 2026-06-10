@@ -2,6 +2,12 @@
 
 from typing import Annotated, Any, Dict, List, Optional
 
+from civers_common import (
+    BaseAppConfig,
+    BaseDomainConfig,
+    ConfigurationError,
+    DomainResolutionMixin,
+)
 from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
 # Type alias for non-empty strings - replaces many redundant validators
@@ -18,12 +24,14 @@ class MetadataConfig(BaseModel):
 
 
 
-class AppConfig(BaseModel):
-    """Application configuration."""
+class AppConfig(BaseAppConfig):
+    """Application configuration (extends civers_common BaseAppConfig).
+
+    Inherits ``version``, ``environment`` (and an unused ``transport`` placeholder)
+    from the shared base. ORCH's transport lives at the root ``ConfigDataModel``.
+    """
 
     name: str = Field(default="civers_orchestrator", description="Application name")
-    version: str = Field(default="1.0.0", description="Application version")
-    environment: str = Field(default="development", description="Runtime environment")
     metadata: MetadataConfig = Field(default_factory=MetadataConfig, description="Metadata settings")
 
 
@@ -276,15 +284,22 @@ class WorkflowConfig(BaseModel):
         return v
 
 
-class DomainConfig(BaseModel):
-    """Domain-to-workflow mapping configuration."""
+class DomainConfig(BaseDomainConfig):
+    """Domain-to-workflow mapping (extends civers_common BaseDomainConfig).
 
-    name: NonEmptyStr = Field(description="Domain name or pattern (supports wildcards)")
+    Inherits ``name`` (with validation), ``enabled``, ``description`` and
+    ``webpage_types`` from the shared base; adds the ORCH-specific ``workflow``.
+    """
+
     workflow: NonEmptyStr = Field(description="Workflow name to use for this domain")
 
 
-class ConfigDataModel(BaseModel):
-    """Root configuration model."""
+class ConfigDataModel(DomainResolutionMixin, BaseModel):
+    """Root configuration model.
+
+    Uses ``civers_common.DomainResolutionMixin`` for the shared
+    exact → wildcard → default domain resolution.
+    """
 
     app: AppConfig = Field(description="Application configuration")
     transport: TransportConfig = Field(description="Transport configuration")
@@ -320,22 +335,13 @@ class ConfigDataModel(BaseModel):
         return None
 
     def get_workflow_for_domain(self, domain: str) -> Optional[WorkflowConfig]:
-        """Get workflow for a given domain based on domain mappings."""
-        # First, try exact match
-        for domain_config in self.domains:
-            if domain_config.name == domain:
-                return self.get_workflow_by_name(domain_config.workflow)
+        """Get workflow for a given domain via shared domain resolution.
 
-        # Then, try wildcard matches
-        for domain_config in self.domains:
-            if "*" in domain_config.name:
-                pattern = domain_config.name.replace("*", "")
-                if pattern and domain.endswith(pattern):
-                    return self.get_workflow_by_name(domain_config.workflow)
-
-        # Finally, use default workflow
-        for domain_config in self.domains:
-            if domain_config.name == "default":
-                return self.get_workflow_by_name(domain_config.workflow)
-
-        return None
+        Delegates matching to ``DomainResolutionMixin.resolve_domain``
+        (exact → wildcard → default). Returns ``None`` when no domain matches.
+        """
+        try:
+            domain_config = self.resolve_domain(domain)
+        except ConfigurationError:
+            return None
+        return self.get_workflow_by_name(domain_config.workflow)

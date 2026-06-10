@@ -1,0 +1,28 @@
+[project]
+name = "civers-change-detection"
+version = "0.1.0"
+description = "Event-driven changedetection microservice for CiVers web archiving"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "civers-common",
+    "pydantic>=2.13.4",
+    "pyyaml>=6.0.3",
+    "aiokafka>=0.10.0",
+    "httpx>=0.24.0",
+    "aiofiles>=24.1.0",
+    "simhash>=2.1.2",
+    "beautifulsoup4>=4.12.0",
+]
+
+[project.optional-dependencies]
+playwright = ["playwright>=1.40.0"]
+
+[tool.uv.sources]
+civers-common = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=0.24.0",
+]

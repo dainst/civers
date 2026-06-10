@@ -2,75 +2,82 @@
 # CiVers Orchestrator - Dockerfile
 # ==============================================================================
 #
-# Multi-stage build for minimal production image.
+# Build context: repo root (required — civers_common is a workspace dependency)
 #
-# Build:
-#   docker build -t civers-orchestrator .
+#   docker build -t civers-orchestrator -f civers_orchestrator/Dockerfile .
 #
-# Run standalone:
-#   docker run --env-file .env civers-orchestrator
-#
-# Run with docker-compose:
-#   docker compose up -d orchestrator
+# Or via docker-compose (context: . already set):
+#   docker compose build orchestrator
 #
 # ==============================================================================
 
-# Stage 1: Build stage with uv
+# Stage 1: Build — resolve workspace deps and install civers_common properly
 FROM python:3.12-slim AS builder
 
-# Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Set working directory
-WORKDIR /app
+# Use /workspace so the uv workspace layout matches the repo structure
+WORKDIR /workspace
 
-# Copy dependency files first (for better caching)
+# Build the venv at its FINAL runtime path so console-script shebangs (e.g.
+# watchfiles) point at /app/.venv/bin/python and stay valid after it is copied
+# into the runtime stage.
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
+
+# ---- Workspace metadata (cache layer: only changes when deps change) ----
 COPY pyproject.toml uv.lock ./
+# civers_common is a workspace dependency of ORCH — must be present for resolution
+COPY civers_common/ ./civers_common/
+# ORCH's own pyproject.toml inside the workspace
+COPY civers_orchestrator/pyproject.toml ./civers_orchestrator/pyproject.toml
 
-# Install dependencies
-RUN uv sync --no-dev --no-install-project
+# Install ORCH's dependencies only (civers_common as a real package, not editable)
+RUN uv sync --package civers-orchestrator --no-dev --no-install-project --no-editable
 
-# Copy source code
-COPY . .
+# ---- Copy full ORCH source ----
+COPY civers_orchestrator/ ./civers_orchestrator/
 
-# Install the project
-RUN uv sync --no-dev
+# Install ORCH itself
+RUN uv sync --package civers-orchestrator --no-dev --no-editable
 
-# Stage 2: Runtime stage
+# Install watchfiles into the venv (for dev hot-reload). Installing here — rather
+# than as the non-root user at runtime — guarantees the `watchfiles` entrypoint
+# lands in /app/.venv/bin and is on PATH after the venv is activated.
+RUN uv pip install --python /app/.venv/bin/python watchfiles
+
+
+# Stage 2: Runtime
 FROM python:3.12-slim AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app" \
+    CONFIG_ENVIRONMENT="docker"
 
 # Create non-root user for security
 RUN groupadd --gid 1000 appgroup && \
     useradd --uid 1000 --gid 1000 --shell /bin/bash --create-home appuser
 
-# Set working directory
 WORKDIR /app
 
-# Copy virtual environment and source code from builder
+# Copy virtual environment (civers_common is installed inside as a real package).
+# Built at /app/.venv in the builder, so script shebangs are already correct.
 COPY --from=builder /app/.venv /app/.venv
-RUN . /app/.venv/bin/activate && pip install watchfiles
-COPY --from=builder /app/configs /app/configs
-COPY --from=builder /app/models /app/models
-COPY --from=builder /app/orchestration_services /app/orchestration_services
-COPY --from=builder /app/transport_services /app/transport_services
-COPY --from=builder /app/main.py /app/main.py
 
-# Set ownership to non-root user
+# Copy ORCH source files flat to /app/ (preserves import layout: configs.*, models.*, etc.)
+COPY --from=builder /workspace/civers_orchestrator/configs /app/configs
+COPY --from=builder /workspace/civers_orchestrator/models /app/models
+COPY --from=builder /workspace/civers_orchestrator/orchestration_services /app/orchestration_services
+COPY --from=builder /workspace/civers_orchestrator/transport_services /app/transport_services
+COPY --from=builder /workspace/civers_orchestrator/main.py /app/main.py
+
+# Final setup
 RUN chown -R appuser:appgroup /app
 
-# Switch to non-root user
 USER appuser
 
-# Set environment variables
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app"
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-
-
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import sys; sys.exit(0)"
 
-# Default command
 CMD ["python", "main.py"]

@@ -9,7 +9,18 @@ import yaml
 from pathlib import Path
 from pydantic import ValidationError
 
-from configs import YamlFileConfigLoader, AppConfig, StorageConfig, FilesystemConfig, SQLiteConfig, CacheConfig, ConfigurationError
+from configs import (
+    YamlFileConfigLoader,
+    AppConfig,
+    StorageConfig,
+    FilesystemConfig,
+    SQLiteConfig,
+    CacheConfig,
+    ConfigurationError,
+    DomainConfig,
+    KafkaConfig,
+    TransportConfig,
+)
 
 
 class TestConfigurationModels:
@@ -150,63 +161,43 @@ class TestConfigurationModels:
         assert isinstance(config.storage, StorageConfig)
         assert config.storage.type == "filesystem"
 
+    def test_domain_config_properties(self):
+        """Test DomainConfig properties and validators inherited/added."""
+        domain = DomainConfig(name="example.com", enabled=True, description="Test domain")
+        assert domain.display_name == "example.com - Test domain"
+        assert domain.is_wildcard is False
+        assert domain.is_default is False
+
+        wildcard = DomainConfig(name="*.example.com")
+        assert wildcard.is_wildcard is True
+
+        default_domain = DomainConfig(name="default")
+        assert default_domain.is_default is True
+
+    def test_kafka_config_custom(self):
+        """Test KafkaConfig behavior."""
+        config = KafkaConfig(
+            bootstrap_servers="kafka:9092",
+            topics={"orchestrator_requests": "test.requests"}
+        )
+        assert config.bootstrap_servers == "kafka:9092"
+        assert config.get_topic("orchestrator_requests") == "test.requests"
+
+    def test_transport_config_custom(self):
+        """Test TransportConfig properties."""
+        kafka_config = KafkaConfig(bootstrap_servers="kafka:9092", topics={"orchestrator_requests": "test.requests"})
+        transport = TransportConfig(enabled=["kafka"], kafka=kafka_config)
+        assert transport.kafka_enabled is True
+        assert transport.is_transport_enabled("kafka") is True
+
 
 class TestConfigurationLoader:
     """Test configuration loading functionality."""
 
-    @pytest.fixture
-    def temp_config_file(self):
-        """Create a temporary configuration file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            config_data = {
-                "storage": {
-                    "type": "filesystem",
-                    "filesystem": {
-                        "path": "test_archives",
-                        "timeout_seconds": 20
-                    },
-                    "cache": {
-                        "ttl_seconds": 300
-                    }
-                }
-            }
-            yaml.dump(config_data, f)
-            temp_path = Path(f.name)
-        
-        yield temp_path
-        temp_path.unlink()
-
-    def test_load_valid_config(self, temp_config_file):
-        """Test loading valid configuration file."""
-        loader = YamlFileConfigLoader(config_dir=temp_config_file.parent)
-        # Hack to override defaults_dir to point to temp file's dir since we're using a single file
-        # In a real scenario, we'd use the proper directory structure
-        # But for this test, we want to load the temp file as a default
-        
-        # Simplified test for unit testing the loader logic itself
-        # Since the loader expects strict directory structure, we'll just test that it fails gracefully or
-        # mock the internal methods. But for now, let's just use the load method on the specific file if possible
-        # heavily modifying the test to match the new strict loader is needed.
-        
-        # Actually, the new loader is stricter about directory structure. 
-        # It expects `defaults/*.yaml`. 
-        # Let's adjust the test to create the directory structure.
-        pass
-
-    def test_load_config_missing_file(self):
-        """Test loading non-existent configuration file."""
-        # The new loader doesn't take a file path, it takes a directory.
-        # And it warns on missing env files, but doesn't crash on missing defaults unless empty.
-        pass
-
-    def test_load_config_empty_file(self):
-        pass
-
-    def test_load_config_invalid_yaml(self):
-        pass
-
     def test_minimal_config_with_defaults(self):
-        pass
-
-    def test_default_config_path(self):
-        pass
+        """Test that loading configuration loads default directories correctly."""
+        loader = YamlFileConfigLoader()
+        config = loader.load()
+        assert config.app.name == "Civers Archive Web Interface"
+        assert config.directories.templates == "templates"
+        assert config.directories.static == "static"

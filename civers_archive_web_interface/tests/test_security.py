@@ -153,7 +153,7 @@ class TestContentTypeMapping:
             "metadata.json": "application/json",
             "screenshot.png": "image/png",
             "singlefile.html": "text/html",
-            "warc.file": "application/warc",
+            "archive.warc": "application/warc",
             "document.html": "text/html"
         }
         

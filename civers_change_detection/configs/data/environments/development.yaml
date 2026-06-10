@@ -1,0 +1,8 @@
+# Development environment overrides for CiVers ChangeDetection
+# These values override configs/data/defaults/* when CONFIG_ENVIRONMENT=development
+
+app:
+  environment: development
+
+logging:
+  level: DEBUG
