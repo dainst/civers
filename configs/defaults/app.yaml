@@ -36,6 +36,8 @@ app:
     - "10000"
     - "--blocklist" # Dummy value to enable testing of local sites , must be removed in production
     - "http://dummy.org/"
+    - "--headless"
+    - "${SCOOP_HEADLESS:-true}"
     
 
   # SingleFile integration settings (Archive Generator)

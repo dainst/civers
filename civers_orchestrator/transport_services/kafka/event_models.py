@@ -1,8 +1,8 @@
 """Event models for Kafka transport service in CiVers Orchestrator."""
 
 import re
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -19,14 +19,14 @@ class EventBaseModel(BaseModel):
     request_id: str = Field(..., description="Unique identifier for the request")
     # immutable timestamp in ISO 8601 UTC format, should not be changed after creation
     created_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
         .replace(microsecond=0)
         .isoformat()
         .replace("+00:00", "Z"),
         description="The timestamp when the event was created, in ISO 8601 UTC format",
     )
     url: str = Field(..., description="The URL associated with the event")
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Additional request metadata"
     )
 
@@ -66,13 +66,13 @@ class OrchestratorRequestEvent(EventBaseModel):
     External systems provide request_id, and optionally specify workflow.
     """
 
-    workflow_name: Optional[str] = Field(
+    workflow_name: str | None = Field(
         None, description="Workflow name to execute (if None, inferred from domain)"
     )
     priority: int = Field(
         default=1, ge=1, le=10, description="Processing priority (1=low, 10=high)"
     )
-    callback_url: Optional[str] = Field(
+    callback_url: str | None = Field(
         None,
         description="Optional webhook URL for push notifications (status, completion, failure)",
     )
@@ -87,7 +87,7 @@ class OrchestratorStatusEvent(EventBaseModel):
     workflow_name: str = Field(..., description="Workflow being executed")
     current_step: str = Field(..., description="Current workflow step being executed")
     status: str = Field(..., description="Current status (e.g. 'in_progress', 'processing')")
-    message: Optional[str] = Field(None, description="Optional status message")
+    message: str | None = Field(None, description="Optional status message")
     completed_steps: list[str] = Field(default_factory=list, description="Steps completed so far")
     workflow_steps: list[str] = Field(default_factory=list, description="All steps in the workflow")
 
@@ -108,7 +108,7 @@ class OrchestratorCompletedEvent(EventBaseModel):
     workflow_steps: list[str] = Field(
         default_factory=list, description="All steps in the workflow"
     )
-    step_results: Dict[str, Any] = Field(
+    step_results: dict[str, Any] = Field(
         default_factory=dict, description="Aggregated results from all workflow steps"
     )
 
@@ -136,6 +136,6 @@ class OrchestratorFailedEvent(EventBaseModel):
     workflow_steps: list[str] = Field(
         default_factory=list, description="All steps in the workflow"
     )
-    error_details: Dict[str, Any] = Field(
+    error_details: dict[str, Any] = Field(
         default_factory=dict, description="Additional error details"
     )

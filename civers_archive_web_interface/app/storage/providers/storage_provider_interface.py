@@ -6,7 +6,7 @@ implementations must follow.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, IO
+from typing import Dict, Optional, IO
 from pathlib import Path
 
 from ...models.url import ArchivedUrl

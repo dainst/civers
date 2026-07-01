@@ -14,10 +14,8 @@ from pathlib import Path
 from app.storage.service import StorageService
 from app.storage.providers.filesystem import FilesystemStorageProvider
 from configs.models import ValidationConfig
-from app.models.snapshot import Snapshot
 from app.custom_exceptions.exceptions.api_exceptions import ValidationError
 from app.storage.providers.storage_provider_interface import StorageError
-from datetime import datetime
 
 
 @pytest.fixture

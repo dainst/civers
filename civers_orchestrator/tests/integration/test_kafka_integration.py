@@ -9,6 +9,7 @@ These tests validate the refactored architecture (Tasks 11-14):
 Requires: docker compose up -d
 """
 import asyncio
+
 import pytest
 
 from transport_services.kafka.event_models import OrchestratorRequestEvent

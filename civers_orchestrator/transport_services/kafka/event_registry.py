@@ -5,35 +5,33 @@ Central registry mapping event model names (from YAML config) to Python classes.
 This enables dynamic event model lookup based on workflow configuration.
 """
 
-from typing import Dict, Type
+
 from pydantic import BaseModel
 
 # Orchestrator's own event models
 from transport_services.kafka.event_models import (
-    OrchestratorRequestEvent,
-    OrchestratorStatusEvent,
     OrchestratorCompletedEvent,
     OrchestratorFailedEvent,
+    OrchestratorRequestEvent,
+    OrchestratorStatusEvent,
 )
 
 # External service event models (copied into orchestrator)
 from transport_services.kafka.external_events.archive_events import (
-    ArchiveRequestEvent,
-    ArchiveStatusEvent,
     ArchiveCompletedEvent,
     ArchiveFailedEvent,
+    ArchiveRequestEvent,
+    ArchiveStatusEvent,
 )
-
 from transport_services.kafka.external_events.metadata_events import (
-    MetadataExtractionRequestEvent,
-    MetadataExtractionStatusEvent,
     MetadataExtractionCompletedEvent,
     MetadataExtractionFailedEvent,
+    MetadataExtractionRequestEvent,
+    MetadataExtractionStatusEvent,
 )
 
-
 # Event model registry: string name -> Python class
-EVENT_MODELS: Dict[str, Type[BaseModel]] = {
+EVENT_MODELS: dict[str, type[BaseModel]] = {
     # Orchestrator events
     "OrchestratorRequestEvent": OrchestratorRequestEvent,
     "OrchestratorStatusEvent": OrchestratorStatusEvent,
@@ -52,7 +50,7 @@ EVENT_MODELS: Dict[str, Type[BaseModel]] = {
 }
 
 
-def get_event_model(model_name: str) -> Type[BaseModel]:
+def get_event_model(model_name: str) -> type[BaseModel]:
     """
     Get event model class by name.
 

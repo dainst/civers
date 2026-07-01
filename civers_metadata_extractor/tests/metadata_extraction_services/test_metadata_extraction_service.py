@@ -18,12 +18,11 @@ Mock strategy:
 - httpx.AsyncClient: Mock via pytest-httpx (HTTPXMock fixture)
 """
 
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from civers_common import ConfigurationError
 
-from metadata_extraction_services.extraction_result import ExtractionResult
 from metadata_extraction_services.metadata_extraction_service import (
     ContentFetchError,
     MetadataExtractionService,
@@ -32,7 +31,6 @@ from metadata_extractors.mappers.flattened_to_intermediate_mapper import (
     MappingResult,
     MappingStatus,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -99,7 +97,12 @@ def _successful_extractor_result():
 
 def _successful_mapping_result():
     from models.intermediate_metadata import (
-        Creator, IntermediateMetadata, Publisher, ResourceType, ResourceTypeGeneral, Title
+        Creator,
+        IntermediateMetadata,
+        Publisher,
+        ResourceType,
+        ResourceTypeGeneral,
+        Title,
     )
     metadata = IntermediateMetadata(
         creators=[Creator(creator_name="Jane Doe")],

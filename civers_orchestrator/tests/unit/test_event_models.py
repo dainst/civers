@@ -1,7 +1,7 @@
 """Unit tests for event models."""
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -81,12 +81,12 @@ class TestEventBaseModel:
         """Test that created_at timestamp is auto-generated in ISO 8601 UTC format."""
         from transport_services.kafka.event_models import EventBaseModel
 
-        before = datetime.now(timezone.utc).replace(microsecond=0)
+        before = datetime.now(UTC).replace(microsecond=0)
         event = EventBaseModel(
             request_id="req-123",
             url="https://example.com/page"
         )
-        after = datetime.now(timezone.utc).replace(microsecond=0)
+        after = datetime.now(UTC).replace(microsecond=0)
 
         # Parse the timestamp (replace Z with +00:00 for parsing)
         timestamp = datetime.fromisoformat(event.created_at.replace('Z', '+00:00'))

@@ -6,9 +6,7 @@ Following TDD approach: Write tests first, then implement.
 
 import pytest
 import json
-from pathlib import Path
 from datetime import datetime
-from io import BytesIO
 
 from app.database.sqlite_manager import SQLiteManager
 from app.database.models import get_schema_sql

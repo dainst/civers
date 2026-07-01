@@ -11,32 +11,32 @@ This service implements the CiVers Kafka Pattern:
 
 import asyncio
 from collections.abc import Callable
-from typing import Any, Dict
+from typing import Any
 
 from configs.logging_config import get_logger
 from configs.models import ConfigDataModel
 from models.orchestrator_models import StepInstruction, WorkflowTransition
+from orchestration_services.callback_service import CallbackService
 from orchestration_services.orchestrator_service import OrchestratorService
 from transport_services.adapters.kafka_adapter import KafkaTransportAdapter
-from transport_services.kafka.event_publisher import EventPublisher
-from transport_services.kafka.event_registry import get_event_model
-from orchestration_services.callback_service import CallbackService
 from transport_services.kafka.event_models import (
+    OrchestratorCompletedEvent,
+    OrchestratorFailedEvent,
     OrchestratorRequestEvent,
     OrchestratorStatusEvent,
-    OrchestratorCompletedEvent,
-    OrchestratorFailedEvent
 )
+from transport_services.kafka.event_publisher import EventPublisher
+from transport_services.kafka.event_registry import get_event_model
 from transport_services.kafka.external_events.archive_events import (
     ArchiveCompletedEvent,
-    ArchiveFailedEvent
+    ArchiveFailedEvent,
 )
 from transport_services.kafka.external_events.metadata_events import (
     MetadataExtractionCompletedEvent,
-    MetadataExtractionFailedEvent
+    MetadataExtractionFailedEvent,
 )
-from transport_services.transport_service_interface import TransportServiceInterface
 from transport_services.kafka.kafka_connection_manager import KafkaConnectionManager
+from transport_services.transport_service_interface import TransportServiceInterface
 
 logger = get_logger(__name__)
 
@@ -89,7 +89,7 @@ class KafkaTransportService(TransportServiceInterface):
         """Start the async Kafka transport service."""
         try:
             logger.info("🚀 Starting Async Kafka transport service")
-            
+
             # Setup producer
             await self.connection_manager.setup_producer()
 
@@ -104,7 +104,7 @@ class KafkaTransportService(TransportServiceInterface):
                 logger.warning("⚠️ No topics registered for consumption")
 
             self.running = True
-            
+
             # Start consumption loop
             if self.connection_manager.consumer:
                 await self._consume_loop()
@@ -202,11 +202,11 @@ class KafkaTransportService(TransportServiceInterface):
         """Process a message from the consumer."""
         topic = message.topic
         message_data = message.value
-        
+
         if message_data is None:
             logger.warning(f"⚠️ Received empty message on topic {topic}")
             return
-            
+
         handler = self.event_handlers.get(topic)
         if handler:
             try:
@@ -224,7 +224,7 @@ class KafkaTransportService(TransportServiceInterface):
             event = OrchestratorRequestEvent(**message_data)
             logger.info(f"🚀 New workflow request: {event.request_id} for {event.url}")
             self._requests_processed += 1
-            
+
             # Delegate to orchestrator - start_workflow returns StepInstruction
             step_instruction = self.orchestrator.start_workflow(
                 request_id=event.request_id,
@@ -233,7 +233,7 @@ class KafkaTransportService(TransportServiceInterface):
                 callback_url=event.callback_url,
                 metadata=event.metadata
             )
-            
+
             # Execute the first step
             await self._execute_step_instruction(step_instruction)
         except Exception as e:
@@ -340,14 +340,14 @@ class KafkaTransportService(TransportServiceInterface):
             logger.info(f"📤 Executing step: {instruction.step_config.name}")
             kafka_op = self.adapter.translate_instruction(instruction)
             event_model = get_event_model(kafka_op["event_model"])
-            
+
             # Create event instance
             event_data = {"request_id": instruction.request_id, "url": instruction.url}
             if instruction.input_data:
                 event_data.update(instruction.input_data)
             if instruction.metadata:
                 event_data["metadata"] = instruction.metadata
-                
+
             event = event_model(**event_data)
 
             # Publish
@@ -457,7 +457,7 @@ class KafkaTransportService(TransportServiceInterface):
         except Exception as e:
             logger.error(f"❌ Failed to publish status update: {e}")
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """Perform health check."""
         try:
             producer_ready = self.connection_manager.producer is not None
@@ -477,11 +477,11 @@ class KafkaTransportService(TransportServiceInterface):
         except Exception as e:
             return {"healthy": False, "error": str(e)}
 
-    async def send_response(self, destination: str, message: Dict[str, Any], **kwargs) -> bool:
+    async def send_response(self, destination: str, message: dict[str, Any], **kwargs) -> bool:
         """Generic response sender."""
         return await self.event_publisher.publish_dict(destination, kwargs.get("key"), message)
 
-    def get_transport_info(self) -> Dict[str, Any]:
+    def get_transport_info(self) -> dict[str, Any]:
         """Info about transport."""
         return {
             "transport_type": "KafkaTransportService",

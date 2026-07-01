@@ -2,11 +2,7 @@
 Unit tests for the configuration system.
 """
 
-import os
-import tempfile
 import pytest
-import yaml
-from pathlib import Path
 from pydantic import ValidationError
 
 from configs import (
@@ -16,7 +12,6 @@ from configs import (
     FilesystemConfig,
     SQLiteConfig,
     CacheConfig,
-    ConfigurationError,
     DomainConfig,
     KafkaConfig,
     TransportConfig,

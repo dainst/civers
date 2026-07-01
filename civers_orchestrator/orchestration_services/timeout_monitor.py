@@ -4,8 +4,7 @@ This module provides timeout monitoring capabilities to detect and handle
 workflow steps that exceed their configured timeout limits.
 """
 
-from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from datetime import UTC, datetime
 
 from configs.logging_config import get_logger
 from configs.models import WorkflowConfig
@@ -30,7 +29,7 @@ class TimeoutMonitor:
     def __init__(
         self,
         state_store: WorkflowStateStore,
-        workflows: Dict[str, WorkflowConfig]
+        workflows: dict[str, WorkflowConfig]
     ):
         """Initialize timeout monitor.
 
@@ -42,7 +41,7 @@ class TimeoutMonitor:
         self.workflows = workflows
         logger.info("✅ TimeoutMonitor initialized")
 
-    def check_step_timeout(self, request_id: str) -> Optional[Dict]:
+    def check_step_timeout(self, request_id: str) -> dict | None:
         """Check if current step has exceeded its timeout.
 
         Args:
@@ -98,7 +97,7 @@ class TimeoutMonitor:
             )
             return None
 
-        elapsed = (datetime.now(timezone.utc) - started).total_seconds()
+        elapsed = (datetime.now(UTC) - started).total_seconds()
 
         if elapsed > step_config.timeout_seconds:
             logger.error(
@@ -123,7 +122,7 @@ class TimeoutMonitor:
 
         return None
 
-    def check_all_timeouts(self) -> List[Dict]:
+    def check_all_timeouts(self) -> list[dict]:
         """Check all active workflows for timeouts.
 
         Returns:

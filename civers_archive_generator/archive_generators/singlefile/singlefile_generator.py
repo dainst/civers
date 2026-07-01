@@ -113,7 +113,8 @@ class SingleFileGenerator(BaseGenerator):
         return {
             "exit_code": exit_code,
             "timed_out": timed_out,
-            "output_file": output_file
+            "output_file": output_file,
+            "stderr": stderr.decode('utf-8', errors='ignore') if stderr else ""
         }
 
     async def _validate_output(self, output_file: str) -> bool:
@@ -154,10 +155,21 @@ class SingleFileGenerator(BaseGenerator):
                     file_size=Path(output_file).stat().st_size
                 )]
             else:
+                exit_code = run_result.get("exit_code")
+                stderr_text = run_result.get("stderr", "").strip()
+                error_msg = "SingleFile execution failed or produced invalid output"
+                if stderr_text:
+                    lines = [line.strip() for line in stderr_text.split("\n") if line.strip()]
+                    error_lines = [l for l in lines if "error" in l.lower() or "fail" in l.lower()]
+                    if error_lines:
+                        error_msg = f"SingleFile error: {error_lines[-1]}"
+                    elif lines:
+                        error_msg = f"SingleFile error: {lines[-1]}"
+                
                 results = [ArtifactResult(
                     name="singlefile",
                     status=ArtifactStatus.FAILED,
-                    error="SingleFile execution failed or produced invalid output"
+                    error=f"SingleFile execution failed (exit={exit_code}). Details: {error_msg}"
                 )]
             
             # Results are already mapped in 'results'

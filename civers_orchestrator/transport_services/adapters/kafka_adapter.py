@@ -25,7 +25,8 @@ Example:
     # Returns: {"topic": "archive.requests", "event_model": "ArchiveRequestEvent", ...}
 """
 
-from typing import Dict, Any
+from typing import Any
+
 from transport_services.adapters.transport_adapter_interface import TransportAdapter
 
 
@@ -58,7 +59,7 @@ class KafkaTransportAdapter(TransportAdapter):
             >>> adapter = KafkaTransportAdapter(config.transport.kafka)
             >>> assert "archive_generator" in adapter.component_mappings
         """
-        self.component_mappings: Dict[str, Dict[str, Any]] = {}
+        self.component_mappings: dict[str, dict[str, Any]] = {}
         self._load_component_mappings(kafka_config)
 
     def _load_component_mappings(self, kafka_config: Any):
@@ -113,7 +114,7 @@ class KafkaTransportAdapter(TransportAdapter):
 
         return topic
 
-    def get_response_destinations(self, component: str) -> Dict[str, str]:
+    def get_response_destinations(self, component: str) -> dict[str, str]:
         """
         Get Kafka topics for component responses.
 
@@ -183,7 +184,7 @@ class KafkaTransportAdapter(TransportAdapter):
 
         return event_model
 
-    def translate_instruction(self, instruction: Any) -> Dict[str, Any]:
+    def translate_instruction(self, instruction: Any) -> dict[str, Any]:
         """
         Translate transport-agnostic instruction to Kafka operation.
 

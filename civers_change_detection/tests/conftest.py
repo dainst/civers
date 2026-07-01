@@ -3,7 +3,6 @@ pytest configuration and shared fixtures for CiVers ChangeDetection.
 """
 
 import os
-from pathlib import Path
 
 import pytest
 from configs.loaders import YamlFileConfigLoader

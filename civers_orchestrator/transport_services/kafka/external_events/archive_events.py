@@ -4,7 +4,6 @@ Archive Generator Event Models.
 These models define the events exchanged with the archive_generator service.
 """
 
-from typing import List, Optional
 
 from pydantic import Field, field_validator
 
@@ -23,7 +22,7 @@ class ArchiveStatusEvent(EventBaseModel):
     status: str = Field(
         ..., description="Current status: processing, completed, or failed"
     )
-    message: Optional[str] = Field(None, description="Optional status message")
+    message: str | None = Field(None, description="Optional status message")
 
     @field_validator("status")
     @classmethod
@@ -39,13 +38,13 @@ class ArchiveCompletedEvent(EventBaseModel):
     """Event when archive is successfully created."""
 
     archive_path: str = Field(..., description="Path to the created archive")
-    artifacts_created: List[str] = Field(
+    artifacts_created: list[str] = Field(
         ..., description="List of artifacts/files created"
     )
     processing_time_seconds: float = Field(
         ..., description="Time taken to process in seconds"
     )
-    snapshot_id: Optional[str] = Field(
+    snapshot_id: str | None = Field(
         None, description="Snapshot ID from web interface after upload"
     )
 

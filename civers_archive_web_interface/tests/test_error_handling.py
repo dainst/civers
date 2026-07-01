@@ -1,5 +1,4 @@
 import json
-import logging
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 
@@ -11,7 +10,6 @@ from app.middleware.error_handlers.api_error_handler import create_api_error_res
 from app.middleware.error_handlers.api_error_handler import APIErrorHandler
 from app.middleware.error_handlers.page_error_handler import PageErrorHandler
 from app.middleware.error_handlers.error_dispatcher import ErrorDispatcherMiddleware
-from app.logging.formatters import JSONFormatter
 
 
 class TestErrorHandlers:

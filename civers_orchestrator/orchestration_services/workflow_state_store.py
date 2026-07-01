@@ -8,8 +8,7 @@ This module provides centralized workflow state management with:
 """
 
 import threading
-from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from datetime import UTC, datetime
 
 from configs.logging_config import get_logger
 from models.workflow_models import WorkflowInstance, WorkflowStepStatus
@@ -38,7 +37,7 @@ class WorkflowStateStore:
             max_stored_workflows: Maximum number of workflows to keep in memory
         """
         self.max_stored_workflows = max_stored_workflows
-        self.workflow_states: Dict[str, WorkflowInstance] = {}
+        self.workflow_states: dict[str, WorkflowInstance] = {}
         self._state_lock = threading.RLock()  # Reentrant lock for thread safety
 
         logger.info(
@@ -66,7 +65,7 @@ class WorkflowStateStore:
 
         logger.debug(f"Stored workflow for request {request_id}")
 
-    def get_workflow(self, request_id: str) -> Optional[WorkflowInstance]:
+    def get_workflow(self, request_id: str) -> WorkflowInstance | None:
         """Retrieve a workflow instance by request ID.
 
         Args:
@@ -126,7 +125,7 @@ class WorkflowStateStore:
         Returns:
             Number of workflows removed
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         removed = 0
 
         with self._state_lock:
@@ -146,7 +145,7 @@ class WorkflowStateStore:
 
         return removed
 
-    def get_all_active(self) -> List[str]:
+    def get_all_active(self) -> list[str]:
         """Get list of request IDs for all active workflows.
 
         Returns:
@@ -159,7 +158,7 @@ class WorkflowStateStore:
                 if wf.status == WorkflowStepStatus.IN_PROGRESS
             ]
 
-    def get_all_with_status(self, status: WorkflowStepStatus) -> List[str]:
+    def get_all_with_status(self, status: WorkflowStepStatus) -> list[str]:
         """Get list of request IDs for workflows with specific status.
 
         Args:
@@ -175,14 +174,14 @@ class WorkflowStateStore:
                 if wf.status == status
             ]
 
-    def get_count_by_status(self) -> Dict[str, int]:
+    def get_count_by_status(self) -> dict[str, int]:
         """Get count of workflows grouped by status.
 
         Returns:
             Dictionary mapping status names to counts
         """
         with self._state_lock:
-            counts: Dict[str, int] = {}
+            counts: dict[str, int] = {}
             for workflow in self.workflow_states.values():
                 status = workflow.status.value
                 counts[status] = counts.get(status, 0) + 1

@@ -9,17 +9,17 @@ import os
 import socket
 import subprocess
 import time
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import AsyncGenerator
 
 import pytest
 import pytest_asyncio
 from kafka import KafkaAdminClient
 from kafka.admin import NewTopic
-from kafka.errors import TopicAlreadyExistsError, NoBrokersAvailable
+from kafka.errors import NoBrokersAvailable, TopicAlreadyExistsError
 
-from configs.models import ConfigDataModel
 from configs.loaders import YamlFileConfigLoader
+from configs.models import ConfigDataModel
 
 # Timeout configuration for Kafka connections (in milliseconds)
 KAFKA_CONNECTION_TIMEOUT_MS = 5000  # 5 seconds
@@ -148,13 +148,13 @@ def auto_start_kafka(integration_kafka_config: ConfigDataModel):
         return
 
     bootstrap_servers = integration_kafka_config.transport.kafka.bootstrap_servers
-    print(f"\n🚀 Starting Kafka container via docker compose...")
+    print("\n🚀 Starting Kafka container via docker compose...")
     print(f"   Bootstrap servers: {bootstrap_servers}")
 
     # Start Kafka container
     try:
         result = run_docker_compose_command(["up", "-d", "kafka"], cwd=project_root)
-        print(f"✅ Docker compose up completed")
+        print("✅ Docker compose up completed")
         if result.stdout:
             print(f"   {result.stdout.strip()}")
     except subprocess.CalledProcessError as e:
@@ -162,7 +162,7 @@ def auto_start_kafka(integration_kafka_config: ConfigDataModel):
         pytest.skip(f"Could not start Kafka container: {e.stderr}")
         return
     except subprocess.TimeoutExpired:
-        print(f"❌ Docker compose command timed out")
+        print("❌ Docker compose command timed out")
         pytest.skip("Docker compose command timed out")
         return
 
@@ -194,16 +194,16 @@ def auto_start_kafka(integration_kafka_config: ConfigDataModel):
     yield
 
     # Teardown: Stop Kafka after all tests
-    print(f"\n🧹 Stopping Kafka container...")
+    print("\n🧹 Stopping Kafka container...")
     try:
         result = run_docker_compose_command(["down", "kafka"], cwd=project_root)
-        print(f"✅ Kafka stopped")
+        print("✅ Kafka stopped")
         if result.stdout:
             print(f"   {result.stdout.strip()}")
     except subprocess.CalledProcessError as e:
         print(f"⚠️  Failed to stop Kafka: {e.stderr}")
     except subprocess.TimeoutExpired:
-        print(f"⚠️  Docker compose down timed out")
+        print("⚠️  Docker compose down timed out")
 
 
 @pytest.fixture(scope="session")
@@ -315,8 +315,9 @@ def setup_kafka_topics(kafka_admin_client, integration_kafka_config):
 async def mock_orchestrator_service():
     """Create a mock orchestrator service for testing."""
     from unittest.mock import Mock
-    from models.orchestrator_models import StepInstruction
+
     from configs.models import WorkflowStepConfig
+    from models.orchestrator_models import StepInstruction
 
     mock_service = Mock()
 

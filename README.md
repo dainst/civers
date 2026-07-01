@@ -8,6 +8,10 @@ A comprehensive system for archiving web pages, extracting metadata, and managin
 > **Project Status: Under Active Development**
 > CIVERS is currently in an early development phase. Features and APIs are subject to change as the system undergoes active refinement.
 
+> [!TIP]
+> **Looking for detailed setup, execution, and debugging instructions?**
+> Refer to our comprehensive [DEVELOPMENT.md](DEVELOPMENT.md) guide.
+
 ## Components
 
 | Component | Description |

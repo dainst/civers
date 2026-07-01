@@ -4,7 +4,6 @@ Following TDD: These tests define expected behavior of the mock adapter
 that will be used in orchestrator tests (Tasks 13-14).
 """
 
-import pytest
 
 
 class TestMockTransportAdapterBasics:

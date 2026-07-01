@@ -7,16 +7,21 @@ Tests are written against the actual aiokafka-based architecture:
 - Connections live on service.connection_manager.producer / .consumer
 - Async lifecycle methods (start/stop) are tested by mocking connection_manager
 """
+from unittest.mock import AsyncMock, Mock
+
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
 
 from configs.models import (
-    ConfigDataModel, AppConfig, TransportConfig, KafkaConfig,
-    KafkaConsumerConfig, KafkaProducerConfig, KafkaTopicsConfig,
+    AppConfig,
+    ConfigDataModel,
     KafkaComponentMapping,
+    KafkaConfig,
+    KafkaConsumerConfig,
+    KafkaProducerConfig,
+    KafkaTopicsConfig,
+    TransportConfig,
 )
 from transport_services.transport_service_interface import TransportServiceInterface
-
 
 # ---------------------------------------------------------------------------
 # Shared fixture
@@ -314,8 +319,8 @@ class TestKafkaTransportServiceHandleOrchestratorRequest:
 
     @pytest.mark.asyncio
     async def test_valid_request_calls_start_workflow(self, service):
-        from models.orchestrator_models import StepInstruction
         from configs.models import WorkflowStepConfig
+        from models.orchestrator_models import StepInstruction
 
         mock_step = Mock(spec=WorkflowStepConfig)
         mock_step.name = "archive_generation"

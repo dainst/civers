@@ -3,7 +3,6 @@
 Following TDD: These tests verify fixtures provide correct test data.
 """
 
-import pytest
 
 
 class TestKafkaComponentMappingsFixture:

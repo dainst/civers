@@ -7,10 +7,8 @@ This module provides HTML page endpoints that render templates for the web inter
 import logging
 import json
 from fastapi import APIRouter, HTTPException, Request, Query
-from fastapi import APIRouter, HTTPException, Request, Query
 from fastapi.responses import HTMLResponse, Response
 
-from ..constants import RequestStatus
 
 logger = logging.getLogger(__name__)
 

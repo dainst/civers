@@ -1,6 +1,6 @@
 """Configuration models for CiVers Orchestrator using Pydantic v2."""
 
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Annotated, Any
 
 from civers_common import (
     BaseAppConfig,
@@ -16,7 +16,7 @@ NonEmptyStr = Annotated[str, StringConstraints(min_length=1, strip_whitespace=Tr
 
 class MetadataConfig(BaseModel):
     """Metadata extraction settings."""
-    
+
     web_interface_url: str = Field(
         default="http://localhost:8000",
         description="Base URL for downloading archived HTML"
@@ -77,10 +77,10 @@ class KafkaComponentMapping(BaseModel):
     """
 
     request_topic: NonEmptyStr = Field(description="Kafka topic for component requests")
-    response_topics: Dict[str, str] = Field(
+    response_topics: dict[str, str] = Field(
         description="Response topics (success, failure)"
     )
-    event_models: Dict[str, str] = Field(
+    event_models: dict[str, str] = Field(
         description="Event model class names (request, success, failure)"
     )
     step_name: NonEmptyStr = Field(description="Workflow step name this component implements")
@@ -88,7 +88,7 @@ class KafkaComponentMapping(BaseModel):
 
     @field_validator("response_topics")
     @classmethod
-    def validate_response_topics(cls, v: Dict[str, str]) -> Dict[str, str]:
+    def validate_response_topics(cls, v: dict[str, str]) -> dict[str, str]:
         """Validate response topics has success and failure keys."""
         required_keys = {"success", "failure"}
         missing_keys = required_keys - set(v.keys())
@@ -103,7 +103,7 @@ class KafkaComponentMapping(BaseModel):
 
     @field_validator("event_models")
     @classmethod
-    def validate_event_models(cls, v: Dict[str, str]) -> Dict[str, str]:
+    def validate_event_models(cls, v: dict[str, str]) -> dict[str, str]:
         """Validate event models has request, success, failure keys."""
         required_keys = {"request", "success", "failure"}
         missing_keys = required_keys - set(v.keys())
@@ -124,7 +124,7 @@ class KafkaConfig(BaseModel):
     consumer: KafkaConsumerConfig = Field(description="Consumer configuration")
     producer: KafkaProducerConfig = Field(description="Producer configuration")
     topics: KafkaTopicsConfig = Field(description="Topics configuration")
-    component_mappings: Dict[str, KafkaComponentMapping] = Field(
+    component_mappings: dict[str, KafkaComponentMapping] = Field(
         default_factory=dict,
         description="Component-to-Kafka mappings (component_id -> topics/events)"
     )
@@ -133,7 +133,7 @@ class KafkaConfig(BaseModel):
 class TransportConfig(BaseModel):
     """Transport layer configuration."""
 
-    enabled: List[str] = Field(default=["kafka"], description="Enabled transport mechanisms")
+    enabled: list[str] = Field(default=["kafka"], description="Enabled transport mechanisms")
     kafka: KafkaConfig = Field(description="Kafka configuration")
 
 
@@ -164,7 +164,7 @@ class DataTransformerConfig(BaseModel):
     source_field: NonEmptyStr = Field(description="Field name in source step results")
     target_field: NonEmptyStr = Field(description="Field name in target step input")
     transformer: NonEmptyStr = Field(description="Transformer function name")
-    transformer_config: Dict[str, Any] = Field(
+    transformer_config: dict[str, Any] = Field(
         default_factory=dict,
         description="Configuration for transformer function"
     )
@@ -200,15 +200,15 @@ class WorkflowStepConfig(BaseModel):
     name: NonEmptyStr = Field(description="Step name")
     component: NonEmptyStr = Field(description="Component identifier")
     input_schema: NonEmptyStr = Field(description="Input data schema name")
-    output_schemas: Dict[str, str] = Field(
+    output_schemas: dict[str, str] = Field(
         description="Output schemas for success/failure outcomes"
     )
-    depends_on: List[str] = Field(
+    depends_on: list[str] = Field(
         default_factory=list,
         description="List of step names this step depends on"
     )
     timeout_seconds: int = Field(default=300, gt=0, description="Timeout in seconds")
-    input_transformers: List["DataTransformerConfig"] = Field(
+    input_transformers: list["DataTransformerConfig"] = Field(
         default_factory=list,
         description="Data transformers for constructing input from previous steps"
     )
@@ -216,7 +216,7 @@ class WorkflowStepConfig(BaseModel):
 
     @field_validator("output_schemas")
     @classmethod
-    def validate_output_schemas(cls, v: Dict[str, str]) -> Dict[str, str]:
+    def validate_output_schemas(cls, v: dict[str, str]) -> dict[str, str]:
         """Validate output schemas has success and failure keys."""
         required_keys = {"success", "failure"}
         missing_keys = required_keys - set(v.keys())
@@ -237,11 +237,11 @@ class WorkflowConfig(BaseModel):
 
     name: NonEmptyStr = Field(description="Workflow name")
     description: str = Field(description="Workflow description")
-    steps: List[WorkflowStepConfig] = Field(description="Workflow steps")
+    steps: list[WorkflowStepConfig] = Field(description="Workflow steps")
 
     @field_validator("steps")
     @classmethod
-    def validate_steps(cls, v: List[WorkflowStepConfig]) -> List[WorkflowStepConfig]:
+    def validate_steps(cls, v: list[WorkflowStepConfig]) -> list[WorkflowStepConfig]:
         """Validate workflow steps have valid dependencies."""
         if not v:
             raise ValueError("Workflow must have at least one step")
@@ -303,12 +303,12 @@ class ConfigDataModel(DomainResolutionMixin, BaseModel):
 
     app: AppConfig = Field(description="Application configuration")
     transport: TransportConfig = Field(description="Transport configuration")
-    domains: List[DomainConfig] = Field(description="Domain-to-workflow mappings")
-    workflows: List[WorkflowConfig] = Field(description="Workflow definitions")
+    domains: list[DomainConfig] = Field(description="Domain-to-workflow mappings")
+    workflows: list[WorkflowConfig] = Field(description="Workflow definitions")
 
     @field_validator("workflows")
     @classmethod
-    def validate_workflows(cls, v: List[WorkflowConfig]) -> List[WorkflowConfig]:
+    def validate_workflows(cls, v: list[WorkflowConfig]) -> list[WorkflowConfig]:
         """Validate workflow names are unique."""
         workflow_names = [w.name for w in v]
         if len(workflow_names) != len(set(workflow_names)):
@@ -327,14 +327,14 @@ class ConfigDataModel(DomainResolutionMixin, BaseModel):
                 )
         return self
 
-    def get_workflow_by_name(self, name: str) -> Optional[WorkflowConfig]:
+    def get_workflow_by_name(self, name: str) -> WorkflowConfig | None:
         """Get workflow configuration by name."""
         for workflow in self.workflows:
             if workflow.name == name:
                 return workflow
         return None
 
-    def get_workflow_for_domain(self, domain: str) -> Optional[WorkflowConfig]:
+    def get_workflow_for_domain(self, domain: str) -> WorkflowConfig | None:
         """Get workflow for a given domain via shared domain resolution.
 
         Delegates matching to ``DomainResolutionMixin.resolve_domain``

@@ -8,8 +8,8 @@ import time
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.admin import AIOKafkaAdminClient
 
-from configs.logging_config import get_logger, setup_logging
 from configs.loaders import YamlFileConfigLoader
+from configs.logging_config import get_logger, setup_logging
 from transport_services.kafka.kafka_transport_service import KafkaTransportService
 
 # Configure logging with Kafka suppression

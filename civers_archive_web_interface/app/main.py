@@ -6,7 +6,6 @@ from fastapi.templating import Jinja2Templates
 import jinja2
 from fastapi.middleware.cors import CORSMiddleware
 from asgi_correlation_id import CorrelationIdMiddleware
-import os
 from dotenv import load_dotenv
 from fastapi.exceptions import RequestValidationError
 from .custom_exceptions.handlers import custom_validation_exception_handler

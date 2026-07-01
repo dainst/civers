@@ -5,18 +5,18 @@ import socket
 import subprocess
 import time
 import uuid
-from datetime import datetime, timezone
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
+
 import pytest
 import pytest_asyncio
-from typing import AsyncGenerator, Dict, Any, List
-from kafka import KafkaProducer, KafkaConsumer, KafkaAdminClient
-from kafka.admin import NewTopic
-from kafka.errors import TopicAlreadyExistsError, NoBrokersAvailable
+from kafka import KafkaAdminClient, KafkaConsumer, KafkaProducer
 
-from transport_services.kafka.kafka_transport_service import KafkaTransportService
-from orchestration_services.orchestrator_service import OrchestratorService
 from configs.models import ConfigDataModel
+from orchestration_services.orchestrator_service import OrchestratorService
+from transport_services.kafka.kafka_transport_service import KafkaTransportService
 
 # --- Kafka Startup Infrastructure ---
 
@@ -59,26 +59,26 @@ def auto_start_kafka(test_config: ConfigDataModel):
         return
     project_root = Path(__file__).parent.parent.parent
     bootstrap_servers = test_config.transport.kafka.bootstrap_servers
-    print(f"\n🚀 E2E: Starting Kafka container...")
+    print("\n🚀 E2E: Starting Kafka container...")
     try:
         run_docker_compose_command(["up", "-d", "kafka"], cwd=project_root)
     except Exception as e:
         print(f"❌ Failed to start Kafka: {e}")
         pytest.skip("Could not start Kafka container")
         return
-    
+
     start_time = time.time()
     while time.time() - start_time < 60:
         if check_kafka_available(bootstrap_servers):
-            print(f"✅ Kafka is ready!")
+            print("✅ Kafka is ready!")
             break
         time.sleep(2)
     else:
         pytest.skip("Kafka did not become healthy in time")
-    
+
     yield
-    
-    print(f"\n🧹 E2E: Stopping Kafka container...")
+
+    print("\n🧹 E2E: Stopping Kafka container...")
     try:
         run_docker_compose_command(["down", "kafka"], cwd=project_root)
     except Exception:
@@ -100,30 +100,30 @@ def orchestrator(test_config: ConfigDataModel) -> OrchestratorService:
 
 @pytest_asyncio.fixture
 async def live_kafka_service(
-    test_config: ConfigDataModel, 
+    test_config: ConfigDataModel,
     orchestrator: OrchestratorService,
     kafka_available
 ) -> AsyncGenerator[KafkaTransportService, None]:
     """Start KafkaTransportService in a background task."""
     print("🚀 Starting live Kafka service...")
-    
+
     import copy
     test_config = copy.deepcopy(test_config)
-    
+
     # Use unique group_id to avoid rebalancing delays
     test_config.transport.kafka.consumer.group_id = f"e2e-test-group-{uuid.uuid4().hex[:8]}"
     test_config.transport.kafka.consumer.auto_offset_reset = "earliest"
-    
+
     service = KafkaTransportService(test_config, orchestrator)
-    
+
     # Start service in background
     task = asyncio.create_task(service.start())
-    
+
     # Give it a moment to initialize handlers and consumer
     await asyncio.sleep(2)
-        
+
     yield service
-    
+
     # Cleanup
     print("🛑 Stopping live Kafka service...")
     await service.stop()
@@ -162,7 +162,6 @@ class MockComponent:
 
     async def _loop(self):
         while self._running:
-            import threading
             def poll(): return self.consumer.poll(timeout_ms=500)
             messages = await asyncio.to_thread(poll)
             for tp, msgs in messages.items():
@@ -170,13 +169,13 @@ class MockComponent:
                     await self._process_message(msg.value)
             await asyncio.sleep(0.1)
 
-    async def _process_message(self, data: Dict[str, Any]):
+    async def _process_message(self, data: dict[str, Any]):
         request_id = data.get("request_id")
         url = data.get("url")
         print(f"🎭 Mock Component received request {request_id} for {url}")
         await asyncio.sleep(0.5)
-        now_str = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-        
+        now_str = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
         if "archive" in self.request_topic:
             response = {
                 "request_id": request_id, "url": url, "created_at": now_str,
@@ -193,7 +192,7 @@ class MockComponent:
             }
         else:
             response = {"request_id": request_id, "url": url, "status": "completed"}
-            
+
         print(f"🎭 Mock Component sending success for {request_id}")
         self.producer.send(self.success_topic, value=response)
         self.producer.flush()
@@ -203,7 +202,7 @@ class MockComponent:
         self._running = False
         if self._task:
             self._task.cancel()
-            try: await self._task 
+            try: await self._task
             except asyncio.CancelledError: pass
         if self.producer: self.producer.close()
         if self.consumer: self.consumer.close()

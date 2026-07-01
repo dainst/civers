@@ -8,7 +8,7 @@ FilesystemStorageProvider.
 
 import logging
 import json
-from typing import Dict, Optional, IO, Any
+from typing import Dict, Optional, IO
 from pathlib import Path
 from datetime import datetime
 
@@ -17,7 +17,7 @@ from ...models.url import ArchivedUrl
 from ...models.snapshot import Snapshot
 from ...database.sqlite_manager import SQLiteManager
 from ...database.indexer import FilesystemIndexer
-from ...utils.url_parser import parse_url, generate_request_id, build_storage_path
+from ...utils.url_parser import parse_url, generate_request_id
 from ...utils.file_storage import store_snapshot_files
 from configs.models import ValidationConfig
 

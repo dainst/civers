@@ -12,7 +12,6 @@ Only Change Detection-specific behaviour is tested here:
 import inspect
 from pathlib import Path
 
-import pytest
 
 from configs.loaders import YamlFileConfigLoader
 from configs.models import ConfigDataModel

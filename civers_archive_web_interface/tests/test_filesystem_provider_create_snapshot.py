@@ -14,7 +14,6 @@ from datetime import datetime
 from app.storage.providers.filesystem import FilesystemStorageProvider
 from configs.models import ValidationConfig
 from app.custom_exceptions.exceptions.api_exceptions import ValidationError
-from app.storage.providers.storage_provider_interface import StorageError
 
 
 @pytest.fixture

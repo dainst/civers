@@ -5,12 +5,13 @@ This allows systems like the web interface to receive real-time updates without
 polling or direct Kafka consumption.
 """
 
+import asyncio
 import ipaddress
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
-import asyncio
-from typing import Any, Dict, Optional
+
 from configs.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -63,10 +64,10 @@ class CallbackService:
         self.max_retries = max_retries
 
     async def send_callback(
-        self, 
-        callback_url: str, 
-        payload: Dict[str, Any],
-        request_id: Optional[str] = None
+        self,
+        callback_url: str,
+        payload: dict[str, Any],
+        request_id: str | None = None
     ) -> bool:
         """
         Send an asynchronous HTTP POST callback.
@@ -110,7 +111,7 @@ class CallbackService:
                         f"⚠️ Callback error ({req_info}): {str(e)} "
                         f"on attempt {attempt + 1}"
                     )
-                
+
                 if attempt < self.max_retries:
                     await asyncio.sleep(1 * (attempt + 1)) # Simple backoff
 

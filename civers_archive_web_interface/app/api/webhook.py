@@ -8,7 +8,7 @@ to provide real-time updates on archive request progress.
 import logging
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Request, HTTPException, status, Body
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ..constants import RequestStatus
 

@@ -11,7 +11,7 @@ Architecture:
 - apply_transformer(): Main entry point for applying transformations
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from configs.logging_config import get_logger
 
@@ -28,8 +28,8 @@ class DataTransformer:
     def transform(
         self,
         value: Any,
-        config: Dict[str, Any],
-        context: Dict[str, Any]
+        config: dict[str, Any],
+        context: dict[str, Any]
     ) -> Any:
         """Transform a value based on configuration.
 
@@ -78,8 +78,8 @@ class BuildWebInterfaceUrlTransformer(DataTransformer):
     def transform(
         self,
         value: Any,
-        config: Dict[str, Any],
-        context: Dict[str, Any]
+        config: dict[str, Any],
+        context: dict[str, Any]
     ) -> str:
         """Build web interface URL from snapshot_id.
 
@@ -142,7 +142,7 @@ class BuildWebInterfaceUrlTransformer(DataTransformer):
                     )
             else:
                 logger.warning("No orchestrator_config found in context.")
-        
+
         logger.info(f"🔍 Resulting base_url for transformation: {base_url}")
 
         # Apply URL template
@@ -182,8 +182,8 @@ class PassThroughTransformer(DataTransformer):
     def transform(
         self,
         value: Any,
-        config: Dict[str, Any],
-        context: Dict[str, Any]
+        config: dict[str, Any],
+        context: dict[str, Any]
     ) -> Any:
         """Return value unchanged.
 
@@ -200,7 +200,7 @@ class PassThroughTransformer(DataTransformer):
 
 # Registry of available transformers
 # Maps transformer names (as used in configuration) to transformer instances
-TRANSFORMERS: Dict[str, DataTransformer] = {
+TRANSFORMERS: dict[str, DataTransformer] = {
     "build_web_interface_url": BuildWebInterfaceUrlTransformer(),
     "pass_through": PassThroughTransformer(),
 }
@@ -209,8 +209,8 @@ TRANSFORMERS: Dict[str, DataTransformer] = {
 def apply_transformer(
     transformer_name: str,
     value: Any,
-    config: Dict[str, Any],
-    context: Dict[str, Any]
+    config: dict[str, Any],
+    context: dict[str, Any]
 ) -> Any:
     """Apply a named transformer to a value.
 

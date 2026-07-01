@@ -5,8 +5,8 @@ import logging
 
 from aiokafka import AIOKafkaConsumer
 
-from configs.logging_config import get_logger, setup_logging
 from configs.loaders import YamlFileConfigLoader
+from configs.logging_config import get_logger, setup_logging
 
 # Configure logging with Kafka suppression
 setup_logging(level=logging.INFO, suppress_kafka_logs=True)

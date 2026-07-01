@@ -8,10 +8,8 @@ an event to Kafka for the orchestrator to process.
 
 import logging
 import uuid
-from typing import Dict, Any
 
 from fastapi import APIRouter, Request, HTTPException, status, Body
-from pydantic import ValidationError
 
 from ..models.archive_request_events import ArchiveRequestForm, OrchestratorRequestEvent
 from ..services import KafkaProducerError
@@ -201,7 +199,7 @@ async def get_request_status(
     if raw_error:
         # Log technical error for debugging, but show simple message to user
         logger.debug(f"Technical error for {request_id}: {raw_error}")
-        user_error = f"Failed to archive this page. Please try again or contact support."
+        user_error = "Failed to archive this page. Please try again or contact support."
     
     workflow_steps = record.get("workflow_steps") or []
 

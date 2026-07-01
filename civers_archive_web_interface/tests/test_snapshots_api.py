@@ -7,7 +7,7 @@ pagination, and sorting scenarios.
 
 import pytest
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 from pydantic import HttpUrl
 

@@ -6,7 +6,6 @@ All tests now use the new format without Kafka-specific fields.
 
 import os
 from pathlib import Path
-from typing import Dict
 
 import pytest
 import yaml

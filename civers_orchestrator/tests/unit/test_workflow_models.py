@@ -1,7 +1,5 @@
 """Unit tests for workflow state models."""
 
-import pytest
-from pydantic import ValidationError
 
 
 class TestWorkflowStepStatus:
@@ -86,8 +84,9 @@ class TestWorkflowStepInstance:
 
     def test_step_instance_json_serialization(self):
         """Test step instance JSON serialization."""
-        from models.workflow_models import WorkflowStepInstance, WorkflowStepStatus
         import json
+
+        from models.workflow_models import WorkflowStepInstance, WorkflowStepStatus
 
         step = WorkflowStepInstance(
             name="test_step",
@@ -106,7 +105,11 @@ class TestWorkflowInstance:
 
     def test_valid_workflow_instance(self):
         """Test creating a valid workflow instance."""
-        from models.workflow_models import WorkflowInstance, WorkflowStepInstance, WorkflowStepStatus
+        from models.workflow_models import (
+            WorkflowInstance,
+            WorkflowStepInstance,
+            WorkflowStepStatus,
+        )
 
         steps = [
             WorkflowStepInstance(name="archive_generation"),
@@ -151,7 +154,11 @@ class TestWorkflowInstance:
 
     def test_workflow_instance_in_progress(self):
         """Test workflow instance in progress state."""
-        from models.workflow_models import WorkflowInstance, WorkflowStepInstance, WorkflowStepStatus
+        from models.workflow_models import (
+            WorkflowInstance,
+            WorkflowStepInstance,
+            WorkflowStepStatus,
+        )
 
         steps = [
             WorkflowStepInstance(
@@ -183,7 +190,11 @@ class TestWorkflowInstance:
 
     def test_workflow_instance_completed(self):
         """Test completed workflow instance."""
-        from models.workflow_models import WorkflowInstance, WorkflowStepInstance, WorkflowStepStatus
+        from models.workflow_models import (
+            WorkflowInstance,
+            WorkflowStepInstance,
+            WorkflowStepStatus,
+        )
 
         steps = [
             WorkflowStepInstance(
@@ -215,7 +226,11 @@ class TestWorkflowInstance:
 
     def test_workflow_instance_failed(self):
         """Test failed workflow instance."""
-        from models.workflow_models import WorkflowInstance, WorkflowStepInstance, WorkflowStepStatus
+        from models.workflow_models import (
+            WorkflowInstance,
+            WorkflowStepInstance,
+            WorkflowStepStatus,
+        )
 
         steps = [
             WorkflowStepInstance(
@@ -242,8 +257,13 @@ class TestWorkflowInstance:
 
     def test_workflow_instance_json_serialization(self):
         """Test workflow instance JSON serialization."""
-        from models.workflow_models import WorkflowInstance, WorkflowStepInstance, WorkflowStepStatus
         import json
+
+        from models.workflow_models import (
+            WorkflowInstance,
+            WorkflowStepInstance,
+            WorkflowStepStatus,
+        )
 
         steps = [WorkflowStepInstance(name="test_step")]
 

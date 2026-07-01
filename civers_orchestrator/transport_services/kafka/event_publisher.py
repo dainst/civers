@@ -4,7 +4,8 @@ Async Event Publisher for Kafka in CiVers Orchestrator.
 Handles asynchronous event publishing using aiokafka.
 """
 
-from typing import Any, Dict
+from typing import Any
+
 from pydantic import BaseModel
 
 from configs.logging_config import get_logger
@@ -17,7 +18,7 @@ class EventPublisher:
     Handles async event publishing to Kafka topics.
     """
 
-    def __init__(self, connection_manager, topics: Dict[str, str]):
+    def __init__(self, connection_manager, topics: dict[str, str]):
         """
         Initialize the event publisher.
 
@@ -68,7 +69,7 @@ class EventPublisher:
         self,
         topic: str,
         key: str,
-        data: Dict[str, Any]
+        data: dict[str, Any]
     ) -> bool:
         """Publish a dictionary directly to Kafka asynchronously."""
         try:

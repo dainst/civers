@@ -1,6 +1,5 @@
 """Tests for BaseAppConfig."""
 
-import pytest
 
 from civers_common.configs.models import (
     BaseAppConfig,

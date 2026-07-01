@@ -2,7 +2,6 @@
 API response models for consistent response formatting.
 """
 
-import json
 from typing import Any, Dict, Generic, List, Optional, TypeVar
 from pydantic import BaseModel, Field, ConfigDict
 

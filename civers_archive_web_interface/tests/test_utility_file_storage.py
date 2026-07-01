@@ -8,7 +8,6 @@ Note: metadata.json is now uploaded as a regular file, not generated automatical
 import pytest
 import json
 from io import BytesIO
-from pathlib import Path
 from app.utils.file_storage import (
     validate_artifact_type,
     create_storage_directory,
@@ -18,7 +17,6 @@ from app.utils.file_storage import (
 )
 from configs.models import ValidationConfig
 from app.custom_exceptions.exceptions.api_exceptions import ValidationError
-from app.storage.providers.storage_provider_interface import StorageError
 
 
 @pytest.fixture

@@ -216,3 +216,12 @@ domains:
     input_source: html_document
     extractor: jsonld
     mappings: *arachne_mappings
+
+  - name: "*.museum-digital.de"
+    workflow: archive_generation_only_workflow
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
+    webpage_types: dynamic

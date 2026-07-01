@@ -5,23 +5,21 @@ Tests the event model lookup and validation functionality.
 """
 
 import pytest
-from transport_services.kafka.event_registry import (
-    get_event_model,
-    validate_event_model_name,
-    list_event_models,
-    EVENT_MODELS,
-)
+
 from transport_services.kafka.event_models import (
     OrchestratorRequestEvent,
-    OrchestratorCompletedEvent,
+)
+from transport_services.kafka.event_registry import (
+    EVENT_MODELS,
+    get_event_model,
+    list_event_models,
+    validate_event_model_name,
 )
 from transport_services.kafka.external_events.archive_events import (
     ArchiveRequestEvent,
-    ArchiveCompletedEvent,
 )
 from transport_services.kafka.external_events.metadata_events import (
     MetadataExtractionRequestEvent,
-    MetadataExtractionCompletedEvent,
 )
 
 

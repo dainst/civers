@@ -6,9 +6,13 @@ import logging
 import os
 import sys
 import tempfile
+import socket
+import subprocess
+import time
 from pathlib import Path
 
 import pytest
+from kafka import KafkaAdminClient
 
 # Add the project root to Python path for imports
 project_root = Path(__file__).parent.parent
@@ -218,3 +222,146 @@ def mock_singlefile_binary(temp_dir):
     mock_binary.write_text("#!/bin/bash\necho 'Mock SingleFile'\n")
     mock_binary.chmod(0o755)
     return str(mock_binary)
+
+
+def run_docker_compose_command(command: list[str], cwd: Path) -> subprocess.CompletedProcess:
+    """Run a docker compose command."""
+    full_command = ["docker", "compose"] + command
+    return subprocess.run(
+        full_command,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=30
+    )
+
+
+def check_kafka_available(bootstrap_servers: str, timeout_seconds: float = 3.0) -> bool:
+    """Check if Kafka is available and accepting connections."""
+    try:
+        host, port = bootstrap_servers.split(":")[0], int(bootstrap_servers.split(":")[1])
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout_seconds)
+        result = sock.connect_ex((host, port))
+        sock.close()
+
+        if result != 0:
+            return False
+
+        admin_client = KafkaAdminClient(
+            bootstrap_servers=bootstrap_servers,
+            client_id="health-check-ag",
+            request_timeout_ms=int(timeout_seconds * 1000),
+            api_version_auto_timeout_ms=int(timeout_seconds * 1000),
+        )
+
+        admin_client.list_topics()
+        admin_client.close()
+        return True
+    except Exception:
+        return False
+
+
+@pytest.fixture(scope="session")
+def integration_kafka_config() -> ConfigDataModel:
+    """Load config for integration tests."""
+    from configs.loaders import YamlFileConfigLoader
+    return YamlFileConfigLoader(environment="testing").load()
+
+
+@pytest.fixture(scope="session")
+def auto_start_kafka(integration_kafka_config: ConfigDataModel):
+    """Auto-start Kafka broker container via docker compose."""
+    auto_start = os.getenv("AUTO_START_KAFKA", "true").lower() == "true"
+    if not auto_start:
+        print("⏭️  AUTO_START_KAFKA=false - Skipping automatic Kafka startup")
+        yield
+        return
+
+    project_root = Path(__file__).parent.parent
+
+    try:
+        subprocess.run(
+            ["docker", "compose", "version"],
+            capture_output=True,
+            check=True,
+            timeout=5
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        pytest.skip("Docker Compose not available. Install Docker to run integration tests.")
+        return
+
+    compose_file = project_root / "docker-compose.yml"
+    if not compose_file.exists():
+        pytest.skip(f"docker-compose.yml not found at {compose_file}")
+        return
+
+    bootstrap_servers = integration_kafka_config.app.get_kafka_config().bootstrap_servers
+    print("\n🚀 Starting Kafka broker container via docker compose...")
+    print(f"   Bootstrap servers: {bootstrap_servers}")
+
+    try:
+        result = run_docker_compose_command(["up", "-d", "broker"], cwd=project_root)
+        print("✅ Docker compose up broker completed")
+        if result.stdout:
+            print(f"   {result.stdout.strip()}")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed to start Kafka broker: {e.stderr}")
+        pytest.skip(f"Could not start Kafka broker container: {e.stderr}")
+        return
+    except subprocess.TimeoutExpired:
+        print("❌ Docker compose command timed out")
+        pytest.skip("Docker compose command timed out")
+        return
+
+    print("⏳ Waiting for Kafka broker to become healthy (timeout: 60s)...")
+    start_time = time.time()
+    kafka_ready = False
+
+    while time.time() - start_time < 60:
+        if check_kafka_available(bootstrap_servers, timeout_seconds=2.0):
+            kafka_ready = True
+            elapsed = time.time() - start_time
+            print(f"✅ Kafka is ready! (took {elapsed:.1f}s)")
+            break
+        time.sleep(2)
+
+    if not kafka_ready:
+        print("❌ Kafka failed to start within 60s")
+        try:
+            run_docker_compose_command(["down", "broker"], cwd=project_root)
+        except Exception:
+            pass
+        pytest.skip("Kafka did not become healthy within 60s")
+        return
+
+    yield
+
+    print("\n🧹 Stopping Kafka broker container...")
+    try:
+        result = run_docker_compose_command(["down", "broker"], cwd=project_root)
+        print("✅ Kafka stopped")
+        if result.stdout:
+            print(f"   {result.stdout.strip()}")
+    except subprocess.CalledProcessError as e:
+        print(f"⚠️  Failed to stop Kafka: {e.stderr}")
+    except subprocess.TimeoutExpired:
+        print("⚠️  Docker compose down timed out")
+
+
+@pytest.fixture(scope="session")
+def kafka_available(auto_start_kafka, integration_kafka_config: ConfigDataModel):
+    """Check if Kafka is available, skipping tests otherwise."""
+    bootstrap_servers = integration_kafka_config.app.get_kafka_config().bootstrap_servers
+    is_available = check_kafka_available(bootstrap_servers, timeout_seconds=3.0)
+
+    if not is_available:
+        pytest.skip(
+            f"Kafka not available at {bootstrap_servers}. "
+            "Either:\n"
+            "  1. Set AUTO_START_KAFKA=true to auto-start (default)\n"
+            "  2. Manually start with: docker compose up -d broker"
+        )
+
+    return True

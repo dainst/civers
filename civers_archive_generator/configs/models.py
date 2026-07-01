@@ -8,9 +8,8 @@ Extends the shared civers_common base config models. AG-specific additions:
 
 import os
 from pathlib import Path
-from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from civers_common import (
     BaseAppConfig,

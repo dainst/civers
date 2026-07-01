@@ -8,7 +8,7 @@ with comprehensive security validation and proper streaming support.
 import logging
 from pathlib import Path
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import FileResponse
 from ..utils import (
     validate_request_parameters,

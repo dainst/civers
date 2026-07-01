@@ -12,12 +12,11 @@ Key Principles:
 - Modular architecture with single-responsibility components
 """
 
-from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from datetime import UTC, datetime
 
 from configs.logging_config import get_logger
 from configs.models import ConfigDataModel, DomainConfig, WorkflowConfig
-from models.orchestrator_models import StepInstruction, WorkflowTransition, WorkflowStatus
+from models.orchestrator_models import StepInstruction, WorkflowStatus, WorkflowTransition
 from models.workflow_models import WorkflowInstance, WorkflowStepInstance, WorkflowStepStatus
 from orchestration_services.orchestrator_service_interface import OrchestratorServiceInterface
 from orchestration_services.step_executor import StepExecutor
@@ -63,8 +62,8 @@ class OrchestratorService(OrchestratorServiceInterface):
         self.config = config
 
         # Load configurations
-        domains: List[DomainConfig] = config.domains
-        workflows_dict: Dict[str, WorkflowConfig] = {
+        domains: list[DomainConfig] = config.domains
+        workflows_dict: dict[str, WorkflowConfig] = {
             wf.name: wf for wf in config.workflows
         }
 
@@ -88,9 +87,9 @@ class OrchestratorService(OrchestratorServiceInterface):
         self,
         request_id: str,
         url: str,
-        workflow_name: Optional[str] = None,
-        callback_url: Optional[str] = None,
-        metadata: Optional[Dict] = None
+        workflow_name: str | None = None,
+        callback_url: str | None = None,
+        metadata: dict | None = None
     ) -> StepInstruction:
         """
         Start a new workflow execution.
@@ -128,11 +127,11 @@ class OrchestratorService(OrchestratorServiceInterface):
             url=url,
             status=WorkflowStepStatus.IN_PROGRESS,
             steps=[WorkflowStepInstance(name=step.name) for step in workflow.steps],
-            created_at=datetime.now(timezone.utc).isoformat(),
-            updated_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
             callback_url=callback_url,
             metadata=metadata or {},
-            start_time=datetime.now(timezone.utc),
+            start_time=datetime.now(UTC),
             completed_steps=set(),
             failed_steps=set(),
             step_results={}
@@ -157,7 +156,7 @@ class OrchestratorService(OrchestratorServiceInterface):
         self,
         request_id: str,
         step_name: str,
-        result_data: Optional[Dict] = None
+        result_data: dict | None = None
     ) -> WorkflowTransition:
         """
         Handle step completion and determine next action.
@@ -265,7 +264,7 @@ class OrchestratorService(OrchestratorServiceInterface):
             failed_step=step_name
         )
 
-    def get_workflow_state(self, request_id: str) -> Optional[WorkflowInstance]:
+    def get_workflow_state(self, request_id: str) -> WorkflowInstance | None:
         """
         Get current workflow state for a request.
 
@@ -277,7 +276,7 @@ class OrchestratorService(OrchestratorServiceInterface):
         """
         return self.state_store.get_workflow(request_id)
 
-    def get_workflow_status(self, request_id: str) -> Optional[WorkflowStatus]:
+    def get_workflow_status(self, request_id: str) -> WorkflowStatus | None:
         """
         Get workflow status for monitoring/queries.
 
@@ -321,7 +320,7 @@ class OrchestratorService(OrchestratorServiceInterface):
 
     # === TIMEOUT HANDLING METHODS ===
 
-    def check_step_timeout(self, request_id: str) -> Optional[WorkflowTransition]:
+    def check_step_timeout(self, request_id: str) -> WorkflowTransition | None:
         """
         Check if current step has exceeded its timeout.
 
@@ -342,7 +341,7 @@ class OrchestratorService(OrchestratorServiceInterface):
 
         return None
 
-    def check_all_timeouts(self) -> List[WorkflowTransition]:
+    def check_all_timeouts(self) -> list[WorkflowTransition]:
         """
         Check all active workflows for timeouts.
 

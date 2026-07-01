@@ -7,7 +7,6 @@ This test verifies that:
 4. Workflows and domains are inherited from defaults/
 """
 
-import pytest
 from configs.loaders import YamlFileConfigLoader
 
 

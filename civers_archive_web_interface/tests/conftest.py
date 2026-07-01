@@ -1,10 +1,9 @@
 import pytest
-import os
 import tempfile
 import shutil
 from pathlib import Path
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from app.main import app
 from configs import YamlFileConfigLoader

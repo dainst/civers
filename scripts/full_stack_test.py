@@ -12,11 +12,22 @@ Usage:
 """
 
 import argparse
-import json
+import asyncio
 import sys
 import time
 import uuid
+from pathlib import Path
 from datetime import datetime
+
+# Add project root and scripts directory to python path for imports
+scripts_dir = Path(__file__).resolve().parent
+repo_root = scripts_dir.parent
+if str(scripts_dir) not in sys.path:
+    sys.path.insert(0, str(scripts_dir))
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
+from config_loader import load_script_config, get_kafka_bootstrap, get_web_interface_url
 
 try:
     import requests
@@ -25,11 +36,26 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from kafka import KafkaProducer
+    # Reuse the single canonical Kafka sender so submission stays consistent.
+    from send_kafka_request import SendKafkaRequest
     KAFKA_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     KAFKA_AVAILABLE = False
-    print("⚠️  kafka-python not installed. Install with: uv add kafka-python")
+    print(f"⚠️  Kafka submission unavailable (send_kafka_request/aiokafka import failed): {e}")
+
+
+def _kafka_reachable(kafka_bootstrap: str) -> bool:
+    """Return True if a Kafka producer can connect to the broker."""
+    async def _run() -> bool:
+        sender = SendKafkaRequest(kafka_bootstrap)
+        try:
+            return await sender.check_connection()
+        finally:
+            await sender.close()
+    try:
+        return asyncio.run(_run())
+    except Exception:
+        return False
 
 
 def check_services(web_url: str, kafka_bootstrap: str) -> dict:
@@ -44,62 +70,45 @@ def check_services(web_url: str, kafka_bootstrap: str) -> dict:
         response = requests.get(f"{web_url}/health", timeout=5)
         status["web_interface"] = response.status_code == 200
         print(f"{'✅' if status['web_interface'] else '❌'} Web Interface: {web_url}")
-    except Exception as e:
+    except Exception:
         print(f"❌ Web Interface: Cannot connect to {web_url}")
     
-    # Check Kafka
+    # Check Kafka (via the shared SendKafkaRequest producer)
     if KAFKA_AVAILABLE:
-        try:
-            producer = KafkaProducer(
-                bootstrap_servers=kafka_bootstrap,
-                request_timeout_ms=5000,
-                api_version_auto_timeout_ms=5000
-            )
-            producer.close()
+        if _kafka_reachable(kafka_bootstrap):
             status["kafka"] = True
             print(f"✅ Kafka: {kafka_bootstrap}")
-        except Exception as e:
-            print(f"❌ Kafka: Cannot connect to {kafka_bootstrap} - {e}")
+        else:
+            print(f"❌ Kafka: Cannot connect to {kafka_bootstrap}")
     else:
-        print(f"⚠️  Kafka: kafka-python not installed")
-    
+        print("⚠️  Kafka: aiokafka/send_kafka_request unavailable")
+
     return status
 
 
 def submit_archive_request_kafka(kafka_bootstrap: str, url: str, request_id: str) -> bool:
-    """Submit archive request via Kafka."""
+    """Submit a request to the ORCHESTRATOR topic via SendKafkaRequest.
+
+    Publishing to orchestrator.requests triggers the full workflow
+    (archive -> metadata -> callback) — exactly what a full-stack test exercises.
+    """
     if not KAFKA_AVAILABLE:
         print("❌ Kafka library not available")
         return False
-    
+
+    async def _run() -> None:
+        sender = SendKafkaRequest(kafka_bootstrap)
+        try:
+            await sender.send_one(url, "orchestrator", request_id=request_id)
+        finally:
+            await sender.close()
+
     try:
-        producer = KafkaProducer(
-            bootstrap_servers=kafka_bootstrap,
-            value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-            key_serializer=lambda k: k.encode('utf-8') if k else None
-        )
-        
-        message = {
-            "request_id": request_id,
-            "url": url,
-            "timestamp": datetime.utcnow().isoformat(),
-            "source": "full_stack_test"
-        }
-        
-        future = producer.send(
-            topic="orchestrator.requests",
-            key=request_id,
-            value=message
-        )
-        # Wait for the message to be sent
-        future.get(timeout=10)
-        producer.close()
-        
-        print(f"✅ Submitted archive request to Kafka")
+        asyncio.run(_run())
+        print("✅ Submitted archive request to Kafka (orchestrator.requests)")
         print(f"   Request ID: {request_id}")
         print(f"   URL: {url}")
         return True
-        
     except Exception as e:
         print(f"❌ Failed to submit Kafka message: {e}")
         return False
@@ -123,7 +132,7 @@ def wait_for_archive(web_url: str, url: str, timeout: int = 120, poll_interval: 
         print(f"   ... waiting ({elapsed}s elapsed, {current_count} snapshots)")
         time.sleep(poll_interval)
     
-    print(f"❌ Timeout waiting for new archive")
+    print("❌ Timeout waiting for new archive")
     return {"success": False, "snapshots": get_snapshot_count(web_url, url)}
 
 
@@ -237,11 +246,11 @@ def run_full_stack_test(
     request_id = f"fullstack-test-{uuid.uuid4().hex[:8]}"
     
     print(f"\n{'='*60}")
-    print(f"CIVERS Full Stack Integration Test")
+    print("CIVERS Full Stack Integration Test")
     print(f"Time: {datetime.now().isoformat()}")
     print(f"{'='*60}\n")
     
-    print(f"Configuration:")
+    print("Configuration:")
     print(f"  Web Interface: {web_url}")
     print(f"  Kafka: {kafka_bootstrap}")
     print(f"  Test URL: {test_url}")
@@ -285,29 +294,34 @@ def run_full_stack_test(
     
     print(f"\n{'='*60}")
     if verified:
-        print(f"RESULT: SUCCESS ✅")
-        print(f"Full stack integration verified!")
-        print(f"Archives are present and accessible via Web Interface.")
+        print("RESULT: SUCCESS ✅")
+        print("Full stack integration verified!")
+        print("Archives are present and accessible via Web Interface.")
     else:
-        print(f"RESULT: PARTIAL SUCCESS ⚠️")
-        print(f"Services are running but no archives found for test URL.")
-        print(f"Manual archive generation may be required.")
+        print("RESULT: PARTIAL SUCCESS ⚠️")
+        print("Services are running but no archives found for test URL.")
+        print("Manual archive generation may be required.")
     print(f"{'='*60}")
     
     return verified
 
 
 def main():
+    # Load configuration
+    config = load_script_config()
+    default_web_url = get_web_interface_url(config)
+    default_kafka = get_kafka_bootstrap(config)
+
     parser = argparse.ArgumentParser(description="Full Stack Integration Test")
     parser.add_argument(
         "--web-url",
-        default="http://localhost:8000",
-        help="Web Interface URL"
+        default=default_web_url,
+        help=f"Web Interface URL (default: {default_web_url})"
     )
     parser.add_argument(
         "--kafka",
-        default="localhost:29092",
-        help="Kafka bootstrap servers"
+        default=default_kafka,
+        help=f"Kafka bootstrap servers (default: {default_kafka})"
     )
     parser.add_argument(
         "--test-url",

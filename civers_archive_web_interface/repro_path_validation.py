@@ -15,7 +15,7 @@ def test_path_validation():
     artifact_path_str = "/home/sammar/Schreibtisch/dainst/daisnt_cviers_github/civers_individual_repos/civers_archive_web_interface/archives/arachne_test_dainst_org_entity_2003177?fl=20/home/req_test-request-1_20260213_104803/archive.wacz"
     artifact_path = Path(artifact_path_str)
     
-    print(f"Testing Path Validation:")
+    print("Testing Path Validation:")
     print(f"Storage Root: {storage_root}")
     print(f"Artifact Path: {artifact_path}")
     

@@ -8,7 +8,6 @@ validation, error handling, and idempotent operations.
 import pytest
 import json
 from io import BytesIO
-from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.main import app

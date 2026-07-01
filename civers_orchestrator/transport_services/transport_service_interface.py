@@ -5,7 +5,8 @@ This interface defines the contract that any transport mechanism
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict
+from collections.abc import Callable
+from typing import Any
 
 
 class TransportServiceInterface(ABC):
@@ -58,7 +59,7 @@ class TransportServiceInterface(ABC):
         pass
 
     @abstractmethod
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """Perform a health check on the transport service.
 
         Returns:
@@ -78,7 +79,7 @@ class TransportServiceInterface(ABC):
 
     @abstractmethod
     async def send_response(
-        self, destination: str, message: Dict[str, Any], **kwargs
+        self, destination: str, message: dict[str, Any], **kwargs
     ) -> bool:
         """Send a response message to a destination topic/channel.
 
@@ -96,7 +97,7 @@ class TransportServiceInterface(ABC):
         pass
 
     @abstractmethod
-    def get_transport_info(self) -> Dict[str, Any]:
+    def get_transport_info(self) -> dict[str, Any]:
         """Get information about the transport configuration.
 
         Returns:

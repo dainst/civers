@@ -13,7 +13,7 @@ Usage:
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
+from typing import Any
 
 
 # Temporary transport-agnostic StepInstruction model
@@ -30,9 +30,9 @@ class TransportAgnosticStepInstruction:
     url: str
     component: str  # Component identifier (not topic!)
     input_schema: str  # Schema name (not event model!)
-    input_data: Dict[str, Any] = field(default_factory=dict)
-    metadata: Optional[Dict[str, Any]] = None
-    step_config: Optional[Any] = None  # Will be WorkflowStepConfig
+    input_data: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] | None = None
+    step_config: Any | None = None  # Will be WorkflowStepConfig
 
 
 def create_transport_agnostic_instruction(
@@ -40,8 +40,8 @@ def create_transport_agnostic_instruction(
     url: str = "https://example.com",
     component: str = "test_component",
     input_schema: str = "TestRequest",
-    input_data: Optional[Dict[str, Any]] = None,
-    metadata: Optional[Dict[str, Any]] = None
+    input_data: dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None
 ) -> TransportAgnosticStepInstruction:
     """
     Create a transport-agnostic StepInstruction for testing.
@@ -89,7 +89,7 @@ def create_mock_component_mapping(
     request_event: str,
     success_event: str,
     failure_event: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create mock component mapping for Kafka adapter tests.
 
@@ -134,7 +134,7 @@ def create_mock_component_mapping(
 
 
 def assert_kafka_operation(
-    operation: Dict[str, Any],
+    operation: dict[str, Any],
     expected_topic: str,
     expected_event_model: str,
     expected_request_id: str

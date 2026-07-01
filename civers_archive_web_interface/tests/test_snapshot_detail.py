@@ -6,7 +6,6 @@ Tests the GET /api/snapshots/{snapshot_id} endpoint functionality.
 
 import pytest
 from datetime import datetime, timezone
-from pathlib import Path
 from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
 

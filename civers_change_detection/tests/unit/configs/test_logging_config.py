@@ -2,7 +2,6 @@
 
 import logging
 
-import pytest
 
 from configs.logging_config import get_logger, setup_logging
 

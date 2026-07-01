@@ -12,13 +12,12 @@ import pytest
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.models import Snapshot
 from app.storage import StorageError
-from app.utils import SecurityValidationError
 
 
 class MockStorageService:

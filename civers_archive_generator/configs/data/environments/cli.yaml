@@ -1,0 +1,33 @@
+# CLI environment configuration
+# For running Archive Generator via CLI directly on the host (bypassing Kafka)
+
+environment: cli
+
+app:
+  environment: cli
+  archive_directory: archives
+  ssrf_protection_enabled: false
+  
+  # Transport config - enable 'cli' transport and configure it under transports dict
+  transport:
+    enabled:
+      - cli
+    transports:
+      cli: {}
+  
+  # Enable local file storage only for CLI runs
+  storage:
+    enabled:
+      - local_file
+    backends:
+      local_file:
+        base_path: archives
+        create_subdirectories: true
+domains:
+  - name: "*.museum-digital.de"
+    generators:
+      - name: scoop
+        artifacts: [warc, screenshot, dom-snapshot]
+      - name: singlefile
+        artifacts: [singlefile]
+    webpage_types: dynamic

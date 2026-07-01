@@ -12,12 +12,13 @@ Usage:
         assert "archive_generator" in kafka_component_mappings
 """
 
+from typing import Any
+
 import pytest
-from typing import Dict, Any
 
 
 @pytest.fixture
-def kafka_component_mappings() -> Dict[str, Dict[str, Any]]:
+def kafka_component_mappings() -> dict[str, dict[str, Any]]:
     """
     Component mappings for Kafka adapter tests.
 

@@ -26,7 +26,7 @@ Usage:
     assert adapter.translation_calls[0].component == "archive_generator"
 """
 
-from typing import Dict, Any, List
+from typing import Any
 
 
 class MockTransportAdapter:
@@ -43,10 +43,10 @@ class MockTransportAdapter:
 
     def __init__(self):
         """Initialize mock adapter with empty call history."""
-        self.translation_calls: List[Any] = []
-        self.mock_mappings: Dict[str, Dict[str, Any]] = {}
+        self.translation_calls: list[Any] = []
+        self.mock_mappings: dict[str, dict[str, Any]] = {}
 
-    def set_mock_mapping(self, component: str, mapping: Dict[str, Any]):
+    def set_mock_mapping(self, component: str, mapping: dict[str, Any]):
         """
         Configure mock mapping for a component.
 
@@ -84,7 +84,7 @@ class MockTransportAdapter:
         mapping = self.mock_mappings.get(component, {})
         return mapping.get("request_destination", "mock.destination")
 
-    def get_response_destinations(self, component: str) -> Dict[str, str]:
+    def get_response_destinations(self, component: str) -> dict[str, str]:
         """
         Mock method - returns response destinations.
 
@@ -107,7 +107,7 @@ class MockTransportAdapter:
             "failure": "mock.failure"
         })
 
-    def translate_instruction(self, instruction: Any) -> Dict[str, Any]:
+    def translate_instruction(self, instruction: Any) -> dict[str, Any]:
         """
         Mock translation - records call and returns mock operation.
 

@@ -1,6 +1,6 @@
 transport:
   kafka:
-    bootstrap_servers: localhost:29092
+    bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}
     consumer:
       auto_offset_reset: earliest
     producer:

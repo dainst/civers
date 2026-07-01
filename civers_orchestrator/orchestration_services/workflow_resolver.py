@@ -7,7 +7,6 @@ This module provides workflow resolution capabilities including:
 """
 
 from collections import defaultdict, deque
-from typing import Dict, List, Optional, Set
 
 from civers_common import ConfigurationError, DomainResolutionMixin
 
@@ -34,8 +33,8 @@ class WorkflowResolver(DomainResolutionMixin):
 
     def __init__(
         self,
-        workflows: Dict[str, WorkflowConfig],
-        domains: List[DomainConfig]
+        workflows: dict[str, WorkflowConfig],
+        domains: list[DomainConfig]
     ):
         """Initialize workflow resolver.
 
@@ -136,8 +135,8 @@ class WorkflowResolver(DomainResolutionMixin):
     def get_next_step(
         self,
         workflow: WorkflowConfig,
-        completed_steps: Set[str]
-    ) -> Optional[WorkflowStepConfig]:
+        completed_steps: set[str]
+    ) -> WorkflowStepConfig | None:
         """Get next step to execute based on completed steps and dependencies.
 
         Args:
@@ -162,7 +161,7 @@ class WorkflowResolver(DomainResolutionMixin):
     def is_workflow_complete(
         self,
         workflow: WorkflowConfig,
-        completed_steps: Set[str]
+        completed_steps: set[str]
     ) -> bool:
         """Check if all workflow steps are completed.
 
@@ -180,8 +179,8 @@ class WorkflowResolver(DomainResolutionMixin):
 
     def resolve_dependencies(
         self,
-        steps: List[WorkflowStepConfig]
-    ) -> List[List[WorkflowStepConfig]]:
+        steps: list[WorkflowStepConfig]
+    ) -> list[list[WorkflowStepConfig]]:
         """Resolve step dependencies using topological sort (Kahn's algorithm).
 
         Args:
@@ -200,8 +199,8 @@ class WorkflowResolver(DomainResolutionMixin):
         step_map = {step.name: step for step in steps}
 
         # Build dependency graph and calculate in-degrees
-        in_degree: Dict[str, int] = {}
-        dependencies: Dict[str, List[str]] = defaultdict(list)
+        in_degree: dict[str, int] = {}
+        dependencies: dict[str, list[str]] = defaultdict(list)
 
         for step in steps:
             if step.name not in in_degree:
@@ -217,11 +216,11 @@ class WorkflowResolver(DomainResolutionMixin):
 
         # Kahn's algorithm
         queue = deque([name for name, degree in in_degree.items() if degree == 0])
-        execution_layers: List[List[WorkflowStepConfig]] = []
+        execution_layers: list[list[WorkflowStepConfig]] = []
         processed_count = 0
 
         while queue:
-            current_layer: List[WorkflowStepConfig] = []
+            current_layer: list[WorkflowStepConfig] = []
             layer_size = len(queue)
 
             for _ in range(layer_size):
@@ -250,7 +249,7 @@ class WorkflowResolver(DomainResolutionMixin):
         )
         return execution_layers
 
-    def _build_dependency_graphs(self) -> Dict[str, Dict[str, Set[str]]]:
+    def _build_dependency_graphs(self) -> dict[str, dict[str, set[str]]]:
         """Build dependency graphs for all workflows.
 
         Returns:
@@ -258,7 +257,7 @@ class WorkflowResolver(DomainResolutionMixin):
         """
         graphs = {}
         for workflow_name, workflow in self.workflows.items():
-            graph: Dict[str, Set[str]] = defaultdict(set)
+            graph: dict[str, set[str]] = defaultdict(set)
 
             for step in workflow.steps:
                 if step.depends_on:

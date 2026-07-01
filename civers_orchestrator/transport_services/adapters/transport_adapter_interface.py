@@ -18,7 +18,7 @@ Example:
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Any
 
 
 class TransportAdapter(ABC):
@@ -62,7 +62,7 @@ class TransportAdapter(ABC):
         pass
 
     @abstractmethod
-    def get_response_destinations(self, component: str) -> Dict[str, str]:
+    def get_response_destinations(self, component: str) -> dict[str, str]:
         """
         Get transport-specific destinations for component responses.
 
@@ -86,7 +86,7 @@ class TransportAdapter(ABC):
         pass
 
     @abstractmethod
-    def translate_instruction(self, instruction: Any) -> Dict[str, Any]:
+    def translate_instruction(self, instruction: Any) -> dict[str, Any]:
         """
         Translate StepInstruction into transport-specific operation.
 

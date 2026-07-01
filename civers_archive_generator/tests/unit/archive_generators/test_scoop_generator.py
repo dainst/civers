@@ -1,7 +1,5 @@
 import pytest
-import os
 from unittest.mock import MagicMock, patch
-from pathlib import Path
 from archive_generators.scoop.scoop_generator import ScoopGenerator
 from archive_generators.archive_result import ArtifactStatus
 

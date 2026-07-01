@@ -1,0 +1,16 @@
+services:
+  archive-generator:
+    environment:
+      - CONFIG_ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      # Inside Docker Compose, Kafka is resolved by container name 'broker' on the default network
+      - KAFKA_BOOTSTRAP_SERVERS=broker:9092
+    volumes:
+      - ./archive_generators:/app/archive_generators:ro
+      - ./archive_services:/app/archive_services:ro
+      - ./transport_services:/app/transport_services:ro
+      - ./storage_layer:/app/storage_layer:ro
+      - ./configs:/app/configs:ro
+      - ./main.py:/app/main.py:ro
+    # Enable hot-reload by activating the virtual environment and running under watchfiles
+    command: [ "bash", "-c", ". /app/.venv/bin/activate && exec watchfiles 'python main.py' main.py archive_generators archive_services transport_services storage_layer configs" ]

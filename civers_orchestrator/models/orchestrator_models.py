@@ -11,7 +11,8 @@ Key Principle:
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any
+from typing import Any
+
 from configs.models import WorkflowStepConfig
 from models.workflow_models import WorkflowInstance
 
@@ -46,9 +47,9 @@ class StepInstruction:
     url: str
     component: str  # Component identifier (transport-agnostic)
     input_schema: str  # Data schema name (not event model)
-    input_data: Dict[str, Any] = field(default_factory=dict)
-    workflow_instance: Optional[WorkflowInstance] = field(default=None)  # Reference to full instance
-    metadata: Optional[Dict[str, Any]] = None
+    input_data: dict[str, Any] = field(default_factory=dict)
+    workflow_instance: WorkflowInstance | None = field(default=None)  # Reference to full instance
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass
@@ -90,10 +91,10 @@ class WorkflowTransition:
 
     action: str  # "execute_step", "workflow_complete", "workflow_failed"
     request_id: str
-    step_instruction: Optional[StepInstruction] = None
-    workflow_instance: Optional[WorkflowInstance] = None
-    error_message: Optional[str] = None
-    failed_step: Optional[str] = None
+    step_instruction: StepInstruction | None = None
+    workflow_instance: WorkflowInstance | None = None
+    error_message: str | None = None
+    failed_step: str | None = None
 
     def __post_init__(self):
         """Validate transition based on action."""
@@ -133,12 +134,12 @@ class WorkflowStatus:
     request_id: str
     workflow_name: str
     url: str
-    current_step: Optional[str]
+    current_step: str | None
     completed_steps: set[str]
     total_steps: int
     status: str  # "pending", "in_progress", "completed", "failed"
-    error_message: Optional[str] = None
-    failed_step: Optional[str] = None
+    error_message: str | None = None
+    failed_step: str | None = None
 
     @property
     def progress_percentage(self) -> float:

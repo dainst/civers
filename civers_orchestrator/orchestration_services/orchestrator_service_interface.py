@@ -6,8 +6,8 @@ injection and better testability by separating transport from logic.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
-from models.orchestrator_models import StepInstruction, WorkflowTransition, WorkflowStatus
+
+from models.orchestrator_models import StepInstruction, WorkflowStatus, WorkflowTransition
 from models.workflow_models import WorkflowInstance
 
 
@@ -25,9 +25,9 @@ class OrchestratorServiceInterface(ABC):
         self,
         request_id: str,
         url: str,
-        workflow_name: Optional[str] = None,
-        callback_url: Optional[str] = None,
-        metadata: Optional[Dict] = None
+        workflow_name: str | None = None,
+        callback_url: str | None = None,
+        metadata: dict | None = None
     ) -> StepInstruction:
         """
         Start a new workflow execution.
@@ -49,7 +49,7 @@ class OrchestratorServiceInterface(ABC):
         self,
         request_id: str,
         step_name: str,
-        result_data: Optional[Dict] = None
+        result_data: dict | None = None
     ) -> WorkflowTransition:
         """
         Handle step completion and determine next action.
@@ -85,7 +85,7 @@ class OrchestratorServiceInterface(ABC):
         pass
 
     @abstractmethod
-    def get_workflow_state(self, request_id: str) -> Optional[WorkflowInstance]:
+    def get_workflow_state(self, request_id: str) -> WorkflowInstance | None:
         """
         Get current workflow state for a request.
 
@@ -98,7 +98,7 @@ class OrchestratorServiceInterface(ABC):
         pass
 
     @abstractmethod
-    def get_workflow_status(self, request_id: str) -> Optional[WorkflowStatus]:
+    def get_workflow_status(self, request_id: str) -> WorkflowStatus | None:
         """
         Get workflow status for monitoring.
 
@@ -124,7 +124,7 @@ class OrchestratorServiceInterface(ABC):
         pass
 
     @abstractmethod
-    def check_step_timeout(self, request_id: str) -> Optional[WorkflowTransition]:
+    def check_step_timeout(self, request_id: str) -> WorkflowTransition | None:
         """
         Check if current step has timed out.
 
@@ -137,7 +137,7 @@ class OrchestratorServiceInterface(ABC):
         pass
 
     @abstractmethod
-    def check_all_timeouts(self) -> List[WorkflowTransition]:
+    def check_all_timeouts(self) -> list[WorkflowTransition]:
         """
         Check all active workflows for timeouts.
 

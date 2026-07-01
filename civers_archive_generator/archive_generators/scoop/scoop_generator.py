@@ -136,6 +136,7 @@ class ScoopGenerator(BaseGenerator):
             "exit_code": exit_code,
             "timed_out": timed_out,
             "output_file": output_file,
+            "stderr": stderr.decode('utf-8', errors='ignore') if stderr else ""
         }
 
     def _analyze_artifacts(self, output_folder: str, requested_artifacts: List[str]) -> List[ArtifactResult]:
@@ -191,10 +192,28 @@ class ScoopGenerator(BaseGenerator):
         try:
             # Scoop needs to run once regardless of which of its 3 capabilities are requested
             # because it produces WACZ/WARC, screenshot, and DOM in one go.
-            await self._run_scoop(url, output_folder, requested_artifacts)
+            run_result = await self._run_scoop(url, output_folder, requested_artifacts)
             
             # Map requested artifacts to Scoop output
             artifacts = self._analyze_artifacts(output_folder, requested_artifacts)
+            
+            # If Scoop exited with an error, append details to failed artifacts
+            exit_code = run_result.get("exit_code")
+            if exit_code is not None and exit_code != 0:
+                stderr_text = run_result.get("stderr", "").strip()
+                error_msg = "Scoop subprocess failed"
+                if stderr_text:
+                    lines = [line.strip() for line in stderr_text.split("\n") if line.strip()]
+                    error_lines = [l for l in lines if "error" in l.lower() or "fail" in l.lower()]
+                    if error_lines:
+                        error_msg = f"Scoop error: {error_lines[-1]}"
+                    elif lines:
+                        error_msg = f"Scoop error: {lines[-1]}"
+                
+                # Update failed artifacts with the error message
+                for artifact in artifacts:
+                    if artifact.status == ArtifactStatus.FAILED:
+                        artifact.error = f"Scoop execution failed (exit={exit_code}). Details: {error_msg}"
             
             return artifacts
             

@@ -113,7 +113,7 @@ class TestKafkaConfigWithComponentMappings:
 
     def test_kafka_config_with_component_mappings(self):
         """Test KafkaConfig accepts component_mappings."""
-        from configs.models import KafkaConfig, KafkaComponentMapping
+        from configs.models import KafkaConfig
 
         config_dict = {
             "bootstrap_servers": "localhost:29092",
@@ -271,8 +271,8 @@ class TestKafkaAdapterWithComponentMappings:
 
     def test_adapter_initializes_with_config_component_mappings(self):
         """Test adapter loads component mappings from config."""
-        from transport_services.adapters.kafka_adapter import KafkaTransportAdapter
         from configs.loaders import YamlFileConfigLoader
+        from transport_services.adapters.kafka_adapter import KafkaTransportAdapter
 
         config = YamlFileConfigLoader().load()
         adapter = KafkaTransportAdapter(config.transport.kafka)
@@ -282,8 +282,8 @@ class TestKafkaAdapterWithComponentMappings:
 
     def test_adapter_uses_config_mappings_not_workflow_extraction(self):
         """Test adapter uses config mappings directly, not workflow extraction."""
-        from transport_services.adapters.kafka_adapter import KafkaTransportAdapter
         from configs.loaders import YamlFileConfigLoader
+        from transport_services.adapters.kafka_adapter import KafkaTransportAdapter
 
         config = YamlFileConfigLoader().load()
         adapter = KafkaTransportAdapter(config.transport.kafka)
@@ -296,8 +296,8 @@ class TestKafkaAdapterWithComponentMappings:
 
     def test_adapter_get_request_destination_uses_config_mappings(self):
         """Test adapter methods use config-based mappings."""
-        from transport_services.adapters.kafka_adapter import KafkaTransportAdapter
         from configs.loaders import YamlFileConfigLoader
+        from transport_services.adapters.kafka_adapter import KafkaTransportAdapter
 
         config = YamlFileConfigLoader().load()
         adapter = KafkaTransportAdapter(config.transport.kafka)
@@ -308,8 +308,8 @@ class TestKafkaAdapterWithComponentMappings:
 
     def test_adapter_all_components_accessible(self):
         """Test adapter can access all configured components."""
-        from transport_services.adapters.kafka_adapter import KafkaTransportAdapter
         from configs.loaders import YamlFileConfigLoader
+        from transport_services.adapters.kafka_adapter import KafkaTransportAdapter
 
         config = YamlFileConfigLoader().load()
         adapter = KafkaTransportAdapter(config.transport.kafka)

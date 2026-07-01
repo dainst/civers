@@ -124,8 +124,8 @@ class TestTransportAgnosticStepInstruction:
 
     def test_valid_transport_agnostic_instruction(self):
         """Test creating valid transport-agnostic step instruction."""
-        from models.orchestrator_models import StepInstruction
         from configs.models import WorkflowStepConfig
+        from models.orchestrator_models import StepInstruction
 
         step_config = WorkflowStepConfig(
             name="archive_generation",
@@ -152,8 +152,8 @@ class TestTransportAgnosticStepInstruction:
 
     def test_instruction_has_no_kafka_fields(self):
         """Test that StepInstruction has NO Kafka-specific fields."""
-        from models.orchestrator_models import StepInstruction
         from configs.models import WorkflowStepConfig
+        from models.orchestrator_models import StepInstruction
 
         step_config = WorkflowStepConfig(
             name="test",
@@ -178,8 +178,8 @@ class TestTransportAgnosticStepInstruction:
 
     def test_instruction_with_metadata(self):
         """Test instruction with optional metadata."""
-        from models.orchestrator_models import StepInstruction
         from configs.models import WorkflowStepConfig
+        from models.orchestrator_models import StepInstruction
 
         step_config = WorkflowStepConfig(
             name="test",
@@ -203,8 +203,8 @@ class TestTransportAgnosticStepInstruction:
 
     def test_instruction_component_matches_step_config(self):
         """Test that instruction component matches step config component."""
-        from models.orchestrator_models import StepInstruction
         from configs.models import WorkflowStepConfig
+        from models.orchestrator_models import StepInstruction
 
         step_config = WorkflowStepConfig(
             name="archive_generation",

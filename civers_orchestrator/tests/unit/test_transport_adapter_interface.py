@@ -4,8 +4,9 @@ Following TDD: These tests define the abstract adapter interface contract
 that all concrete adapters (Kafka, REST, Redis) must implement.
 """
 
-import pytest
 from abc import ABC
+
+import pytest
 
 
 class TestTransportAdapterInterface:
@@ -77,17 +78,18 @@ class TestTransportAdapterInterface:
 
     def test_concrete_adapter_with_full_implementation_succeeds(self):
         """Test concrete adapter with all methods can be instantiated."""
+        from typing import Any
+
         from transport_services.adapters.transport_adapter_interface import TransportAdapter
-        from typing import Dict, Any
 
         class CompleteAdapter(TransportAdapter):
             def get_request_destination(self, component: str) -> str:
                 return "test.destination"
 
-            def get_response_destinations(self, component: str) -> Dict[str, str]:
+            def get_response_destinations(self, component: str) -> dict[str, str]:
                 return {"success": "test.success", "failure": "test.failure"}
 
-            def translate_instruction(self, instruction) -> Dict[str, Any]:
+            def translate_instruction(self, instruction) -> dict[str, Any]:
                 return {"destination": "test"}
 
             def get_message_type(self, component: str, outcome: str) -> str:
@@ -103,8 +105,9 @@ class TestTransportAdapterMethodSignatures:
 
     def test_get_request_destination_signature(self):
         """Test get_request_destination has correct signature."""
-        from transport_services.adapters.transport_adapter_interface import TransportAdapter
         import inspect
+
+        from transport_services.adapters.transport_adapter_interface import TransportAdapter
 
         method = TransportAdapter.get_request_destination
         sig = inspect.signature(method)
@@ -116,9 +119,9 @@ class TestTransportAdapterMethodSignatures:
 
     def test_get_response_destinations_signature(self):
         """Test get_response_destinations has correct signature."""
-        from transport_services.adapters.transport_adapter_interface import TransportAdapter
         import inspect
-        from typing import Dict
+
+        from transport_services.adapters.transport_adapter_interface import TransportAdapter
 
         method = TransportAdapter.get_response_destinations
         sig = inspect.signature(method)
@@ -130,8 +133,9 @@ class TestTransportAdapterMethodSignatures:
 
     def test_translate_instruction_signature(self):
         """Test translate_instruction has correct signature."""
-        from transport_services.adapters.transport_adapter_interface import TransportAdapter
         import inspect
+
+        from transport_services.adapters.transport_adapter_interface import TransportAdapter
 
         method = TransportAdapter.translate_instruction
         sig = inspect.signature(method)
@@ -141,8 +145,9 @@ class TestTransportAdapterMethodSignatures:
 
     def test_get_message_type_signature(self):
         """Test get_message_type has correct signature."""
-        from transport_services.adapters.transport_adapter_interface import TransportAdapter
         import inspect
+
+        from transport_services.adapters.transport_adapter_interface import TransportAdapter
 
         method = TransportAdapter.get_message_type
         sig = inspect.signature(method)

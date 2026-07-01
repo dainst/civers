@@ -9,7 +9,6 @@ import logging
 from typing import Optional, List
 from io import BytesIO
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Request
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ..custom_exceptions.exceptions.api_exceptions import ValidationError

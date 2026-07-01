@@ -12,7 +12,6 @@ from starlette.responses import Response
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from asgi_correlation_id.context import correlation_id
 import logging
 from ...storage import StorageError
 from ...utils.security import SecurityValidationError

@@ -7,7 +7,7 @@ from typing import Optional
 
 from configs.loaders import YamlFileConfigLoader
 from configs.logging_config import setup_logging, get_logger
-from transport_services import KafkaTransportService
+from transport_services import TransportServiceInterface, KafkaTransportService, CliTransportService
 from archive_services import ArchiveService
 
 # Configure logging with Kafka suppression
@@ -16,14 +16,15 @@ setup_logging(level=logging.INFO, log_file='archive_generator.log', suppress_kaf
 logger = get_logger(__name__)
 
 class ArchiveGeneratorApp:
-    """Main application using the KafkaTransportService architecture."""
+    """Main application using the modular transport service architecture."""
     
-    def __init__(self):
+    def __init__(self, args: Optional[list[str]] = None):
         """Initialize the application."""
         self.config = None
-        self.kafka_transport: Optional[KafkaTransportService] = None
+        self.kafka_transport: Optional[TransportServiceInterface] = None
         self.running = False
         self._shutdown_event = asyncio.Event()
+        self.args = args if args is not None else sys.argv[1:]
         
     async def initialize(self):
         """Initialize the application components."""
@@ -37,17 +38,9 @@ class ArchiveGeneratorApp:
             logger.info(f"🌍 Detected environment: {loader.environment}")
             
             self.config = loader.load()
-
                 
             logger.info("✅ Configuration loaded successfully")
             logger.info(f"   App: {self.config.app.name} v{self.config.app.version}")
-            
-            # Log transport configuration
-            #TODO: Load transport service automatically
-            if self.config.app.transport and self.config.app.transport.kafka:
-                logger.info(f"   Kafka: {self.config.app.transport.kafka.bootstrap_servers}")
-            else:
-                logger.warning("⚠️ No Kafka transport configuration found")
             
             # Log storage configuration
             storage_config = self.config.app.get_storage_config()
@@ -61,19 +54,39 @@ class ArchiveGeneratorApp:
             archive_service = ArchiveService(self.config)
             logger.info("✅ Archive service created")
             
-            # Create Kafka transport service
-            logger.info("🔧 Creating Kafka transport service...")
-            self.kafka_transport = KafkaTransportService(self.config, archive_service)
-            logger.info("✅ Kafka transport service created")
+            # Determine which transport to load
+            transport_config = self.config.app.transport
+            is_cli = False
+            for arg in self.args:
+                if arg.startswith("--url") or arg == "--transport=cli" or (len(self.args) >= 2 and self.args[0] == "--transport" and self.args[1] == "cli"):
+                    is_cli = True
+                    break
             
-            # Perform health check
-            health = await self.kafka_transport.health_check()
-            if health['healthy']:
-                logger.info("✅ Kafka transport service health check passed")
-                logger.info(f"   Producer ready: {health['details']['producer']}")
-                logger.info(f"   Bootstrap servers: {health['details']['kafka_config']['bootstrap_servers']}")
+            if is_cli or (transport_config and transport_config.is_transport_enabled("cli")):
+                logger.info("🔧 Creating CLI transport service...")
+                self.kafka_transport = CliTransportService(self.config, archive_service, args=self.args)
+                logger.info("✅ CLI transport service created")
+            elif transport_config and transport_config.is_transport_enabled("kafka"):
+                # Log transport configuration
+                if transport_config.kafka:
+                    logger.info(f"   Kafka: {transport_config.kafka.bootstrap_servers}")
+                
+                # Create Kafka transport service
+                logger.info("🔧 Creating Kafka transport service...")
+                self.kafka_transport = KafkaTransportService(self.config, archive_service)
+                logger.info("✅ Kafka transport service created")
+                
+                # Perform health check
+                health = await self.kafka_transport.health_check()
+                if health['healthy']:
+                    logger.info("✅ Kafka transport service health check passed")
+                    logger.info(f"   Producer ready: {health['details']['producer']}")
+                    logger.info(f"   Bootstrap servers: {health['details']['kafka_config']['bootstrap_servers']}")
+                else:
+                    logger.warning("⚠️ Kafka transport service health check failed")
             else:
-                logger.warning("⚠️ Kafka transport service health check failed")
+                logger.warning("⚠️ No supported transport service is enabled. App will run in idle state.")
+                self.kafka_transport = None
             
             logger.info("🎉 Application initialized successfully!")
             return True
@@ -93,26 +106,40 @@ class ArchiveGeneratorApp:
         
         self.running = True
         logger.info("🚀 Starting Archive Generator Application...")
-        logger.info("📡 Listening for archive requests via Kafka transport...")
         
         try:
-            # Start the Kafka transport service (this will block until shutdown)
-            transport_task = asyncio.create_task(self.kafka_transport.start())
-            shutdown_task = asyncio.create_task(self._shutdown_event.wait())
-            
-            # Wait for either transport to finish or shutdown signal
-            done, pending = await asyncio.wait(
-                [transport_task, shutdown_task],
-                return_when=asyncio.FIRST_COMPLETED
-            )
-            
-            # Cancel any remaining tasks
-            for task in pending:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
+            if self.kafka_transport:
+                logger.info(f"📡 Listening via {self.kafka_transport.get_transport_info().get('type')} transport...")
+                if self.kafka_transport.get_transport_info().get('type') == 'CLI':
+                    # CLI is a single-shot task, run it directly in the foreground
+                    await self.kafka_transport.start()
+                else:
+                    # Daemon transports run in the background
+                    transport_task = asyncio.create_task(self.kafka_transport.start())
+                    shutdown_task = asyncio.create_task(self._shutdown_event.wait())
+                    
+                    # Wait for either transport to finish or shutdown signal
+                    done, pending = await asyncio.wait(
+                        [transport_task, shutdown_task],
+                        return_when=asyncio.FIRST_COMPLETED
+                    )
+                    
+                    # Cancel any remaining tasks
+                    for task in pending:
+                        task.cancel()
+                        try:
+                            await task
+                        except asyncio.CancelledError:
+                            pass
+                    
+                    # Check for exceptions in completed transport task to avoid unretrieved exception errors
+                    if transport_task in done:
+                        exc = transport_task.exception()
+                        if exc:
+                            raise exc
+            else:
+                logger.info("📡 Application running in idle mode (no transport active). Press Ctrl+C to stop.")
+                await self._shutdown_event.wait()
             
             logger.info("✅ Application stopped successfully")
             return True
@@ -147,7 +174,7 @@ class ArchiveGeneratorApp:
         
         if self.kafka_transport:
             await self.kafka_transport.stop()
-            logger.info("✅ Kafka transport service stopped")
+            logger.info("✅ Transport service stopped")
         
         logger.info("✅ Cleanup completed")
 

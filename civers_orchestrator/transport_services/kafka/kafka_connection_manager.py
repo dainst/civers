@@ -6,8 +6,8 @@ using aiokafka for asynchronous messaging.
 """
 
 import json
-from typing import Optional, List
-from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
+
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.errors import KafkaError
 
 from configs.logging_config import get_logger
@@ -20,7 +20,7 @@ class KafkaConnectionManager:
     """
     Manages Kafka producer and consumer connections with health monitoring.
     """
-    
+
     def __init__(self, kafka_config: KafkaConfig):
         """
         Initialize the Kafka connection manager.
@@ -29,13 +29,13 @@ class KafkaConnectionManager:
             kafka_config: Kafka configuration containing bootstrap servers, topics, etc.
         """
         self.kafka_config = kafka_config
-        self.producer: Optional[AIOKafkaProducer] = None
-        self.consumer: Optional[AIOKafkaConsumer] = None
+        self.producer: AIOKafkaProducer | None = None
+        self.consumer: AIOKafkaConsumer | None = None
         self._connection_status = {
             'producer_started': False,
             'consumer_started': False
         }
-    
+
     async def setup_producer(self) -> AIOKafkaProducer:
         """Initialize async Kafka producer."""
         try:
@@ -55,12 +55,12 @@ class KafkaConnectionManager:
             self._connection_status['producer_started'] = False
             logger.error(f"❌ Failed to initialize async Kafka producer: {e}")
             raise KafkaError(f"Producer setup failed: {e}")
-    
-    async def setup_consumer(self, topics: List[str]) -> AIOKafkaConsumer:
+
+    async def setup_consumer(self, topics: list[str]) -> AIOKafkaConsumer:
         """Initialize async Kafka consumer for specified topics."""
         if not topics:
             raise ValueError("At least one topic must be provided for consumer setup")
-        
+
         try:
             self.consumer = AIOKafkaConsumer(
                 *topics,
@@ -80,7 +80,7 @@ class KafkaConnectionManager:
             self._connection_status['consumer_started'] = False
             logger.error(f"❌ Failed to initialize async Kafka consumer: {e}")
             raise KafkaError(f"Consumer setup failed: {e}")
-    
+
     async def cleanup(self) -> None:
         """Clean up Kafka connections."""
         logger.info("🧹 Cleaning up Kafka connections")
@@ -91,7 +91,7 @@ class KafkaConnectionManager:
                 logger.warning(f"⚠️ Error stopping async Kafka producer: {e}")
             finally:
                 self.producer = None
-        
+
         if self.consumer:
             try:
                 await self.consumer.stop()
@@ -99,9 +99,9 @@ class KafkaConnectionManager:
                 logger.warning(f"⚠️ Error stopping async Kafka consumer: {e}")
             finally:
                 self.consumer = None
-        
+
         self._connection_status = {'producer_started': False, 'consumer_started': False}
-    
+
     @staticmethod
     def _safe_json_deserializer(message_bytes):
         """Safe JSON deserializer."""

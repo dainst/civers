@@ -24,14 +24,13 @@ Usage:
 
 import argparse
 import asyncio
+import os
 import signal
 import sys
 from pathlib import Path
-import os
-from typing import Optional
 
 from configs.loaders import YamlFileConfigLoader
-from configs.logging_config import setup_logging, get_logger
+from configs.logging_config import get_logger, setup_logging
 from orchestration_services.orchestrator_service import OrchestratorService
 from transport_services.kafka.kafka_transport_service import KafkaTransportService
 
@@ -96,7 +95,7 @@ class OrchestratorApp:
     startup, background monitoring, and graceful shutdown.
     """
 
-    def __init__(self, config_dir: Optional[Path] = None):
+    def __init__(self, config_dir: Path | None = None):
         """Initialize the application.
         
         Args:
@@ -104,9 +103,9 @@ class OrchestratorApp:
         """
         self.config_dir = config_dir
         self.config = None
-        self.config_loader: Optional[YamlFileConfigLoader] = None
-        self.orchestrator: Optional[OrchestratorService] = None
-        self.transport: Optional[KafkaTransportService] = None
+        self.config_loader: YamlFileConfigLoader | None = None
+        self.orchestrator: OrchestratorService | None = None
+        self.transport: KafkaTransportService | None = None
         self.running = False
         self._shutdown_event = asyncio.Event()
         self._transport_task = None
@@ -226,7 +225,7 @@ class OrchestratorApp:
         while self.running:
             try:
                 await asyncio.sleep(interval)
-                
+
                 if not self.running:
                     break
 

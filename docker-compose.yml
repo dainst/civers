@@ -65,8 +65,6 @@ services:
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: civers-kafka-ui
-    profiles:
-      - ui
     environment:
       KAFKA_CLUSTERS_0_NAME: CIVERS Cluster
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092

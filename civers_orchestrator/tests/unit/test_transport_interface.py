@@ -1,7 +1,8 @@
 """Unit tests for TransportServiceInterface."""
 
-import pytest
 from abc import ABC
+
+import pytest
 
 
 class TestTransportServiceInterface:
@@ -110,8 +111,9 @@ class TestTransportServiceInterface:
 
     def test_concrete_implementation_has_correct_signatures(self):
         """Test that concrete implementation methods work correctly."""
-        from transport_services.transport_service_interface import TransportServiceInterface
         import asyncio
+
+        from transport_services.transport_service_interface import TransportServiceInterface
 
         class TestTransport(TransportServiceInterface):
             def __init__(self):

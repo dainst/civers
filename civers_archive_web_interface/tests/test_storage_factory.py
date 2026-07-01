@@ -4,13 +4,10 @@ Tests for storage factory - Creating providers based on configuration.
 Following TDD approach: Write tests first, then implement.
 """
 
-import pytest
-from pathlib import Path
 
 from app.storage.factory import (
     create_storage_provider,
-    create_storage_service,
-    StorageConfigurationError
+    create_storage_service
 )
 from app.storage.providers.filesystem import FilesystemStorageProvider
 from app.storage.providers.sqlite_storage import SQLiteStorageProvider

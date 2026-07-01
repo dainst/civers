@@ -11,13 +11,12 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, IO
-from urllib.parse import unquote
 
 from .storage_provider_interface import StorageProviderInterface, StorageError
 from ...models.url import ArchivedUrl
 from ...models.snapshot import Snapshot
 from configs.models import ValidationConfig
-from ...utils.url_parser import parse_url, generate_request_id, build_storage_path
+from ...utils.url_parser import parse_url, generate_request_id
 from ...utils.file_storage import store_snapshot_files
 import zipfile
 
@@ -157,7 +156,7 @@ class FilesystemStorageProvider(StorageProviderInterface):
                         except json.JSONDecodeError:
                             continue
                 
-                logger.debug(f"No valid HTTP URL found in pages.jsonl")
+                logger.debug("No valid HTTP URL found in pages.jsonl")
                 return None
                 
         except zipfile.BadZipFile:

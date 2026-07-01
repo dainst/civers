@@ -6,7 +6,6 @@ Following TDD approach: Write tests first, then implement.
 
 import pytest
 import sqlite3
-from pathlib import Path
 from app.database.sqlite_manager import SQLiteManager
 
 
