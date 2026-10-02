@@ -1,0 +1,107 @@
+app:
+  archive_directory: ${ARCHIVE_DIRECTORY:-archives}
+  ssrf_protection_enabled: false
+  storage:
+    enabled:
+    - civers_rest_api
+    backends:
+      civers_rest_api:
+        timeout_seconds: 30
+        retry_attempts: 3
+        verify_ssl: ${STORAGE_API_VERIFY_SSL:-false}
+        auth:
+          enabled: false
+        upload_url: ${CIVERS_API_URL:-http://web-interface:8000}/api/upload
+transport:
+  transports:
+    kafka:
+      bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+domains:
+- name: viamus2.gbv.de
+  enabled: true
+  webpage_types: dynamic
+  description: Virtuelles Antikenmuseum
+  generators:
+  - name: browsertrix
+    artifacts:
+    - warc
+    - screenshot
+    - dom-snapshot
+  - name: singlefile
+    artifacts:
+    - singlefile
+- name: viamus.uni-goettingen.de
+  enabled: true
+  webpage_types: dynamic
+  description: Virtuelles Antikenmuseum Göttingen
+  generators:
+  - name: singlefile
+    artifacts:
+    - singlefile
+- name: sempub.ub.uni-heidelberg.de
+  enabled: true
+  webpage_types: dynamic
+  description: SemPub – Semantic Publishing
+  generators:
+  - name: scoop
+    artifacts:
+    - warc
+    - screenshot
+    - dom-snapshot
+  - name: singlefile
+    artifacts:
+    - singlefile
+- name: '*.museum-digital.de'
+  enabled: true
+  webpage_types: dynamic
+  description: Museum digital
+  generators:
+  - name: singlefile
+    artifacts:
+    - singlefile
+- name: arachne.dainst.org
+  enabled: true
+  webpage_types: dynamic
+  description: iDAI.objects/Arachne
+  generators:
+  - name: browsertrix
+    artifacts:
+    - warc
+    - screenshot
+    - dom-snapshot
+  - name: singlefile
+    artifacts:
+    - singlefile
+- name: arachne.test.dainst.org
+  enabled: true
+  webpage_types: dynamic
+  description: Arachne test environment
+  generators:
+  - name: scoop
+    artifacts:
+    - warc
+    - screenshot
+    - dom-snapshot
+  - name: singlefile
+    artifacts:
+    - singlefile
+- name: field.idai.world
+  enabled: true
+  webpage_types: dynamic
+  description: iDAI.field
+  generators:
+  - name: scoop
+    artifacts:
+    - warc
+    - screenshot
+    - dom-snapshot
+- name: example.com
+  enabled: true
+  webpage_types: dynamic
+  description: 'This is an example '
+  generators:
+  - name: scoop
+    artifacts:
+    - warc
+    - screenshot
+    - dom-snapshot

@@ -1,0 +1,32 @@
+app:
+  environment: testing
+transport:
+  transports:
+    kafka:
+      bootstrap_servers: localhost:29092
+      consumer_group: change_detection_group_test
+      producer_acks: all
+domains:
+- name: arachne.test.dainst.org
+  enabled: true
+  change_detection:
+    detection_strategy: css_selector
+    comparison_algorithm: simhash
+    css_selectors:
+    - div.con10t-page
+    simhash_threshold: 3
+    archive_interval: 1m
+    request_timeout_seconds: 30
+  webpage_types: dynamic
+- name: example.com
+  enabled: true
+  change_detection:
+    detection_strategy: css_selector
+    comparison_algorithm: simple_text
+    css_selectors:
+    - article.content
+    - div.main-text
+    rendering_engine: httpx
+    archive_interval: 7d
+    request_timeout_seconds: 30
+  webpage_types: dynamic

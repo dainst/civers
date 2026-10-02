@@ -1,0 +1,12 @@
+app:
+  storage:
+    enabled:
+    - civers_rest_api
+    backends:
+      civers_rest_api:
+        upload_url: ${CIVERS_API_URL:-http://localhost:8000}/api/upload
+        timeout_seconds: 30
+        retry_attempts: 3
+        verify_ssl: false
+        auth:
+          enabled: false

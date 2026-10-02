@@ -1,0 +1,13 @@
+app:
+  logging:
+    level: WARNING
+    json_enabled: false
+transport:
+  kafka:
+    bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}
+storage:
+  type: sqlite
+  filesystem:
+    path: /tmp/civers-test-archives
+  sqlite:
+    db_path: /tmp/civers-test-archives/archives.db

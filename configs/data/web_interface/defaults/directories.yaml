@@ -1,0 +1,4 @@
+directories:
+  templates: ${TEMPLATES_DIR:-templates}
+  static: ${STATIC_DIR:-static}
+  archives: ${ARCHIVE_DIRECTORY:-archives}

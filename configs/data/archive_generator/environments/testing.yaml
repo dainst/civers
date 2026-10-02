@@ -1,0 +1,49 @@
+app:
+  environment: testing
+  archive_directory: ${ARCHIVE_DIRECTORY:-test_archives}
+  ssrf_protection_enabled: false
+  storage:
+    enabled: []
+    backends: {}
+domains:
+- name: httpbin.org
+  generators:
+  - name: scoop
+    artifacts:
+    - warc
+    - screenshot
+    - dom-snapshot
+  - name: singlefile
+    artifacts:
+    - singlefile
+  webpage_types: dynamic
+- name: example.com
+  generators:
+  - name: scoop
+    artifacts:
+    - warc
+    - dom-snapshot
+  - name: singlefile
+    artifacts:
+    - singlefile
+  webpage_types: dynamic
+- name: arachne.dainst.org
+  generators:
+  - name: scoop
+    artifacts:
+    - warc
+    - screenshot
+  - name: singlefile
+    artifacts:
+    - singlefile
+  webpage_types: dynamic
+- name: field.dainst.org
+  generators:
+  - name: scoop
+    artifacts:
+    - warc
+  webpage_types: static
+transport:
+  transports:
+    kafka:
+      producer_acks: all

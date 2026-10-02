@@ -1,3 +1,5 @@
+app:
+  environment: development
 transport:
   kafka:
     bootstrap_servers: localhost:29092

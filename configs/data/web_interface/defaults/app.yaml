@@ -1,0 +1,13 @@
+app:
+  name: Civers Archive Web Interface
+  version: 1.0.0
+  description: Civers Archive Web Interface for browsing and replaying archived versions
+    of websites
+  service_name: civers-archive-web-interface
+  environment: ${CONFIG_ENVIRONMENT:-development}
+  logging:
+    level: INFO
+    file: null
+    json_enabled: true
+    kafka_log_level: WARNING
+    access_log_level: INFO

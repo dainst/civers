@@ -1,96 +1,21 @@
-# CIVERS Shared Configuration
+# Configuration
 
-This directory contains centralized configuration files that serve as a single source of truth for all CIVERS components.
+Runtime settings live in [`data/`](data/), with one folder per component:
+`archive_generator`, `metadata_extractor`, `orchestrator`, `web_interface`, and
+`change_detection`. Each component keeps its Python models and loader beside its
+code. Change Detection has configuration models but no running service.
 
-## Directory Structure
+## How settings are loaded
 
-```
-configs/
-├── defaults/               # Base configuration files
-│   ├── domains.yaml        # Merged domain definitions (workflows + artifacts)
-│   ├── kafka.yaml          # Unified Kafka topic definitions
-│   ├── storage.yaml        # Shared storage backend configuration
-│   └── workflows.yaml      # Workflow definitions (Orchestrator-specific)
-└── environments/           # Environment-specific overrides
-    ├── development.yaml    # Local development settings
-    ├── docker.yaml         # Docker container settings
-    ├── testing.yaml        # Pytest/automated testing settings
-    └── production.yaml     # Production deployment settings
-```
+1. Read `defaults/*.yaml` in filename order.
+2. Merge `environments/<name>.yaml` over those defaults.
+3. Expand environment-variable placeholders.
+4. Validate the result against the component's Python model.
 
-## Usage
+Dictionaries merge by key. Lists replace the entire previous list: an environment's
+`domains` list replaces all default domains.
 
-### Setting CONFIG_DIR
-
-Components should be started with `CONFIG_DIR` pointing to this directory:
-
-```bash
-# From component directory
-CONFIG_DIR=../configs uv run python main.py
-
-# Or as environment variable
-export CONFIG_DIR=/path/to/civers_project/configs
-```
-
-### Environment Selection
-
-The environment is detected automatically:
-1. `CONFIG_ENVIRONMENT` env var (highest priority)
-2. Docker detection (`/.dockerenv` file)
-3. Pytest detection (`PYTEST_CURRENT_TEST` env var)
-4. Default to `development`
-
-Or explicitly set:
-```bash
-CONFIG_ENVIRONMENT=docker CONFIG_DIR=../configs uv run python main.py
-```
-
-## Domain Configuration
-
-The `domains.yaml` file contains merged attributes for all components:
-
-```yaml
-domains:
-  - name: arachne.dainst.org
-    workflow: archaeology_workflow     # Used by Orchestrator
-    artifacts: [warc, html, screenshots] # Used by Generator
-    webpage_types: dynamic              # Used by Generator
-    enabled: true
-    description: "Archaeological database"
-```
-
-Each component extracts only the attributes it needs:
-- **Orchestrator**: Uses `workflow` to route requests
-- **Generator**: Uses `artifacts` and `webpage_types` for archiving
-
-## Kafka Topics
-
-All topic names are defined in `kafka.yaml` to ensure consistency:
-
-| Component | Request Topic | Completed Topic | Failed Topic |
-|-----------|---------------|-----------------|--------------|
-| Orchestrator | orchestrator.requests | orchestrator.completed | orchestrator.failed |
-| Archive Generator | archive.requests | archive.completed | archive.failed |
-| Metadata Extractor | metadata.requests | metadata.completed | metadata.failed |
-
-## Storage Backends
-
-Configured in `storage.yaml`:
-- `local_file`: Local filesystem storage
-- `civers_rest_api`: Upload to CIVERS Web Interface API
-
-## Environment Variables
-
-All configuration values support environment variable expansion:
-
-```yaml
-bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}"
-```
-
-Common variables:
-- `KAFKA_BOOTSTRAP_SERVERS` - Kafka broker address
-- `KAFKA_CONSUMER_GROUP_ID` - Consumer group name
-- `ARCHIVE_DIRECTORY` - Local archive storage path
-- `CIVERS_API_URL` - Web Interface API endpoint
-- `CONFIG_ENVIRONMENT` - Force specific environment
-- `CONFIG_DIR` - Path to this configs directory
+An explicit loader argument or `CONFIG_ENVIRONMENT` selects the environment.
+Otherwise, the loader detects Docker, then tests, and falls back to `development`.
+An explicitly selected environment file must exist. `CONFIG_DIR` can select a
+different component configuration directory.

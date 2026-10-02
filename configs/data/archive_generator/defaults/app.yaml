@@ -1,0 +1,46 @@
+app:
+  name: archive_generator
+  version: 1.0.0
+  ssrf_protection_enabled: false
+  scoop_cli_command: ${SCOOP_NODE_BIN:-node} lib/scoop/bin/cli.js
+  scoop_timeout_sec: 120
+  scoop_extra_args:
+  - --capture-certificates-as-attachment
+  - 'false'
+  - --provenance-summary
+  - 'false'
+  - --capture-video-as-attachment
+  - 'false'
+  - --auto-play-media
+  - 'false'
+  - --log-level
+  - info
+  - --load-timeout
+  - '60000'
+  - --network-idle-timeout
+  - '10000'
+  - --behaviors-timeout
+  - '10000'
+  - --blocklist
+  - http://dummy.org/
+  - --headless
+  - ${SCOOP_HEADLESS:-true}
+  singlefile_binary_path: ${SINGLEFILE_BINARY_PATH:-archive_generators/singlefile/single-file-x86_64-linux}
+  singlefile_timeout_sec: 60
+  browsertrix_jobs_dir: ${BROWSERTRIX_JOBS_DIR:-.browsertrix-jobs}
+  browsertrix_timeout_sec: 300
+  browsertrix_extra_args:
+  - --scopeType
+  - page
+  - --pageLimit
+  - '1'
+  - --workers
+  - '1'
+  - --behaviors
+  - autoscroll,siteSpecific
+  - --postLoadDelay
+  - '5'
+  - --pageLoadTimeout
+  - '90'
+  environment: ${CONFIG_ENVIRONMENT:-development}
+  archive_directory: ${ARCHIVE_DIRECTORY:-archives}

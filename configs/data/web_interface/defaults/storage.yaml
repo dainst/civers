@@ -1,0 +1,9 @@
+storage:
+  type: sqlite
+  filesystem:
+    path: archives
+    timeout_seconds: 0
+  sqlite:
+    db_path: data/archives.db
+  cache:
+    ttl_seconds: 10000000

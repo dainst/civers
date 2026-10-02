@@ -1,0 +1,14 @@
+transport:
+  enabled:
+  - kafka
+  transports:
+    kafka:
+      bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}
+      consumer_group: ${KAFKA_CONSUMER_GROUP_ID:-civers_metadata_extractor}
+      consumer_auto_offset_reset: earliest
+      consumer_enable_auto_commit: false
+      producer_acks: all
+      topics:
+        metadata_extraction_requests: metadata.requests
+        metadata_extraction_failed: metadata.failed
+        metadata_extraction_completed: metadata.completed

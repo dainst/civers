@@ -1,0 +1,36 @@
+domains:
+- name: viamus2.gbv.de
+  enabled: true
+  webpage_types: dynamic
+  description: Virtuelles Antikenmuseum
+  workflow: archive_generation_only_workflow
+- name: viamus.uni-goettingen.de
+  enabled: true
+  webpage_types: dynamic
+  description: Virtuelles Antikenmuseum Göttingen
+  workflow: archive_generation_only_workflow
+- name: sempub.ub.uni-heidelberg.de
+  enabled: true
+  webpage_types: dynamic
+  description: SemPub – Semantic Publishing
+  workflow: archive_generation_only_workflow
+- name: '*.museum-digital.de'
+  enabled: true
+  webpage_types: dynamic
+  description: Museum digital
+  workflow: archive_generation_only_workflow
+- name: arachne.dainst.org
+  enabled: true
+  webpage_types: dynamic
+  description: iDAI.objects/Arachne
+  workflow: archive_generation_only_workflow
+- name: arachne.test.dainst.org
+  enabled: true
+  webpage_types: dynamic
+  description: Arachne test environment
+  workflow: archive_and_metadata_workflow
+- name: field.idai.world
+  enabled: true
+  webpage_types: dynamic
+  description: iDAI.field
+  workflow: archive_generation_only_workflow

@@ -1,0 +1,11 @@
+transport:
+  enabled:
+  - restapi
+  transports:
+    restapi:
+      host: ${REST_HOST:-127.0.0.1}
+      port: ${REST_PORT:-8101}
+app:
+  storage:
+    enabled:
+    - local_file

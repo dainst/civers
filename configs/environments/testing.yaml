@@ -1,8 +1,0 @@
-transport:
-  kafka:
-    bootstrap_servers: localhost:29092
-    consumer:
-      auto_offset_reset: earliest
-    producer:
-      acks: all
-      retries: 3

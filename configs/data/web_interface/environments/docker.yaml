@@ -1,0 +1,42 @@
+app:
+  logging:
+    level: INFO
+    access_log_level: INFO
+transport:
+  kafka:
+    bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+domains:
+- name: viamus2.gbv.de
+  enabled: true
+  webpage_types: dynamic
+  description: Virtuelles Antikenmuseum
+- name: viamus.uni-goettingen.de
+  enabled: true
+  webpage_types: dynamic
+  description: Virtuelles Antikenmuseum Göttingen
+- name: sempub.ub.uni-heidelberg.de
+  enabled: true
+  webpage_types: dynamic
+  description: SemPub – Semantic Publishing
+- name: '*.museum-digital.de'
+  enabled: true
+  webpage_types: dynamic
+  description: Museum digital
+  display_name: Museum digital (*.museum-digital.de)
+- name: arachne.dainst.org
+  enabled: true
+  webpage_types: dynamic
+  description: iDAI.objects/Arachne
+- name: arachne.test.dainst.org
+  enabled: true
+  webpage_types: dynamic
+  description: Arachne test environment
+- name: field.idai.world
+  enabled: true
+  webpage_types: dynamic
+  description: iDAI.field
+- name: example.com
+  enabled: true
+  webpage_types: dynamic
+  description: 'This is an example '
+  display_name: example.com - This is an example site

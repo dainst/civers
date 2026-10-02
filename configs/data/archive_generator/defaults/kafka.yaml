@@ -1,0 +1,15 @@
+transport:
+  enabled:
+  - kafka
+  transports:
+    kafka:
+      bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}
+      consumer_group: ${KAFKA_CONSUMER_GROUP_ID:-civers_archive_generator}
+      consumer_auto_offset_reset: earliest
+      consumer_enable_auto_commit: false
+      producer_acks: all
+      topics:
+        archive_requests: archive.requests
+        archive_status: archive.status
+        archive_completed: archive.completed
+        archive_failed: archive.failed

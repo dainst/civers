@@ -27,8 +27,8 @@ workflows:
       required: true
       transformer_config:
         base_url_config_path: app.metadata.web_interface_url
-        default_base_url: "http://localhost:8000"
-        url_template: "{base_url}/api/artifacts/serve?snapshot_id={value}&type=dom-snapshot.html"
+        default_base_url: http://localhost:8000
+        url_template: '{base_url}/api/artifacts/serve?snapshot_id={value}&type=dom-snapshot.html'
 - description: Archive generation only
   name: archive_generation_only_workflow
   steps:

@@ -1,0 +1,13 @@
+app:
+  archive_directory: archives
+  ssrf_protection_enabled: false
+  storage:
+    enabled:
+    - civers_rest_api
+    backends:
+      civers_rest_api:
+        timeout_seconds: 30
+        retry_attempts: 3
+        verify_ssl: false
+        auth:
+          enabled: false

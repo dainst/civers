@@ -1,0 +1,11 @@
+transport:
+  enabled:
+  - restapi
+  transports:
+    restapi:
+      host: ${REST_HOST:-127.0.0.1}
+      port: 8100
+app:
+  storage:
+    enabled: []
+  ssrf_protection_enabled: false

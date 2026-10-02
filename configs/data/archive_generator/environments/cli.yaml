@@ -1,0 +1,24 @@
+transport:
+  enabled:
+  - cli
+  transports:
+    cli: {}
+app:
+  storage:
+    enabled: []
+  ssrf_protection_enabled: false
+
+domains:
+- name: www.aljazeera.net
+  webpage_types: dynamic
+  enabled: true
+  description: Al Jazeera news website
+  generators:
+  - name: scoop
+    artifacts:
+    - warc
+    - screenshot
+    - dom-snapshot
+  - name: singlefile
+    artifacts:
+    - singlefile

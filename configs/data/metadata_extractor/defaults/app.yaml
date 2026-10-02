@@ -1,0 +1,18 @@
+app:
+  name: metadata_extractor
+  environment: ${CONFIG_ENVIRONMENT:-development}
+  fetch_policy:
+    # Approve exact scheme/host/port origins before enabling downloads.
+    allowed_origins:
+      - https://publications.dainst.org
+      - https://viamus2.gbv.de
+      - https://field.idai.world
+      - https://arachne.dainst.org
+    internal_origins: []
+    # Confirms existing network restrictions; ME does not install them.
+    egress_policy_enforced: true
+    max_body_bytes: 5242880
+    connect_timeout: 5
+    read_timeout: 15
+    acquisition_timeout: 30
+    max_redirects: 3

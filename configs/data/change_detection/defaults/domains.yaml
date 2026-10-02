@@ -1,0 +1,79 @@
+domains:
+- name: viamus2.gbv.de
+  enabled: true
+  webpage_types: dynamic
+  description: Virtuelles Antikenmuseum
+  change_detection:
+    detection_strategy: css_selector
+    comparison_algorithm: simple_text
+    rendering_engine: httpx
+    css_selectors:
+    - body
+    request_timeout_seconds: 30
+- name: viamus.uni-goettingen.de
+  enabled: true
+  webpage_types: dynamic
+  description: Virtuelles Antikenmuseum Göttingen
+  change_detection:
+    detection_strategy: css_selector
+    comparison_algorithm: simple_text
+    rendering_engine: httpx
+    css_selectors:
+    - body
+    request_timeout_seconds: 30
+- name: sempub.ub.uni-heidelberg.de
+  enabled: true
+  webpage_types: dynamic
+  description: SemPub – Semantic Publishing
+  change_detection:
+    detection_strategy: css_selector
+    comparison_algorithm: simple_text
+    rendering_engine: httpx
+    css_selectors:
+    - body
+    request_timeout_seconds: 30
+- name: '*.museum-digital.de'
+  enabled: true
+  webpage_types: dynamic
+  description: Museum digital
+  change_detection:
+    detection_strategy: css_selector
+    comparison_algorithm: simple_text
+    rendering_engine: httpx
+    css_selectors:
+    - body
+    request_timeout_seconds: 30
+- name: arachne.dainst.org
+  enabled: true
+  webpage_types: dynamic
+  description: iDAI.objects/Arachne
+  change_detection:
+    detection_strategy: css_selector
+    comparison_algorithm: simple_text
+    rendering_engine: httpx
+    css_selectors:
+    - body
+    request_timeout_seconds: 30
+- name: arachne.test.dainst.org
+  enabled: true
+  webpage_types: dynamic
+  description: Arachne test environment
+  change_detection:
+    detection_strategy: css_selector
+    comparison_algorithm: simhash
+    css_selectors:
+    - div.con10t-page
+    simhash_threshold: 3
+    archive_interval: 1m
+    request_timeout_seconds: 30
+- name: field.idai.world
+  enabled: true
+  webpage_types: dynamic
+  description: iDAI.field
+  change_detection:
+    detection_strategy: css_selector
+    comparison_algorithm: simple_text
+    rendering_engine: httpx
+    css_selectors:
+    - body
+    request_timeout_seconds: 30

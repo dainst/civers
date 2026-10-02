@@ -1,0 +1,185 @@
+domains:
+  - name: publications.dainst.org
+    description: iDAI.publications books with citation and Dublin Core metadata
+    pipeline:
+      fetch:
+        mode: resource_url
+      extract:
+        extractor: css
+        fields:
+          titles:
+            selector: 'meta[name="citation_title"]'
+            attribute: content
+          creators:
+            selector: 'meta[name="citation_author"]'
+            many: true
+            fields:
+              creator_name: {attribute: content}
+              # The supplied page has no author identifiers. Publication DOI,
+              # ISBN and catalogue identifiers must not be assigned to authors.
+              name_type: {value: Personal}
+          publisher:
+            selector: 'meta[name="citation_publisher"]'
+            attribute: content
+          publication_year:
+            selector: 'meta[name="citation_publication_date"]'
+            attribute: content
+          resource_type:
+            fields:
+              # This profile assumes books; domain selection matches the host.
+              resource_type_general: {value: Book}
+              resource_type:
+                selector: 'meta[name="DC.Type"][content="Text.Book"]'
+                attribute: content
+                optional: true
+          identifier:
+            selector: 'meta[name="citation_doi"]'
+            optional: true
+            fields:
+              identifier: {attribute: content}
+              identifier_type: {value: DOI}
+          alternate_identifiers:
+            - selector: 'meta[name="citation_isbn"]'
+              many: true
+              unique: true
+              fields:
+                alternate_identifier: {attribute: content}
+                alternate_identifier_type: {value: ISBN}
+            - selector: 'meta[name="DC.Identifier.URI"]'
+              optional: true
+              fields:
+                alternate_identifier: {attribute: content}
+                alternate_identifier_type: {value: URL}
+          language:
+            selector: 'meta[name="citation_language"]'
+            attribute: content
+            optional: true
+          subjects:
+            # Other language-labelled tags in this source repeat English text.
+            selector: 'meta[name="DC.Subject"][xml\:lang="de"], meta[name="DC.Subject"][xml\:lang="en"]'
+            many: true
+            unique: true
+            fields:
+              subject: {attribute: content}
+              lang: {attribute: 'xml:lang'}
+          descriptions:
+            selector: 'meta[name="citation_abstract"]'
+            many: true
+            fields:
+              description: {attribute: content}
+              description_type: {value: Abstract}
+              lang: {attribute: 'xml:lang', optional: true}
+          dates:
+            - selector: 'meta[name="citation_publication_date"]'
+              optional: true
+              fields:
+                date: {attribute: content}
+                date_type: {value: Published}
+            - selector: 'meta[name="DC.Date.created"]'
+              optional: true
+              fields:
+                date: {attribute: content}
+                date_type: {value: Created}
+            - selector: 'meta[name="DC.Date.dateSubmitted"]'
+              optional: true
+              fields:
+                date: {attribute: content}
+                date_type: {value: Submitted}
+            - selector: 'meta[name="DC.Date.modified"]'
+              optional: true
+              fields:
+                date: {attribute: content}
+                date_type: {value: Updated}
+          rights_list:
+            selector: 'meta[name="DC.Rights"]'
+            many: true
+            fields:
+              rights: {attribute: content}
+
+  - name: viamus2.gbv.de
+    enabled: true
+    description: 'oEmbed JSON; publication year is a placeholder'
+    pipeline:
+      fetch:
+        mode: html_link
+        selector: 'link[rel="alternate"][type="application/json+oembed"]'
+        attribute: href
+      extract:
+        extractor: json
+        fields:
+          titles: title
+          creators: author_name
+          publisher: provider_name
+        constants:
+          # The supplied oEmbed response has no publication date. This fixed
+          # example year satisfies the required field; it is not source metadata.
+          # In particular, the thumbnail upload directory is not a publication date.
+          publication_year: 2026
+          # Broad example classification of the online record, not the depicted
+          # physical object or a translation of oEmbed's "rich" type.
+          resource_type: Other
+
+  - name: field.idai.world
+    enabled: true
+    description: 'Field API JSON; attribution and year are placeholders'
+    pipeline:
+      fetch:
+        mode: url_template
+        # Only the path is matched; the UI's ?parent=... query is not forwarded.
+        path_regex: '^/project/[^/]+/hierarchy/(?P<record_id>[0-9a-fA-F-]+)/?$'
+        url_template: 'https://field.idai.world/api/documents/{record_id}'
+      extract:
+        extractor: json
+        fields:
+          titles: resource.shortDescription.unspecifiedLanguage
+        constants:
+          # The response supplies neither creator nor publisher. These strings
+          # deliberately label example attribution, rather than assert ownership.
+          creators:
+            - 'iDAI.field (example attribution)'
+          publisher: 'iDAI.field (example attribution)'
+          # The source's 2013 campaign/recording date is NOT a publication date.
+          # Replace this test year with verified publication metadata for real use.
+          publication_year: 2026
+          resource_type: Dataset
+
+  - name: arachne.dainst.org
+    enabled: true
+    description: 'Rendered Arachne HTML; constants are specific to entity 1249171'
+    pipeline:
+      fetch:
+        mode: resource_url
+      extract:
+        extractor: css
+        fields:
+          # Requires the rendered/saved DOM, supplied through page_content or
+          # metadata_content. The live Angular shell does not contain this title.
+          # Selecting the inner title excludes the subtitle and site boilerplate.
+          titles: '.entity-title .title'
+        constants:
+          # Copied from the supplied entity's embedded JSON-LD: CSS cannot read
+          # JSON properties. These values are not dynamically extracted and must
+          # be checked before applying this example to a different entity.
+          creators:
+            - Deutsches Archäologisches Institut
+            - Universität zu Köln
+          # IntermediateMetadata accepts a single publisher; this example joins
+          # both named institutions, rather than silently discarding either one.
+          publisher: 'Deutsches Archäologisches Institut; Universität zu Köln'
+          # The sample JSON-LD datePublished is 2024-05-23T13:49:03.000Z.
+          publication_year: 2024
+          # JSON-LD says WebPage, which is not a supported resource type.
+          resource_type: Other
+
+  - name: arachne.test.dainst.org
+    enabled: false
+    description: No verified extraction profile for the test deployment
+  - name: viamus.uni-goettingen.de
+    enabled: false
+    description: No verified metadata extraction settings available
+  - name: sempub.ub.uni-heidelberg.de
+    enabled: false
+    description: No verified metadata extraction settings available
+  - name: '*.museum-digital.de'
+    enabled: false
+    description: No verified metadata extraction settings available

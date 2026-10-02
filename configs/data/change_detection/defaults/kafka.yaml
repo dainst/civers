@@ -1,0 +1,15 @@
+transport:
+  enabled:
+  - kafka
+  transports:
+    kafka:
+      bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:29092}
+      consumer_group: ${KAFKA_CONSUMER_GROUP_ID:-civers_change_detection}
+      consumer_auto_offset_reset: earliest
+      consumer_enable_auto_commit: false
+      producer_acks: all
+      topics:
+        requests: change.detection.requests
+        completed: change.detection.completed
+        failed: change.detection.failed
+        status: change.detection.status

@@ -1,0 +1,4 @@
+app:
+  logging:
+    level: INFO
+    access_log_level: INFO

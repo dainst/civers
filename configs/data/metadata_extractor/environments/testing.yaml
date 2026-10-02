@@ -1,0 +1,13 @@
+app:
+  storage:
+    enabled:
+    - local_file
+    backends:
+      local_file:
+        base_path: tests/output
+        create_subdirectories: true
+transport:
+  transports:
+    kafka:
+      consumer_group: metadata-extractor-test
+      producer_acks: all

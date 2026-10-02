@@ -1,0 +1,76 @@
+domains:
+- name: viamus2.gbv.de
+  enabled: true
+  webpage_types: dynamic
+  description: Virtuelles Antikenmuseum
+  generators:
+  - name: browsertrix
+    artifacts:
+    - warc
+    - screenshot
+    - dom-snapshot
+  - name: singlefile
+    artifacts:
+    - singlefile
+- name: viamus.uni-goettingen.de
+  enabled: true
+  webpage_types: dynamic
+  description: Virtuelles Antikenmuseum Göttingen
+  generators:
+  - name: singlefile
+    artifacts:
+    - singlefile
+- name: sempub.ub.uni-heidelberg.de
+  enabled: true
+  webpage_types: dynamic
+  description: Propylaeum-VITAE Akteure – Netzwerke – Praktiken
+  generators:
+  - name: scoop
+    artifacts:
+    - warc
+    - screenshot
+    - dom-snapshot
+- name: '*.museum-digital.de'
+  enabled: true
+  webpage_types: dynamic
+  description: Museum digital
+  generators:
+  - name: singlefile
+    artifacts:
+    - singlefile
+- name: arachne.dainst.org
+  enabled: true
+  webpage_types: dynamic
+  description: iDAI.objects/Arachne
+  generators:
+  - name: browsertrix
+    artifacts:
+    - warc
+    - screenshot
+    - dom-snapshot
+  - name: singlefile
+    artifacts:
+    - singlefile
+- name: arachne.test.dainst.org
+  enabled: true
+  webpage_types: dynamic
+  description: Arachne test environment
+  generators:
+  - name: scoop
+    artifacts:
+    - warc
+    - screenshot
+    - dom-snapshot
+  - name: singlefile
+    artifacts:
+    - singlefile
+- name: field.idai.world
+  enabled: true
+  webpage_types: dynamic
+  description: iDAI.field
+  generators:
+  - name: scoop
+    artifacts:
+    - warc
+    - screenshot
+    - dom-snapshot

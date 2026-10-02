@@ -1,0 +1,26 @@
+validation:
+  snapshot_id_pattern: ^req_[a-zA-Z0-9\-_]+_\d{8}_\d{6}$
+  snapshot_id_max_length: 100
+  snapshot_directory_prefix: req_
+  timestamp_formats:
+  - '%Y%m%d_%H%M%S'
+  - '%Y-%m-%d_%H-%M-%S'
+  filename_max_length: 255
+  allowed_artifact_types:
+  - archive.wacz
+  - archive.warc
+  - metadata.json
+  - screenshot.png
+  - singlefile.html
+  - document.html
+  - dom-snapshot.html
+  - archive_generator_metadata.json
+  content_type_mappings:
+    archive.wacz: application/zip
+    archive.warc: application/warc
+    metadata.json: application/json
+    screenshot.png: image/png
+    singlefile.html: text/html
+    document.html: text/html
+    dom-snapshot.html: text/html
+    archive_generator_metadata.json: application/json

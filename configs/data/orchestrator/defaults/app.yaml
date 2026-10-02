@@ -1,0 +1,6 @@
+app:
+  name: ${APP_NAME:-civers_orchestrator}
+  version: 1.0.0
+  environment: ${CONFIG_ENVIRONMENT:-development}
+  metadata:
+    web_interface_url: ${WEB_INTERFACE_URL:-http://localhost:8000}

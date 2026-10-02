@@ -1,0 +1,27 @@
+# CLI subcommands run directly; no server transport is needed.
+transport: null
+# Domain lists replace defaults; this environment configures only Field.
+domains:
+  - name: field.idai.world
+    enabled: true
+    description: 'Field API JSON; attribution and year are placeholders'
+    pipeline:
+      fetch:
+        mode: url_template
+        path_regex: '^/project/[^/]+/hierarchy/(?P<record_id>[0-9a-fA-F-]+)/?$'
+        url_template: 'https://field.idai.world/api/documents/{record_id}'
+
+      extract:
+        extractor: json
+        fields:
+          titles: resource.shortDescription.unspecifiedLanguage
+        constants:
+          # The response supplies neither creator nor publisher. These strings
+          # deliberately label example attribution, rather than assert ownership.
+          creators:
+            - 'iDAI.field (example attribution)'
+          publisher: 'iDAI.field (example attribution)'
+          # The source's 2013 campaign/recording date is NOT a publication date.
+          # Replace this test year with verified publication metadata for real use.
+          publication_year: 2026
+          resource_type: Dataset

@@ -1,0 +1,4 @@
+app:
+  name: ${APP_NAME:-change_detection_system}
+  version: 0.1.0
+  environment: ${CONFIG_ENVIRONMENT:-development}
