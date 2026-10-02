@@ -8,11 +8,27 @@ dependencies = [
     "pyyaml>=6.0.3",
 ]
 
+# The Kafka adapter (civers_common.transport.kafka) is optional: config- and
+# contracts-only consumers must not pull aiokafka. Depend on civers-common[kafka]
+# to get it.
+[project.optional-dependencies]
+rest = [
+    "fastapi>=0.136.3",
+    "uvicorn>=0.49.0",
+]
+kafka = [
+    "aiokafka>=0.13.0",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
+    "pytest-asyncio>=1.4.0",
+    # The transport tests import civers_common.transport.kafka, whose __init__ imports
+    # aiokafka at module load. Without this they fail at collection in a standalone
+    # checkout; they pass in the monorepo only because the root workspace pulls it in.
+    "aiokafka>=0.13.0",
 ]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

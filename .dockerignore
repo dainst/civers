@@ -1,0 +1,71 @@
+# Keep host-side runtime artifacts, history and test scaffolding out of every image
+# build context. Anything listed here is also something the image must never ship.
+
+# Host runtime output
+.browsertrix-jobs/
+archives/
+*.log
+.env
+.env.*
+!.env.example
+
+# Version control and CI
+.git/
+.github/
+
+# Python build and cache
+**/__pycache__/
+**/*.pyc
+**/.venv/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+.coverage
+cov_html/
+**/cov_html/
+**/*.egg-info/
+
+# Tests and fixtures — not shipped, and they dominate the build context
+**/tests/
+**/stress/
+
+# Local editor and tooling files
+.vscode/
+.idea/
+.claude/
+.codex/
+.gemini/
+
+# Local dependencies and generated test output
+**/node_modules/
+**/testsprite_tests/
+**/.testsprite/
+.agents/
+
+.local/
+AGENTS*.md
+TESTSPRITE.md
+SIMPLIFICATION_PLAN.md
+**/storage_layer_implementation.md
+scripts/testsprite_mcp.py
+scripts/kafka_flow_monitor.py
+scripts/send_kafka_request.py
+scripts/status_info.py
+scripts/verify_storage.py
+docker-compose.dev.yml
+
+# Local documentation and tool settings
+docs/
+civers_archive_web_interface/docs/
+civers_common/docs/SERVICE_DOC_STANDARD.md
+Architecture/
+.agent/
+.cursor/
+.cursorrules
+CLAUDE*.md
+**/*_PLAN.md
+**/*_ROADMAP.md
+PLANS.md
+TASKS.md
+
+civers_archive_generator/lib/scoop/executables/

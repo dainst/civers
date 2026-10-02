@@ -24,6 +24,21 @@ class TestBaseKafkaConfig:
         )
         assert config.consumer_group == "civers_default_group"
 
+    def test_producer_none_by_default(self):
+        config = BaseKafkaConfig(
+            bootstrap_servers="localhost:9092",
+            topics={"t": "v"},
+        )
+        assert config.producer is None
+
+    def test_producer_dict_accepted(self):
+        config = BaseKafkaConfig(
+            bootstrap_servers="localhost:9092",
+            topics={"t": "v"},
+            producer={"compression_type": "gzip", "linger_ms": 10},
+        )
+        assert config.producer == {"compression_type": "gzip", "linger_ms": 10}
+
     def test_empty_bootstrap_servers_rejected(self):
         with pytest.raises(ValidationError):
             BaseKafkaConfig(bootstrap_servers="  ", topics={"t": "v"})
@@ -43,11 +58,11 @@ class TestBaseKafkaConfig:
         with pytest.raises(ValidationError):
             BaseKafkaConfig(bootstrap_servers="localhost:9092", topics={})
 
-    def test_sync_consumer_group_from_nested(self):
+    def test_explicit_consumer_group(self):
         config = BaseKafkaConfig(
             bootstrap_servers="localhost:9092",
             topics={"t": "v"},
-            consumer={"group_id": "my_group"},
+            consumer_group="my_group",
         )
         assert config.consumer_group == "my_group"
 
@@ -78,7 +93,7 @@ class TestBaseKafkaConfig:
         config = MyKafkaConfig(
             bootstrap_servers="localhost:9092",
             topics={"t": "v"},
-            consumer={"group_id": "sub_group"},
+            consumer_group="sub_group",
         )
         assert config.consumer_group == "sub_group"
         assert config.extra_field == "hello"
@@ -94,3 +109,15 @@ class TestBaseKafkaConfig:
             topics={"t": "v"},
         )
         assert config.consumer_group == "change_detection_group"
+
+
+@pytest.mark.parametrize("value,expected", [("0", 0), ("1", 1), ("-1", -1), ("all", "all")])
+def test_explicit_acks_accept_environment_values(value, expected):
+    config = BaseKafkaConfig(bootstrap_servers="localhost:9092", topics={"t": "v"}, producer_acks=value)
+    assert config.producer_acks == expected
+
+
+@pytest.mark.parametrize("value", ["invalid", "2", 2])
+def test_explicit_acks_reject_invalid_values(value):
+    with pytest.raises(ValidationError):
+        BaseKafkaConfig(bootstrap_servers="localhost:9092", topics={"t": "v"}, producer_acks=value)

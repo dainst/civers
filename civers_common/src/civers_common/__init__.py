@@ -10,6 +10,16 @@ from .configs.models import (
     BaseTransportConfig,
     DomainResolutionMixin,
 )
+from .messaging import (
+    Command,
+    CommandBus,
+    Result,
+    ResultStatus,
+    is_valid_request_id,
+)
+from .transport import (
+    Transport,
+)
 
 __all__ = [
     # Base models
@@ -22,6 +32,14 @@ __all__ = [
     "DomainResolutionMixin",
     # Loader
     "BaseYamlConfigLoader",
+    # Messaging
+    "Command",
+    "Result",
+    "ResultStatus",
+    "CommandBus",
+    "is_valid_request_id",
+    # Transport
+    "Transport",
     # Exceptions
     "ConfigurationError",
 ]

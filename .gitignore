@@ -108,7 +108,41 @@ marimo/_lsp/
 __marimo__/
 scratch/
 arachne4-test_instance/
-docs/
+/docs/*
+!/docs/manual-review/
+/civers_archive_web_interface/docs/
+/civers_common/docs/SERVICE_DOC_STANDARD.md
 .github
 .claude
 .codex
+CLAUDE.md
+CLAUDE.local.md
+.browsertrix-jobs/
+stress/
+.gemini/
+
+# Personal tools and notes
+.local/
+.agents/
+.cursor/
+.cursorrules
+AGENTS.md
+AGENTS.local.md
+
+*_PLAN.md
+*_ROADMAP.md
+PLANS.md
+TASKS.md
+
+
+# Generated extraction output; keep fixtures under tests/ tracked
+/civers_metadata_extractor/arachne_extraction_flattened_data.json
+
+# Workspace members use the root dependency lock
+/*/uv.lock
+
+# Scoop downloads and verifies its helper executables during npm installation
+/civers_archive_generator/lib/scoop/executables/
+
+# Generated metadata extraction artifacts
+/civers_metadata_extractor/output/

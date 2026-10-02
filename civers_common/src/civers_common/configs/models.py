@@ -1,14 +1,11 @@
-"""Golden Template base classes for CiVers microservice configuration.
+"""Base configuration models shared by every CiVers microservice.
 
-Services IMPORT these classes and either:
-  (a) Use them directly (if no extensions needed), or
-  (b) Subclass them to add service-specific fields.
-
-Base classes derived from the 4 mature services (AG, ME, ORCH, AWI).
+Services either use these directly or subclass them to add service-specific fields.
 """
 
+import ipaddress
 import re
-from typing import Any, Literal
+from typing import Any, Literal,Dict
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -24,17 +21,16 @@ from .exceptions import ConfigurationError
 class BaseDomainConfig(BaseModel):
     """Base domain configuration shared across all CiVers services.
 
-    Services extend this with their own fields:
-    - CD adds: change_detection
-    - AG adds: generators
-    - ME adds: input_source, extractor, mappings
-    - ORCH adds: workflow
-    - AWI adds: display_name
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    name: str
+    name: str = Field(
+        description=(
+            "Hostname such as www.example.com (without https:// or a path), "
+            "wildcard such as *.example.com, IP address, local name, or default."
+        )
+    )
     enabled: bool = True
     description: str = ""
     webpage_types: Literal["dynamic", "static"] = "dynamic"
@@ -46,24 +42,45 @@ class BaseDomainConfig(BaseModel):
         if not v or not v.strip():
             raise ValueError("Domain name cannot be empty")
         name = v.strip()
+        if any(char in name for char in "/\\?#@") or any(char.isspace() for char in name):
+            raise ValueError(
+                "Domain name must be a hostname such as 'www.example.com', "
+                "without 'https://', a path, query, fragment, credentials, or spaces"
+            )
         if name == "default":
             return name
-        if "." in name or "*" in name:
+        if "*" in name:
+            # Resolution is suffix matching, so these are the only shapes that can ever
+            # match. Anything else validates and then matches nothing — dead config.
+            if name != "*" and not name.startswith("*."):
+                raise ValueError(
+                    f"Wildcard domains must be '*' or start with '*.' (got: {name!r}); "
+                    "only suffix matching is supported"
+                )
             return name
-        if re.match(r"^[a-zA-Z0-9_-]+$", name):
+        if "." in name:
             return name
-        raise ValueError(
-            "Domain name must be a valid domain, wildcard, local hostname, or 'default'"
-        )
+        if re.fullmatch(r"[a-zA-Z0-9_-]+", name):
+            return name
+        try:
+            # An IPv6 literal has no dot, so it reaches here. normalize_hostname keeps
+            # it intact, so an entry naming one has to be allowed to exist.
+            ipaddress.ip_address(name)
+        except ValueError:
+            raise ValueError(
+                "Domain name must be a valid domain, wildcard, IP literal, "
+                "local hostname, or 'default'"
+            ) from None
+        return name
 
     @property
     def is_wildcard(self) -> bool:
-        """Check if this is a wildcard domain pattern."""
+        """Return True if this domain is a wildcard pattern."""
         return "*" in self.name
 
     @property
     def is_default(self) -> bool:
-        """Check if this is the default fallback domain."""
+        """Return True if this domain is the default fallback."""
         return self.name.lower() == "default"
 
 
@@ -73,14 +90,7 @@ class BaseDomainConfig(BaseModel):
 
 
 class BaseKafkaConfig(BaseModel):
-    # TODO: This might change when we refactor the transport service.
-
     """Base Kafka configuration shared across all CiVers services.
-
-    Services extend this with their own fields:
-    - ORCH adds: producer, component_mappings
-    - AWI adds: producer, connection_retry_*
-    - CD/AG/ME use base directly (with different consumer_group defaults)
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -88,7 +98,16 @@ class BaseKafkaConfig(BaseModel):
     bootstrap_servers: str
     topics: dict[str, str]
     consumer_group: str = Field(default="civers_default_group")
+    consumer_enable_auto_commit: bool = False
+    consumer_request_timeout_ms: int = 30000
+    consumer_auto_offset_reset: Literal["earliest", "latest"] = "earliest"
+    consumer_max_poll_interval_ms: int = Field(default=600000, gt=0)
     consumer: dict[str, Any] | None = None
+    producer_request_timeout_ms: int = 30000
+    # acks=0 (no acknowledgement), 1 (leader), -1 / "all" (every in-sync replica).
+    producer_acks: Literal[0, 1, -1, "all"] = 1
+    producer_retry_backoff_ms: int = 1000
+    producer: dict[str, Any] | None = None
 
     @field_validator("bootstrap_servers")
     @classmethod
@@ -98,12 +117,11 @@ class BaseKafkaConfig(BaseModel):
             raise ValueError("bootstrap_servers cannot be empty")
         return v.strip()
 
-    @model_validator(mode="after")
-    def sync_consumer_group(self) -> "BaseKafkaConfig":
-        """Sync consumer_group from nested consumer.group_id if present."""
-        if self.consumer and "group_id" in self.consumer:
-            self.consumer_group = self.consumer["group_id"]
-        return self
+    @field_validator("producer_acks", mode="before")
+    @classmethod
+    def parse_producer_acks(cls, value: Any) -> Any:
+        """Environment expansion yields strings; normalize numeric explicit acks."""
+        return int(value) if isinstance(value, str) and value in {"-1", "0", "1"} else value
 
     @field_validator("topics")
     @classmethod
@@ -120,20 +138,12 @@ class BaseKafkaConfig(BaseModel):
 
 
 class BaseTransportConfig(BaseModel):
-    # TODO: This might change when we refactor the transport service.
     """Base transport configuration shared across all CiVers services.
-
-    Supports two transport kinds:
-    - ``kafka``: first-class field with typed config.
-    - Generic/future transports: arbitrary dict entries in ``transports``.
-      Enable a generic transport by adding it to ``enabled`` and providing
-      its config under the same key in ``transports``.
     """
 
     model_config = ConfigDict(extra="ignore")
 
     enabled: list[str]
-    kafka: BaseKafkaConfig | None = None
     transports: dict[str, dict[str, Any]] = {}
 
     @field_validator("enabled")
@@ -147,35 +157,36 @@ class BaseTransportConfig(BaseModel):
     @model_validator(mode="after")
     def validate_enabled_have_config(self) -> "BaseTransportConfig":
         """Ensure every enabled transport has a corresponding configuration."""
-        known = {"kafka": self.kafka}
-        errors = []
-        for t in self.enabled:
-            if t in known:
-                if known[t] is None:
-                    errors.append(f"Transport '{t}' is enabled but not configured")
-            elif t in self.transports:
-                pass  # generic transport — configured via transports dict
-            else:
-                errors.append(f"Transport '{t}' is not supported")
+        errors = [
+            f"Transport '{t}' is enabled but not configured under 'transports'"
+            for t in self.enabled
+            if not self._has_config(t)
+        ]
         if errors:
             raise ValueError(
                 f"Transport configuration errors: {'; '.join(errors)}"
             )
         return self
 
+    def _has_config(self, name: str) -> bool:
+        """Whether ``name`` resolves to a usable config — the same question the caller asks.
+        """
+        return self.get_transport_config(name) is not None
+
     def is_transport_enabled(self, transport: str) -> bool:
         """Return True if the given transport name is in the enabled list."""
         return transport in self.enabled
 
     def get_transport_config(self, transport: str) -> dict[str, Any] | None:
-        """Return the config dict for a transport, or None if unknown.
-
-        For ``kafka``, returns ``kafka.model_dump()``.
-        For generic transports, returns the entry from ``transports``.
+        """Return the raw config dict for a transport, or None if unknown.
         """
-        if transport == "kafka" and self.kafka is not None:
-            return self.kafka.model_dump()
-        return self.transports.get(transport)
+        if transport in self.transports:
+            return self.transports[transport]
+        if transport in type(self).model_fields:
+            typed = getattr(self, transport)
+            if isinstance(typed, BaseModel):
+                return typed.model_dump()
+        return None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -184,15 +195,7 @@ class BaseTransportConfig(BaseModel):
 
 
 class BaseStorageConfig(BaseModel):
-    # TODO: This might change when we refactor the storage service.
-
     """Base multi-backend storage configuration.
-
-    Supports both multi-backend mode (enabled list) and
-    legacy single-backend mode (backend field).
-
-    Used by: AG, ME.
-    NOT used by: CD (no storage), AWI (own StorageConfig with type+providers).
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -246,12 +249,6 @@ class BaseStorageConfig(BaseModel):
 
 class BaseAppConfig(BaseModel):
     """Base application configuration shared across all CiVers services.
-
-    Services extend this with their own fields:
-    - AG adds: archive_directory, scoop_*, singlefile_*, storage
-    - ME adds: storage
-    - AWI adds: description, service_name, logging
-    - ORCH adds: metadata
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -259,11 +256,6 @@ class BaseAppConfig(BaseModel):
     name: str = "civers_service"
     version: str = "1.0.0"
     environment: str = "development"
-    transport: BaseTransportConfig | None = None
-
-    def get_kafka_config(self) -> BaseKafkaConfig | None:
-        """Get Kafka configuration from transport settings."""
-        return self.transport.kafka if self.transport else None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -273,22 +265,26 @@ class BaseAppConfig(BaseModel):
 
 class DomainResolutionMixin:
     """Mixin providing standardized domain resolution logic.
-
-    Expects the consuming class to have:
-    - self.domains: list[BaseDomainConfig]
-
-    Resolution order: exact match → wildcard → default → raise.
     """
 
     @staticmethod
     def normalize_hostname(hostname: str) -> str:
-        """Normalize a hostname: lowercase, strip, remove port."""
+        """Normalize a hostname: lowercase, strip, remove port. IPv6-safe.
+
+        An IPv6 literal is mostly colons, and ``urlparse`` has already removed its
+        brackets by the time it arrives here, so a port is stripped only where there is
+        unambiguously one to strip.
+        """
         if not hostname:
             return hostname
         normalized = hostname.strip().lower()
-        if ":" in normalized:
-            normalized = normalized.split(":")[0]
-        return normalized
+        if normalized.startswith("["):          # "[::1]:8080" -> "::1"
+            end = normalized.find("]")
+            if end != -1:
+                return normalized[1:end]
+        if normalized.count(":") == 1:          # "example.com:8080" -> "example.com"
+            return normalized.split(":")[0]
+        return normalized                       # bare IPv6 passes through intact
 
     def resolve_domain(self, identifier: str) -> "BaseDomainConfig":
         """Resolve domain configuration by hostname or domain name.
@@ -309,20 +305,27 @@ class DomainResolutionMixin:
                     )
                 return domain_config
 
-        # 2. Wildcard match
-        for domain_config in self.domains:  # type: ignore[attr-defined]
-            if "*" in domain_config.name:
-                suffix = domain_config.name.replace("*", "")
-                if suffix and normalized.endswith(suffix):
-                    if not domain_config.enabled:
-                        raise ConfigurationError(
-                            f"Domain '{domain_config.name}' is disabled"
-                        )
-                    return domain_config
+        # 2. Wildcard match, most specific first. Sorting by suffix length rather than
+        # trusting YAML order means reordering two blocks in a config file cannot
+        # silently change which policy a site gets; bare '*' has the empty suffix, so it
+        # matches everything and sorts last.
+        wildcards = sorted(
+            (d for d in self.domains if "*" in d.name),  # type: ignore[attr-defined]
+            key=lambda d: len(d.name.replace("*", "")),
+            reverse=True,
+        )
+        for domain_config in wildcards:
+            suffix = domain_config.name.replace("*", "")
+            if normalized.endswith(suffix):
+                if not domain_config.enabled:
+                    raise ConfigurationError(
+                        f"Domain '{domain_config.name}' is disabled"
+                    )
+                return domain_config
 
         # 3. Default fallback
         for domain_config in self.domains:  # type: ignore[attr-defined]
-            if domain_config.name == "default":
+            if domain_config.is_default:
                 if not domain_config.enabled:
                     raise ConfigurationError(
                         "Default domain entry is disabled"
@@ -344,5 +347,3 @@ class DomainResolutionMixin:
                 f"Could not extract hostname from URL: {url}"
             )
         return self.resolve_domain(parsed.hostname)
-
-

@@ -3,11 +3,19 @@ import json
 import logging
 import os
 import sys
+from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Optional, Set
+from typing import Dict, Any, Optional
+
+# Add project root and scripts directory to python path for imports
+scripts_dir = Path(__file__).resolve().parent
+repo_root = scripts_dir.parent
+if str(scripts_dir) not in sys.path:
+    sys.path.insert(0, str(scripts_dir))
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
 
 from aiokafka import AIOKafkaConsumer
-import yaml
 
 # ANSI Colors for terminal output
 class Colors:
@@ -47,7 +55,6 @@ class KafkaFlowMonitor:
             "orchestrator.failed": ("Orchestrator", "Web/CLI"),
             
             "metadata.requests": ("Orchestrator", "Metadata Extractor"),
-            "metadata.started": ("Metadata Extractor", "Orchestrator"),
             "metadata.completed": ("Metadata Extractor", "Orchestrator"),
             "metadata.failed": ("Metadata Extractor", "Orchestrator"),
             
@@ -139,19 +146,18 @@ class KafkaFlowMonitor:
         if processing_time:
              print(f"  {Colors.BOLD}Processing Time:{Colors.ENDC} {processing_time:.2f}s")
 
-        # Specific payload fields based on topic
         if topic == "metadata.completed":
-             mappers = payload.get("mappers_used", [])
-             if mappers:
-                 print(f"  {Colors.BOLD}Mappers Used:{Colors.ENDC} {', '.join(mappers)}")
-             total_fields = payload.get("total_fields_extracted", 0)
-             if total_fields:
-                 print(f"  {Colors.BOLD}Fields Extracted:{Colors.ENDC} {total_fields}")
-        
-        if topic == "archive.completed":
-             artifacts = payload.get("artifacts_created", [])
-             if artifacts:
-                 print(f"  {Colors.BOLD}Artifacts:{Colors.ENDC} {', '.join(artifacts)}")
+            domain = payload.get("domain_used")
+            if domain:
+                print(f"  {Colors.BOLD}Domain:{Colors.ENDC} {domain}")
+            output_path = payload.get("json_output_path")
+            if output_path:
+                print(f"  {Colors.BOLD}Output:{Colors.ENDC} {output_path}")
+
+        if topic in {"archive.completed", "metadata.completed"}:
+            artifacts = payload.get("artifacts_created", [])
+            if artifacts:
+                print(f"  {Colors.BOLD}Artifacts:{Colors.ENDC} {', '.join(artifacts)}")
 
         # Metadata inspection
         metadata = payload.get("metadata", {})
@@ -164,7 +170,7 @@ class KafkaFlowMonitor:
         handled_keys = {
             "request_id", "url", "status", "message", "error_message", "error_type", 
             "failed_stage", "processing_time_seconds", "created_at", "metadata",
-            "mappers_used", "artifacts_created", "total_fields_extracted"
+            "domain_used", "json_output_path", "artifacts_created",
         }
         
         remaining_data = {k: v for k, v in payload.items() if k not in handled_keys}
@@ -190,36 +196,9 @@ class KafkaFlowMonitor:
     def stop(self):
         self.running = False
 
-def load_kafka_config():
-    """Attempt to load Kafka config from shared YAML file."""
-    try:
-        # Try different possible paths for the config
-        paths = [
-            "configs/defaults/kafka.yaml",
-            "../configs/defaults/kafka.yaml",
-            "/app/configs/defaults/kafka.yaml"
-        ]
-        for p in paths:
-            if os.path.exists(p):
-                with open(p, 'r') as f:
-                    config = yaml.safe_load(f)
-                    bootstrap = config.get('transport', {}).get('kafka', {}).get('bootstrap_servers', 'localhost:29092')
-                    # Handle env var interpolation if present
-                    if "${" in bootstrap:
-                        # Very basic interpolation for the common case
-                        import re
-                        match = re.search(r'\${([^:-]+)(?:[:]-([^}]+))?}', bootstrap)
-                        if match:
-                            env_var = match.group(1)
-                            default = match.group(2) or "localhost:29092"
-                            bootstrap = os.getenv(env_var, default)
-                    return bootstrap
-    except Exception as e:
-        logger.warning(f"Could not load kafka.yaml: {e}. Falling back to default.")
-    return os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092")
 
 if __name__ == "__main__":
-    bootstrap_servers = load_kafka_config()
+    bootstrap_servers = "localhost:29092"
     monitor = KafkaFlowMonitor(bootstrap_servers=bootstrap_servers)
     
     try:

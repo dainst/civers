@@ -89,3 +89,35 @@ class TestBaseDomainConfig:
         config = ServiceDomainConfig(name="example.com", extra_field="custom")
         assert config.extra_field == "custom"
         assert config.is_wildcard is False
+
+
+@pytest.mark.parametrize("name", [
+    "https://www.aljazeera.net",
+    "http://www.aljazeera.net/",
+    "https://localhost",
+    "//www.aljazeera.net",
+    "www.aljazeera.net/news/liveblog",
+    "www.aljazeera.net?update=9784467",
+    "www.aljazeera.net#latest",
+    "user@www.aljazeera.net",
+    "*.example.com/path",
+    "www.aljazeera.net\\news",
+    "www.aljazeera .net",
+])
+def test_url_parts_are_rejected_before_domain_matching(name):
+    with pytest.raises(ValidationError, match="Domain name must be a hostname") as error:
+        BaseDomainConfig(name=name)
+    assert error.value.errors()[0]["loc"] == ("name",)
+
+
+@pytest.mark.parametrize("name", [
+    "www.aljazeera.net",
+    "www.aljazeera.net:8080",
+    "*.aljazeera.net",
+    "*",
+    "127.0.0.1",
+    "::1",
+    "local_demo",
+])
+def test_hostname_validation_preserves_supported_domain_names(name):
+    assert BaseDomainConfig(name=name).name == name

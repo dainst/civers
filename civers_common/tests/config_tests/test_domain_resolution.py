@@ -128,3 +128,77 @@ class TestNormalizeHostname:
 
     def test_empty_string(self):
         assert DomainResolutionMixin.normalize_hostname("") == ""
+
+
+class TestNormalizeHostnameIsIPv6Safe:
+    """An IPv6 literal is mostly colons, and urlparse hands it over without brackets."""
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("Example.COM", "example.com"),
+            ("example.com:8080", "example.com"),
+            ("::1", "::1"),
+            ("[::1]:8080", "::1"),
+            ("[2001:db8::1]", "2001:db8::1"),
+            ("2001:db8::1", "2001:db8::1"),
+        ],
+    )
+    def test_normalize_hostname(self, raw, expected):
+        assert DomainResolutionMixin.normalize_hostname(raw) == expected
+
+    def test_ipv6_url_resolves_to_its_own_entry(self):
+        config = TestConfig(domains=[DomainConfig(name="::1")])
+        assert config.resolve_domain_for_url("http://[::1]:8080/x").name == "::1"
+
+
+class TestWildcardSpecificity:
+    """Reordering two blocks in a YAML file must not change which policy a site gets."""
+
+    @pytest.mark.parametrize(
+        "order", [["*.org", "*.dainst.org"], ["*.dainst.org", "*.org"]]
+    )
+    def test_most_specific_wildcard_wins_regardless_of_order(self, order):
+        config = TestConfig(domains=[DomainConfig(name=n) for n in order])
+        assert config.resolve_domain("sub.dainst.org").name == "*.dainst.org"
+
+    @pytest.mark.parametrize("order", [["*", "*.org"], ["*.org", "*"]])
+    def test_bare_catch_all_sorts_last(self, order):
+        config = TestConfig(domains=[DomainConfig(name=n) for n in order])
+        assert config.resolve_domain("sub.dainst.org").name == "*.org"
+
+    def test_bare_catch_all_matches_everything_else(self):
+        config = TestConfig(domains=[DomainConfig(name="*")])
+        assert config.resolve_domain("anything.com").name == "*"
+
+    def test_a_disabled_wildcard_is_reported_not_skipped(self):
+        config = TestConfig(domains=[DomainConfig(name="*.org", enabled=False)])
+        with pytest.raises(ConfigurationError, match="is disabled"):
+            config.resolve_domain("sub.org")
+
+    @pytest.mark.parametrize("name", ["example.*", "*example.com", "a*b.com", "**"])
+    def test_patterns_the_matcher_cannot_support_are_rejected(self, name):
+        """Resolution is suffix matching; anything else validates and matches nothing."""
+        with pytest.raises(ValueError, match="only suffix matching is supported"):
+            DomainConfig(name=name)
+
+
+class TestDefaultFallbackIsCaseInsensitive:
+    """is_default and the resolver must agree, or one capital letter removes the
+    fallback while every health check still reports it present."""
+
+    @pytest.mark.parametrize("name", ["default", "Default", "DEFAULT"])
+    def test_default_entry_is_the_fallback_whatever_its_case(self, name):
+        config = TestConfig(domains=[DomainConfig(name=name)])
+        assert config.resolve_domain("unknown.org").name == name
+
+    def test_a_disabled_default_is_reported(self):
+        config = TestConfig(domains=[DomainConfig(name="Default", enabled=False)])
+        with pytest.raises(ConfigurationError, match="disabled"):
+            config.resolve_domain("unknown.org")
+
+
+def test_domain_matching_ignores_page_path_and_query():
+    config = TestConfig(domains=[DomainConfig(name="www.aljazeera.net")])
+    url = "https://www.aljazeera.net/news/liveblog/2026/9/14/%D8%A5%D9%8A?update=9784467"
+    assert config.resolve_domain_for_url(url).name == "www.aljazeera.net"
