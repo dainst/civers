@@ -1,31 +1,26 @@
-"""Unit tests for Archive Generator configuration Pydantic models.
-
-Only AG-specific behavior is tested here. Base model behaviour
-(BaseKafkaConfig, BaseTransportConfig, BaseStorageConfig, BaseAppConfig)
-is covered exhaustively in civers_common/tests/.
-"""
+"""Check archive-specific configuration. Shared model tests live in civers_common."""
 
 import pytest
-from pydantic import ValidationError
-
+from archive_generators.browsertrix import BrowsertrixGenerator
+from archive_generators.scoop import ScoopGenerator
+from archive_generators.singlefile import SingleFileGenerator
 from configs.models import (
     AppConfig,
     ConfigDataModel,
     DomainConfig,
     GeneratorConfig,
-    KafkaConfig,
     StorageConfig,
     TransportConfig,
 )
+from pydantic import ValidationError
 
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-
+# Helpers
 def _storage(**kwargs) -> StorageConfig:
     defaults = {
-        "enabled": ["local_file"],
-        "backends": {"local_file": {"base_path": "archives"}},
+        "enabled": ["civers_rest_api"],
+        "backends": {
+            "civers_rest_api": {"upload_url": "http://localhost:8000/api/upload"}
+        },
     }
     return StorageConfig(**{**defaults, **kwargs})
 
@@ -33,11 +28,13 @@ def _storage(**kwargs) -> StorageConfig:
 def _transport(**kwargs) -> TransportConfig:
     defaults = {
         "enabled": ["kafka"],
-        "kafka": KafkaConfig(
-            bootstrap_servers="localhost:9092",
-            topics={"requests": "archive.requests"},
-            consumer_group="test-group",
-        ),
+        "transports": {
+            "kafka": {
+                "bootstrap_servers": "localhost:9092",
+                "topics": {"requests": "archive.requests"},
+                "consumer_group": "test-group",
+            }
+        },
     }
     return TransportConfig(**{**defaults, **kwargs})
 
@@ -50,11 +47,58 @@ def _app(**kwargs) -> AppConfig:
     return AppConfig(**{**defaults, **kwargs})
 
 
-# ── DomainConfig ──────────────────────────────────────────────────────────────
+# GeneratorConfig
+class TestGeneratorConfig:
+    def test_unknown_generator_rejected(self):
+        with pytest.raises(ValidationError, match="Unknown generator: unknown"):
+            GeneratorConfig(name="unknown", artifacts=["warc"])
+
+    @pytest.mark.parametrize("name", ["browsertrix", "scoop", "singlefile"])
+    def test_empty_artifacts_rejected(self, name):
+        with pytest.raises(ValidationError, match="at least one supported artifact"):
+            GeneratorConfig(name=name, artifacts=[])
+
+    @pytest.mark.parametrize(
+        ("name", "artifacts"),
+        [
+            ("browsertrix", ["warc", "summary"]),
+            ("scoop", ["warc", "singlefile"]),
+            ("singlefile", ["singlefile", "warc"]),
+        ],
+    )
+    def test_unsupported_artifacts_rejected(self, name, artifacts):
+        with pytest.raises(ValidationError, match="at least one supported artifact"):
+            GeneratorConfig(name=name, artifacts=artifacts)
+
+    @pytest.mark.parametrize(
+        ("name", "generator_class"),
+        [
+            ("browsertrix", BrowsertrixGenerator),
+            ("scoop", ScoopGenerator),
+            ("singlefile", SingleFileGenerator),
+        ],
+    )
+    def test_reads_generator_declaration_without_instantiation(
+        self, monkeypatch, name, generator_class
+    ):
+        def fail_if_instantiated(*args, **kwargs):
+            raise AssertionError("Config validation must not construct generators")
+
+        monkeypatch.setattr(generator_class, "__init__", fail_if_instantiated)
+        monkeypatch.setattr(
+            generator_class,
+            "CAPABILITIES",
+            [*generator_class.CAPABILITIES, "custom-artifact"],
+        )
+
+        config = GeneratorConfig(name=name, artifacts=["custom-artifact"])
+
+        assert config.artifacts == ["custom-artifact"]
 
 
+# DomainConfig
 class TestDomainConfig:
-    """AG DomainConfig adds a required `generators` list."""
+    """Require capture generators in domain settings."""
 
     def test_requires_at_least_one_generator(self):
         with pytest.raises(ValidationError, match="at least one generator"):
@@ -81,15 +125,15 @@ class TestDomainConfig:
         assert len(domain.generators) == 2
 
     def test_generator_config_stores_artifacts(self):
-        gen = GeneratorConfig(name="scoop", artifacts=["warc", "screenshot", "dom-snapshot"])
+        gen = GeneratorConfig(
+            name="scoop", artifacts=["warc", "screenshot", "dom-snapshot"]
+        )
         assert gen.artifacts == ["warc", "screenshot", "dom-snapshot"]
 
 
-# ── AppConfig ─────────────────────────────────────────────────────────────────
-
-
+# AppConfig
 class TestAppConfig:
-    """AG AppConfig — archive_directory, scoop/singlefile settings, storage helpers."""
+    """Check capture paths, tool settings and storage configuration."""
 
     def test_defaults(self):
         cfg = _app()
@@ -107,33 +151,67 @@ class TestAppConfig:
         with pytest.raises(ValidationError):
             AppConfig(archive_directory="/tmp/archives")
 
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "archive_directory",
+            "scoop_cli_command",
+            "singlefile_binary_path",
+            "browsertrix_jobs_dir",
+        ],
+    )
+    @pytest.mark.parametrize("blank", ["", "   "])
+    def test_blank_paths_and_commands_rejected(self, field: str, blank: str):
+        """A blank path silently resolves to somewhere unintended, so reject it here."""
+        with pytest.raises(ValidationError, match=f"'{field}' cannot be blank"):
+            _app(**{field: blank})
+
+    @pytest.mark.parametrize(
+        "field",
+        ["scoop_timeout_sec", "singlefile_timeout_sec", "browsertrix_timeout_sec"],
+    )
+    @pytest.mark.parametrize("bad", [0, -5])
+    def test_non_positive_timeouts_rejected(self, field: str, bad: int):
+        with pytest.raises(ValidationError, match="greater than 0"):
+            _app(**{field: bad})
+
+    def test_surrounding_whitespace_is_stripped(self):
+        cfg = _app(archive_directory="  /tmp/archives  ", scoop_cli_command=" scoop ")
+        assert cfg.archive_directory == "/tmp/archives"
+        assert cfg.scoop_cli_command == "scoop"
+
     def test_get_storage_config_returns_storage(self):
         storage = _storage()
         cfg = _app(storage=storage)
         assert cfg.get_storage_config() is storage
 
-    def test_get_kafka_config_with_transport(self):
-        transport = _transport()
-        cfg = _app(transport=transport)
-        assert cfg.get_kafka_config() == transport.kafka
-
-    def test_get_kafka_config_without_transport_returns_none(self):
-        cfg = _app()
-        assert cfg.get_kafka_config() is None
-
     def test_scoop_extra_args_accepts_list(self):
         cfg = _app(scoop_extra_args=["--log-level", "info", "--no-sandbox"])
         assert cfg.scoop_extra_args == ["--log-level", "info", "--no-sandbox"]
 
+    def test_browsertrix_defaults(self):
+        cfg = _app()
+        assert cfg.browsertrix_jobs_dir == "/jobs"
+        assert cfg.browsertrix_timeout_sec == 300
+        assert cfg.browsertrix_extra_args is None
 
-# ── ConfigDataModel ───────────────────────────────────────────────────────────
+    def test_browsertrix_accepts_custom(self):
+        cfg = _app(
+            browsertrix_jobs_dir="/shared/jobs",
+            browsertrix_timeout_sec=600,
+            browsertrix_extra_args=["--scopeType", "page"],
+        )
+        assert cfg.browsertrix_jobs_dir == "/shared/jobs"
+        assert cfg.browsertrix_timeout_sec == 600
+        assert cfg.browsertrix_extra_args == ["--scopeType", "page"]
 
 
+# ConfigDataModel
 class TestConfigDataModelConstruction:
     """ConfigDataModel structure and validators."""
 
-    def test_transport_sync_root_into_app(self):
-        """Root-level `transport` is synced into `app.transport` when not set."""
+    def test_root_transport_exposes_adapter_entries(self):
+        """Adapters read their config from the root `transport.transports.<name>`."""
         config = ConfigDataModel(
             domains=[
                 DomainConfig(
@@ -145,61 +223,19 @@ class TestConfigDataModelConstruction:
             app=_app(),
             transport=_transport(),
         )
-        assert config.app.transport is not None
-        assert config.app.transport.kafka is config.transport.kafka
+        kafka = config.transport.get_transport_config("kafka")
+        assert kafka["bootstrap_servers"] == "localhost:9092"
 
-    def test_app_transport_takes_precedence_over_root(self):
-        """If app.transport is already set, root transport does not overwrite it."""
-        app_transport = _transport()
-        root_transport = _transport()
-        config = ConfigDataModel(
-            domains=[
-                DomainConfig(
-                    name="example.com",
-                    generators=[GeneratorConfig(name="scoop", artifacts=["warc"])],
-                    webpage_types="dynamic",
-                )
-            ],
-            app=_app(transport=app_transport),
-            transport=root_transport,
-        )
-        assert config.app.transport is app_transport
-
-    def test_domain_with_missing_generators_rejected(self):
-        """Domain config without generators should be rejected at the domain level."""
+    def test_root_transport_is_required(self):
+        """AG needs a transport to run; the root `transport` block is mandatory."""
         with pytest.raises(ValidationError):
-            DomainConfig(name="example.com", generators=[], webpage_types="dynamic")
-
-
-# ── YAML integration ──────────────────────────────────────────────────────────
-
-
-class TestConfigDataModelFromTestingYaml:
-    """ConfigDataModel built from defaults + environments/testing.yaml."""
-
-    def test_testing_config_is_config_data_model(self, testing_config):
-        assert isinstance(testing_config, ConfigDataModel)
-
-    def test_app_name_from_defaults(self, testing_config):
-        assert testing_config.app.name == "archive_generator"
-
-    def test_testing_environment_set(self, testing_config):
-        assert testing_config.app.environment == "testing"
-
-    def test_domains_loaded_with_generators(self, testing_config):
-        assert len(testing_config.domains) > 0
-        for domain in testing_config.domains:
-            assert len(domain.generators) > 0
-
-    def test_known_domain_present(self, testing_config):
-        names = {d.name for d in testing_config.domains}
-        assert "example.com" in names
-
-    def test_transport_synced_to_app(self, testing_config):
-        assert testing_config.app.transport is not None
-        assert testing_config.transport is not None
-        assert testing_config.app.transport.kafka is testing_config.transport.kafka
-
-    def test_storage_config_has_enabled_backends(self, testing_config):
-        storage = testing_config.app.get_storage_config()
-        assert len(storage.get_enabled_backends()) > 0
+            ConfigDataModel(
+                domains=[
+                    DomainConfig(
+                        name="example.com",
+                        generators=[GeneratorConfig(name="scoop", artifacts=["warc"])],
+                        webpage_types="dynamic",
+                    )
+                ],
+                app=_app(),
+            )

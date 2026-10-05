@@ -1,14 +1,9 @@
-# archive_services/__init__.py
-"""
-Archive Services Module
-
-This module contains the archive service implementations and interfaces.
-"""
+"""Archive service implementations and their interface."""
 
 from .archive_service_interface import ArchiveServiceInterface
 from .archive_service import ArchiveService
 
 __all__ = [
-    'ArchiveServiceInterface',
+    'archive_service_interface',
     'ArchiveService'
 ]

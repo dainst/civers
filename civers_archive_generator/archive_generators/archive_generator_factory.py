@@ -1,41 +1,50 @@
-import logging
-from typing import Dict, Type, List, Any
+"""Builds archive generators from a domain's configuration."""
 
-from configs.models import ConfigDataModel, DomainConfig
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Type
+
 from archive_generators import ArchiveGeneratorStrategyInterface
 from archive_generators.scoop import ScoopGenerator
 from archive_generators.singlefile import SingleFileGenerator
+from archive_generators.browsertrix import BrowsertrixGenerator
+
+if TYPE_CHECKING:
+    from configs.models import ConfigDataModel, DomainConfig
 
 logger = logging.getLogger(__name__)
 
 class ArchiveGeneratorFactory:
-    """
-    Factory for creating and validating archive generators.
-    
-    This factory manages a registry of available generators and provides 
-    methods to instantiate them based on domain configuration.
-    """
-    
+    """Build and reuse one instance of each configured generator."""
+
+    # Register implementations here; each class declares its own CAPABILITIES.
+    _generator_classes: ClassVar[Dict[str, Type[ArchiveGeneratorStrategyInterface]]] = {
+        'scoop': ScoopGenerator,
+        'singlefile': SingleFileGenerator,
+        'browsertrix': BrowsertrixGenerator,
+    }
+
     def __init__(self, config: ConfigDataModel):
         self.config = config
         
-        # Registry of available generator classes
-        self._generator_classes: Dict[str, Type[ArchiveGeneratorStrategyInterface]] = {
-            'scoop': ScoopGenerator,
-            'singlefile': SingleFileGenerator,
-        }
-        
-        # Cache for instantiated generators
         self._generator_instances: Dict[str, ArchiveGeneratorStrategyInterface] = {}
         
         logger.debug(f"🏭 Archive generator factory initialized with {len(self._generator_classes)} generator types")
 
+    @classmethod
+    def get_generator_class(cls, name: str) -> Type[ArchiveGeneratorStrategyInterface]:
+        """Find a registered generator class without creating an instance."""
+        generator_class = cls._generator_classes.get(name)
+        if generator_class is None:
+            raise ValueError(f"Unknown generator: {name}")
+        return generator_class
+
     def validate_domain_configs(self):
-        """
-        Validate all domain configurations against generator capabilities at startup.
-        
+        """Check every domain's requested artifacts against its generators' capabilities.
+
         Raises:
-            ValueError: If a domain requests an artifact its generator cannot produce.
+            ValueError: A domain requests an artifact its generator cannot produce.
         """
         for domain in self.config.domains:
             for gen_config in domain.generators:
@@ -45,7 +54,6 @@ class ArchiveGeneratorFactory:
                 if not gen_class:
                     raise ValueError(f"Domain '{domain.name}' requests unknown generator: {gen_name}")
                 
-                # Check if all requested artifacts are within generator capabilities
                 unsupported = set(gen_config.artifacts) - set(gen_class.CAPABILITIES)
                 if unsupported:
                     raise ValueError(
@@ -55,25 +63,20 @@ class ArchiveGeneratorFactory:
         
         logger.info("✅ All domain generator configurations validated successfully")
 
-    def create_generators(self, domain_config: DomainConfig) -> List[ArchiveGeneratorStrategyInterface]:
-        """
-        Create all required generators for a given domain.
-        
-        Args:
-            domain_config: The configuration for the domain to archive.
-            
-        Returns:
-            List of archive generator strategy instances.
+    def create_generators(self, domain_config: DomainConfig):
+        """Return (config, generator) pairs in the configured order.
+
+        Raise ValueError for an unregistered generator name.
         """
         generators = []
         for gen_config in domain_config.generators:
             generator = self._get_or_create_generator(gen_config.name)
-            generators.append(generator)
+            generators.append((gen_config, generator))
             
         return generators
 
     def _get_or_create_generator(self, name: str) -> ArchiveGeneratorStrategyInterface:
-        """Helper to reuse generator instances (singleton per factory)."""
+        """Return the named generator, building it once and reusing it thereafter."""
         if name not in self._generator_instances:
             gen_class = self._generator_classes.get(name)
             if not gen_class:
@@ -85,7 +88,7 @@ class ArchiveGeneratorFactory:
         return self._generator_instances[name]
 
     def get_factory_info(self) -> Dict[str, Any]:
-        """Get info about supported generators and their capabilities."""
+        """Return the registered generator names and what each can produce."""
         return {
             'factory_type': 'ArchiveGeneratorFactory',
             'supported_generators': list(self._generator_classes.keys()),

@@ -1,12 +1,18 @@
+"""Shared base class for archive generators."""
+
+from __future__ import annotations
+
 import logging
 import os
-from typing import List
+from typing import TYPE_CHECKING, List
 
 import aiofiles
 
-from configs.models import ConfigDataModel
 from .archive_result import ArtifactResult
 from . import ArchiveGeneratorStrategyInterface
+
+if TYPE_CHECKING:
+    from configs.models import ConfigDataModel
 
 class BaseGenerator(ArchiveGeneratorStrategyInterface):
     """Base class for archive generators with shared utilities."""
@@ -16,7 +22,7 @@ class BaseGenerator(ArchiveGeneratorStrategyInterface):
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     async def _save_log_to_file(self, content: bytes, folder: str, filename: str) -> str:
-        """Helper to save log content to a file in the output folder."""
+        """Write a capture log and return its target path, even if writing fails."""
         log_path = os.path.join(folder, filename)
         try:
             async with aiofiles.open(log_path, "wb") as f:
@@ -34,3 +40,11 @@ class BaseGenerator(ArchiveGeneratorStrategyInterface):
     ) -> List[ArtifactResult]:
         """Generate specified archive artifacts. Must be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement generate_archive")
+
+    def get_capabilities(self) -> List[str]:
+        """Return the list of artifact types this generator can produce."""
+        return self.CAPABILITIES
+
+    def get_generator_name(self) -> str:
+        """Return the lowercase class name used in capture metadata."""
+        return self.__class__.__name__.lower()

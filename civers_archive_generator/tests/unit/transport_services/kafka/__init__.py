@@ -1,1 +1,0 @@
-# Kafka transport unit tests

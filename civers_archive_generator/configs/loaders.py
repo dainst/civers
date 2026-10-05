@@ -1,9 +1,4 @@
-"""Hierarchical YAML configuration loader for CiVers Archive Generator.
-
-Thin wrapper over ``civers_common.BaseYamlConfigLoader`` that points at this
-service's ``configs/data`` directory and validates the merged config into a
-``ConfigDataModel``.
-"""
+"""Load shared YAML from configs/data/archive_generator/ into ConfigDataModel."""
 
 import logging
 from pathlib import Path
@@ -19,10 +14,10 @@ class YamlFileConfigLoader(BaseYamlConfigLoader):
     """Load and merge CiVers Archive Generator configuration from YAML files."""
 
     def _default_config_dir(self) -> Path:
-        return Path(__file__).resolve().parent / "data"
+        return Path(__file__).resolve().parents[2] / "configs" / "data" / "archive_generator"
 
     def load(self) -> ConfigDataModel:
-        """Load, merge, expand, and validate the configuration."""
+        """Merge YAML files, expand environment variables and validate the result."""
         raw = self.load_raw()
         result = ConfigDataModel(**raw)
         logger.info(f"✅ Configuration loaded for environment: {self.environment}")

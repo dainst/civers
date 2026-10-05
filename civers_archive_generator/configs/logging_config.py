@@ -1,11 +1,26 @@
-"""
-Centralized logging configuration for the Archive Generator system.
-Provides consistent logging setup with Kafka log suppression.
-"""
+"""Logging setup for the Archive Generator, with Kafka log suppression."""
+
 import logging
 import os
 import sys
 from typing import Optional
+
+_VALID_LEVELS = ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG")
+
+
+def resolve_log_level(name: Optional[str], default: int = logging.INFO) -> int:
+    """Return the named logging level; warn and use default for an unknown name."""
+    if not name:
+        return default
+    level = getattr(logging, name.strip().upper(), None)
+    if isinstance(level, int):
+        return level
+    print(
+        f"⚠️ Warning: unknown LOG_LEVEL '{name}'; using "
+        f"{logging.getLevelName(default)}. Valid: {', '.join(_VALID_LEVELS)}",
+        file=sys.stderr,
+    )
+    return default
 
 
 def setup_logging(
@@ -13,22 +28,16 @@ def setup_logging(
     log_file: Optional[str] = None,
     suppress_kafka_logs: bool = True
 ) -> None:
+    """Replace logging handlers with stdout and an optional log file.
+
+    Keep stdout logging if the file cannot be opened. File logs are not rotated here.
     """
-    Configure logging for the Archive Generator system.
-    
-    Args:
-        level: Logging level (default: INFO)
-        log_file: Optional file to write logs to
-        suppress_kafka_logs: Whether to suppress verbose Kafka logs (default: True)
-    """
-    # Setup basic logging configuration
     handlers = [logging.StreamHandler(sys.stdout)]
     
     if log_file:
         try:
             handlers.append(logging.FileHandler(log_file))
         except (PermissionError, OSError) as e:
-            # Fall back to console-only logging in Docker or when file access fails
             print(f"⚠️ Warning: Cannot create log file '{log_file}': {e}")
             print("   Falling back to console-only logging.")
     
@@ -39,12 +48,11 @@ def setup_logging(
         force=True  # Override any existing configuration
     )
     
-    # Suppress verbose third-party logging (level controllable via env)
+    # Apply KAFKA_LOG_LEVEL to Kafka clients.
     if suppress_kafka_logs:
         kafka_log_level = os.getenv("KAFKA_LOG_LEVEL", "WARNING").upper()
         kafka_level = getattr(logging, kafka_log_level, logging.WARNING)
         
-        # Kafka-related loggers - suppress all verbose logging
         logging.getLogger("kafka").setLevel(kafka_level)
         logging.getLogger("aiokafka").setLevel(kafka_level)
         logging.getLogger("aiokafka.conn").setLevel(kafka_level)
@@ -66,13 +74,5 @@ def setup_logging(
 
 
 def get_logger(name: str) -> logging.Logger:
-    """
-    Get a logger with the specified name.
-    
-    Args:
-        name: Logger name (typically __name__)
-        
-    Returns:
-        Configured logger instance
-    """
+    """Return a logger under the given name, typically ``__name__``."""
     return logging.getLogger(name)

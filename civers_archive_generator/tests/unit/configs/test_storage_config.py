@@ -1,15 +1,11 @@
-"""
-Tests for StorageConfig multi-backend support.
+"""Check optional publication settings; capture files are already saved locally."""
 
-These tests verify that StorageConfig properly supports:
-1. Multi-backend mode via 'enabled' list (required)
-2. Validation of enabled backends
-"""
-
-from configs.models import StorageConfig
 import pytest
+from configs.models import StorageConfig
 
 pytestmark = [pytest.mark.unit]
+
+REST = {"upload_url": "http://localhost:8000/api/upload"}
 
 
 class TestStorageConfigMultiBackend:
@@ -18,81 +14,39 @@ class TestStorageConfigMultiBackend:
     def test_enabled_list_returns_all_backends(self):
         """When enabled is set, get_enabled_backends returns the list."""
         config = StorageConfig(
-            enabled=["local_file", "civers_rest_api"],
-            backends={
-                "local_file": {"base_path": "archives"},
-                "civers_rest_api": {"upload_url": "http://localhost:8000/api/upload"}
-            }
+            enabled=["civers_rest_api"],
+            backends={"civers_rest_api": REST},
         )
-        assert config.get_enabled_backends() == ["local_file", "civers_rest_api"]
+        assert config.get_enabled_backends() == ["civers_rest_api"]
 
-    def test_enabled_empty_list_raises_error(self):
-        """Empty enabled list should raise ValueError."""
-        with pytest.raises(ValueError, match="cannot be empty"):
-            StorageConfig(enabled=[])
+    def test_enabled_empty_list_is_allowed(self):
+        """Storage is optional — an empty list disables it."""
+        assert StorageConfig(enabled=[]).get_enabled_backends() == []
 
-    def test_enabled_unknown_backend_raises_error(self):
-        """Enabled backend not in backends dict should raise ValueError."""
-        with pytest.raises(ValueError, match="enabled but not configured"):
-            StorageConfig(
-                enabled=["local_file", "s3"],
-                backends={"local_file": {"base_path": "archives"}}
-            )
+    def test_enabled_absent_is_allowed(self):
+        """Omitting enabled backends disables publication."""
+        assert StorageConfig().get_enabled_backends() == []
 
-    def test_enabled_required(self):
-        """enabled field is required."""
-        with pytest.raises(Exception):  # ValidationError
-            StorageConfig(backends={"local_file": {"base_path": "/tmp/archives"}})
+    def test_enabled_null_is_allowed(self):
+        """A YAML key left blank parses as None and must disable storage too."""
+        assert StorageConfig(enabled=None).get_enabled_backends() == []
 
-    def test_get_backend_config_returns_correct_config(self):
-        """get_backend_config should return config for specified backend."""
+    def test_unconfigured_backend_is_not_rejected(self):
+        """A backend without a config block is skipped at init, not a config error."""
         config = StorageConfig(
-            enabled=["local_file", "civers_rest_api"],
-            backends={
-                "local_file": {"base_path": "archives"},
-                "civers_rest_api": {"upload_url": "http://example.com"}
-            }
+            enabled=["civers_rest_api", "s3"],
+            backends={"civers_rest_api": REST},
         )
-        assert config.get_backend_config("local_file") == {"base_path": "archives"}
-        assert config.get_backend_config("civers_rest_api") == {"upload_url": "http://example.com"}
-
-    def test_enabled_with_single_backend(self):
-        """enabled list with single backend should work."""
-        config = StorageConfig(
-            enabled=["local_file"],
-            backends={"local_file": {"base_path": "archives"}}
-        )
-        assert config.get_enabled_backends() == ["local_file"]
-
-    def test_get_backend_config_returns_empty_for_unknown_backend(self):
-        """get_backend_config for unknown backend should return empty dict."""
-        config = StorageConfig(
-            enabled=["local_file"],
-            backends={"local_file": {"base_path": "archives"}}
-        )
-        assert config.get_backend_config("unknown") == {}
+        assert config.get_enabled_backends() == ["civers_rest_api", "s3"]
 
     def test_enabled_order_is_preserved(self):
         """The order of enabled backends should be preserved."""
         config = StorageConfig(
-            enabled=["civers_rest_api", "local_file"],
-            backends={
-                "local_file": {"base_path": "archives"},
-                "civers_rest_api": {"upload_url": "http://example.com"}
-            }
+            enabled=["civers_rest_api", "other"],
+            backends={"civers_rest_api": REST, "other": {}},
         )
-        assert config.get_enabled_backends() == ["civers_rest_api", "local_file"]
+        assert config.get_enabled_backends() == ["civers_rest_api", "other"]
 
-    def test_has_enabled_field(self):
-        """StorageConfig should have 'enabled' field."""
-        config = StorageConfig(
-            enabled=["local_file"],
-            backends={"local_file": {"base_path": "archives"}}
-        )
-        assert hasattr(config, 'enabled')
-        assert config.enabled == ["local_file"]
-
-    def test_default_backends_used(self):
-        """Default backends should be used if not specified."""
-        config = StorageConfig(enabled=["local_file"])
-        assert config.backends == {"local_file": {"base_path": "archives"}}
+    def test_backends_default_to_empty(self):
+        """No publication backend is enabled by default."""
+        assert StorageConfig().backends == {}

@@ -1,311 +1,223 @@
-# tests/unit/services/test_archive_service.py
-import pytest
-from unittest.mock import Mock, patch, AsyncMock
+"""Exercise the command workflow with real workspace, metadata and artifact files."""
 
-from configs.models import DomainConfig
+import asyncio
+import json
+from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import AsyncMock, Mock
+
+import pytest
+from archive_generators.archive_result import ArtifactResult, ArtifactStatus
+from archive_services.archive_metadata import ArchiveMetadata
 from archive_services.archive_service import ArchiveService
-from archive_generators.archive_result import ArchiveResult, ArtifactResult, ArtifactStatus
+from domain.commands import ArchiveCommand
+from storage_layer.storage_strategy import MultiStorageResult, StorageResult
+
+from civers_common import ResultStatus
+
+pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
 
 
 @pytest.fixture
 def archive_service(sample_config):
-    """Create an ArchiveService instance for testing."""
     return ArchiveService(sample_config)
 
 
-@pytest.mark.unit
-class TestArchiveService:
-    """Test suite for ArchiveService core business logic."""
-    
-    def test_init(self, sample_config):
-        """Test ArchiveService initialization."""
-        service = ArchiveService(sample_config)
-        
-        assert service.config == sample_config
-        assert service.config.domains is not None
-        assert len(service.config.domains) == 2
-    
-    def test_get_supported_domains(self, archive_service):
-        """Test getting supported domains list."""
-        domains = archive_service.get_supported_domains()
-        
-        assert isinstance(domains, list)
-        assert "example.com" in domains
-        assert "static-site.org" in domains
-        assert len(domains) == 2
-    
-    def test_get_domain_config_found(self, archive_service):
-        """Test getting domain configuration when it exists."""
-        domain_config = archive_service.get_domain_config("example.com")
-        
-        assert domain_config is not None
-        assert domain_config.name == "example.com"
-        assert domain_config.webpage_types == "dynamic"
-        assert len(domain_config.generators) > 0
-        assert domain_config.generators[0].name == "scoop"
-    
-    def test_get_domain_config_not_found(self, archive_service):
-        """Test getting domain configuration when it doesn't exist."""
-        with pytest.raises(ValueError, match="Domain 'unknown.com' is not supported"):
-            archive_service.get_domain_config("unknown.com")
-    
-    def test_find_domain_config_exact_match(self, archive_service):
-        """Test finding domain config with exact domain match."""
-        domain_config = archive_service._find_domain_config("https://example.com/page")
-        
-        assert domain_config is not None
-        assert domain_config.name == "example.com"
-    
-    def test_find_domain_config_partial_match(self, archive_service):
-        """Test finding domain config with partial domain match."""
-        domain_config = archive_service._find_domain_config("https://www.example.com/page")
-        
-        assert domain_config is not None
-        assert domain_config.name == "example.com"
-    
-    def test_find_domain_config_not_found(self, archive_service):
-        """Test finding domain config when no match exists."""
-        domain_config = archive_service._find_domain_config("https://unknown.com/page")
-        
-        assert domain_config is None
-    
-    def test_find_domain_config_invalid_url(self, archive_service):
-        """Test finding domain config with invalid URL."""
-        domain_config = archive_service._find_domain_config("not-a-valid-url")
-        
-        assert domain_config is None
-    
-    def test_validate_url_valid(self, archive_service):
-        """Test URL validation with valid URL."""
-        result = archive_service.validate_url("https://example.com/test")
-        
-        assert result['valid'] is True
-        assert result['url'] == "https://example.com/test"
-        assert result['domain'] == "example.com"
-        assert 'domain_config' in result
-        assert result['domain_config'].name == "example.com"
-    
-    def test_validate_url_invalid_format(self, archive_service):
-        """Test URL validation with invalid format."""
-        result = archive_service.validate_url("not-a-url")
-        
-        assert result['valid'] is False
-        assert 'Invalid URL format' in result['reason']
-    
-    def test_validate_url_no_domain_config(self, archive_service):
-        """Test URL validation with no matching domain config."""
-        result = archive_service.validate_url("https://unknown.com/test")
-        
-        assert result['valid'] is False
-        assert 'No domain configuration found' in result['reason']
-        assert result['domain'] == "unknown.com"
-        assert 'supported_domains' in result
-    
-    @patch('archive_services.archive_service.ArchiveGeneratorFactory')
-    def test_create_generators(self, mock_factory_class, archive_service):
-        """Test creating generators via factory."""
-        # Setup mock factory
-        mock_factory = mock_factory_class.return_value
-        mock_generators = [Mock(), Mock()]
-        mock_factory.create_generators.return_value = mock_generators
-        
-        # Replace the factory in the service
-        archive_service.generator_factory = mock_factory
-        
-        domain_config = DomainConfig(
-            name="test.com",
-            generators=[{"name": "scoop", "artifacts": ["warc"]}],
-            webpage_types="dynamic"
-        )
-        
-        generators = archive_service.generator_factory.create_generators(domain_config)
-        
-        mock_factory.create_generators.assert_called_once_with(domain_config)
-        assert generators is mock_generators
-    
-    @pytest.mark.asyncio
-    async def test_store_archive_success(self, archive_service):
-        """Test successful archive storage."""
-        domain_config = DomainConfig(
-            name="test.com",
-            generators=[{"name": "scoop", "artifacts": ["warc", "screenshot"]}],
-            webpage_types="dynamic"
-        )
-        
-        # ArtifactResults describing the files produced
-        artifact_results = [
-            ArtifactResult("warc", ArtifactStatus.SUCCESS, "/tmp/test.warc", 100),
-            ArtifactResult("screenshot", ArtifactStatus.SUCCESS, "/tmp/screenshot.png", 50)
-        ]
-        
-        archive_result = ArchiveResult.create_success(
-            archive_path="/tmp/test.warc",
-            url="https://test.com/page",
-            request_id="test-request-id",
-            artifacts=artifact_results,
-            processing_time_seconds=1.0
-        )
-        
-        result = await archive_service._store_archive(
-            archive_result.archive_path,
-            archive_result.url,
-            domain_config,
-            archive_result.request_id
-        )
-        
-        assert 'storage_id' in result
-        assert result['archive_path'] == "/tmp/test.warc"
-        assert 'warc' in result['artifacts']
-        assert 'screenshot' in result['artifacts']
-        assert result['storage_backend'] == 'local_file'
-        assert 'stored_at' in result
-        assert 'files' in result
-        assert 'total_size' in result
-    
-    @pytest.mark.asyncio
-    async def test_create_archive_success(self, archive_service):
-        """Test successful archive creation end-to-end."""
-        url = "https://example.com/test-page"
-        request_id = "test-req-123"
-        priority = 1
-        
-        # Mock generator to return ArtifactResult
-        mock_generator = AsyncMock()
-        mock_generator.__class__.__name__ = "ScoopGenerator"
-        mock_generator.generate_archive.return_value = [
-            ArtifactResult("warc", ArtifactStatus.SUCCESS, "/tmp/test_archive.warc", 100),
-            ArtifactResult("screenshot", ArtifactStatus.SUCCESS, "/tmp/screenshot.png", 50)
-        ]
-        
-        archive_service.generator_factory = Mock()
-        archive_service.generator_factory.create_generators.return_value = [mock_generator]
-        
-        # Also mock output folder creation, SSRF and metadata saving
-        with patch('os.makedirs'), patch('archive_services.archive_service.urlparse'), \
-             patch.object(archive_service, '_validate_url_for_ssrf'), \
-             patch.object(archive_service, '_generate_metadata'), \
-             patch.object(archive_service, '_save_metadata'), \
-             patch.object(archive_service, '_store_archive', return_value={'storage_id': '123'}):
-            result = await archive_service.create_archive(url, request_id, priority)
-        
-        # Verify result structure
-        assert result['success'] is True
-        assert result['request_id'] == request_id
-        assert result['url'] == url
-        assert 'archive_path' in result
-        assert 'processing_time_seconds' in result
-        
-        # Verify domain config info
-        assert result['domain_config']['name'] == "example.com"
-        
-        # Verify generator was called
-        mock_generator.generate_archive.assert_called_once()
-    
-    @pytest.mark.asyncio
-    async def test_create_archive_no_domain_config(self, archive_service):
-        """Test archive creation when no domain config is found."""
-        url = "https://unknown-domain.com/test-page"
-        request_id = "test-req-456"
-        
-        result = await archive_service.create_archive(url, request_id)
-        
-        assert result['success'] is False
-        assert result['request_id'] == request_id
-        assert result['url'] == url
-        assert 'No domain configuration found' in result['error']
-        assert result['error_type'] == 'configuration_not_found'
-    
-    @pytest.mark.asyncio
-    async def test_create_archive_generator_failure(self, archive_service):
-        """Test archive creation when generator execution fails."""
-        url = "https://example.com/test-page"
-        request_id = "test-req-789"
-        
-        mock_generator = AsyncMock()
-        mock_generator.__class__.__name__ = "ScoopGenerator"
-        mock_generator.generate_archive.side_effect = Exception("Scoop capture failed")
-        
-        archive_service.generator_factory = Mock()
-        archive_service.generator_factory.create_generators.return_value = [mock_generator]
-        
-        with patch('os.makedirs'), \
-             patch.object(archive_service, '_validate_url_for_ssrf'), \
-             patch.object(archive_service, '_generate_metadata'), \
-             patch.object(archive_service, '_save_metadata'), \
-             patch.object(archive_service, '_store_archive', return_value={}):
-            result = await archive_service.create_archive(url, request_id)
-        
-        assert result['success'] is False
-        assert result['request_id'] == request_id
-        assert 'error' in result
-    
-    @pytest.mark.asyncio
-    async def test_create_archive_with_priority(self, archive_service):
-        """Test archive creation with custom priority."""
-        url = "https://example.com/test-page"
-        request_id = "test-req-priority"
-        priority = 5
-        
-        mock_generator = AsyncMock()
-        mock_generator.__class__.__name__ = "ScoopGenerator"
-        mock_generator.generate_archive.return_value = []
-        
-        archive_service.generator_factory = Mock()
-        archive_service.generator_factory.create_generators.return_value = [mock_generator]
-        
-        with patch('os.makedirs'), \
-             patch.object(archive_service, '_validate_url_for_ssrf'), \
-             patch.object(archive_service, '_generate_metadata'), \
-             patch.object(archive_service, '_save_metadata'), \
-             patch.object(archive_service, '_store_archive', return_value={}):
-             result = await archive_service.create_archive(url, request_id, priority)
-        
-        assert result['success'] is True
-        assert result['priority'] == priority
+@pytest.fixture
+def capture_generator(archive_service, monkeypatch):
+    """Replace browser capture, leaving the file and publication workflow intact."""
+    filenames = {"warc": "archive.warc", "screenshot": "screenshot.png"}
 
-
-class TestArchiveServiceIntegration:
-    """Integration tests for ArchiveService with real components."""
-    
-    @pytest.mark.asyncio
-    async def test_create_archive_with_real_config(self, sample_config):
-        """Test archive creation with real configuration structure."""
-        service = ArchiveService(sample_config)
-        
-        # Mock generator to return ArtifactResult
-        mock_generator = AsyncMock()
-        mock_generator.__class__.__name__ = "ScoopGenerator"
-        mock_generator.generate_archive.return_value = [
-            ArtifactResult("warc", ArtifactStatus.SUCCESS, "/tmp/integration_test.warc", 100)
-        ]
-        
-        service.generator_factory = Mock()
-        service.generator_factory.create_generators.return_value = [mock_generator]
-        
-        with patch('os.makedirs'), patch.object(service, '_validate_url_for_ssrf'), \
-             patch.object(service, '_generate_metadata'), \
-             patch.object(service, '_save_metadata'), \
-             patch.object(service, '_store_archive', return_value={'storage_id': '123'}):
-            result = await service.create_archive(
-                "https://example.com/integration-test", 
-                "integration-test-123"
+    async def capture(url, output_folder, requested):
+        folder = Path(output_folder)
+        (folder / "scoop_stdout.log").write_text("capture finished", encoding="utf-8")
+        results = []
+        for name in requested:
+            path = folder / filenames[name]
+            path.write_bytes(b"synthetic capture")
+            results.append(
+                ArtifactResult(
+                    name, ArtifactStatus.SUCCESS, str(path), path.stat().st_size
+                )
             )
-        
-        assert result['success'] is True
-        assert result['domain_config']['name'] == "example.com"
-        assert isinstance(result['processing_time_seconds'], float)
-        assert result['processing_time_seconds'] > 0
-    
-    def test_domain_matching_various_formats(self, archive_service):
-        """Test domain matching with various URL formats."""
-        test_cases = [
-            ("https://example.com", "example.com"),
-            ("https://www.example.com/path", "example.com"),
-            ("http://example.com:8080/path?query=1", "example.com"),
-            ("https://subdomain.example.com", "example.com"),
-        ]
-        
-        for url, expected_domain in test_cases:
-            domain_config = archive_service._find_domain_config(url)
-            assert domain_config is not None, f"Failed to find config for {url}"
-            assert domain_config.name == expected_domain
+        return results
+
+    generator = Mock(
+        generate_archive=AsyncMock(side_effect=capture),
+        get_generator_name=Mock(return_value="scoop"),
+        get_capabilities=Mock(return_value=["warc", "screenshot"]),
+    )
+    monkeypatch.setattr(
+        archive_service.generator_factory,
+        "create_generators",
+        Mock(side_effect=lambda domain: [(domain.generators[0], generator)]),
+    )
+    monkeypatch.setattr(archive_service.url_guard, "validate", AsyncMock())
+    return generator
+
+
+async def test_command_publishes_capture_files_and_metadata(
+    archive_service, capture_generator, monkeypatch
+):
+    publish = AsyncMock(
+        return_value=MultiStorageResult(overall_success=False, results=[])
+    )
+    monkeypatch.setattr(archive_service.storage, "publish", publish)
+    command = ArchiveCommand(request_id="req-files", url="https://example.com/p")
+
+    result = await archive_service.execute(command)
+
+    assert result.success_status is ResultStatus.COMPLETE, result.error
+    folder = result.data["archive_path"]
+    capture_generator.generate_archive.assert_awaited_once_with(
+        command.url, folder, ["warc", "screenshot"]
+    )
+    assert isinstance(folder, str)
+    bundle = publish.await_args.args[0]
+    assert bundle.root == Path(folder)
+    assert bundle.request_id == command.request_id
+    assert bundle.url == command.url
+    assert bundle.snapshot_id == result.data["snapshot_id"] == Path(folder).name
+    assert {file.name for file in bundle.files} == {
+        "archive.warc",
+        "screenshot.png",
+        "scoop_stdout.log",
+        ArchiveMetadata.FILENAME,
+    }
+    assert all(
+        file.path.is_file() and file.size == file.path.stat().st_size
+        for file in bundle.files
+    )
+
+    metadata = json.loads(
+        (Path(folder) / ArchiveMetadata.FILENAME).read_text(encoding="utf-8")
+    )
+    assert metadata["archive_info"]["request_id"] == command.request_id
+    assert metadata["archive_info"]["url"] == command.url
+    assert metadata["artifacts_created"] == ["warc", "screenshot"]
+    assert {file["name"] for file in metadata["files"]} == {
+        "archive.warc",
+        "screenshot.png",
+        "scoop_stdout.log",
+    }
+
+
+async def test_processing_time_includes_publication(
+    archive_service, capture_generator, monkeypatch
+):
+    started = datetime(2026, 10, 5, 12)  # noqa: DTZ001 - match the service's local clock
+    clock = Mock(now=Mock(return_value=started))
+    monkeypatch.setattr("archive_services.archive_service.datetime", clock)
+
+    async def publish(bundle):
+        clock.now.return_value = started + timedelta(seconds=7)
+        return MultiStorageResult(overall_success=False, results=[])
+
+    monkeypatch.setattr(archive_service.storage, "publish", publish)
+
+    result = await archive_service.execute(
+        ArchiveCommand(request_id="req-time", url="https://example.com/p")
+    )
+
+    assert result.success_status is ResultStatus.COMPLETE
+    assert result.data["processing_time_seconds"] == 7.0
+
+
+@pytest.mark.parametrize(
+    "raises", [False, True], ids=["backend-failure", "publication-exception"]
+)
+async def test_storage_failure_preserves_local_capture(
+    archive_service, capture_generator, monkeypatch, raises
+):
+    failed = MultiStorageResult(
+        overall_success=False,
+        results=[
+            StorageResult(
+                success=False,
+                storage_type="civers_rest_api",
+                error_message="upload rejected",
+            )
+        ],
+    )
+    publish = AsyncMock(
+        return_value=failed,
+        side_effect=RuntimeError("storage unavailable") if raises else None,
+    )
+    monkeypatch.setattr(archive_service.storage, "publish", publish)
+
+    result = await archive_service.execute(
+        ArchiveCommand(request_id="req-storage", url="https://example.com/p")
+    )
+
+    assert result.success_status is ResultStatus.COMPLETE, result.error
+    folder = Path(result.data["archive_path"])
+    assert (folder / "archive.warc").is_file()
+    assert (folder / ArchiveMetadata.FILENAME).is_file()
+    assert result.data["snapshot_id"] == folder.name
+
+
+async def test_generator_exception_returns_a_failed_result(
+    archive_service, capture_generator
+):
+    capture_generator.generate_archive.side_effect = RuntimeError("capture crashed")
+
+    result = await archive_service.execute(
+        ArchiveCommand(request_id="req-crash", url="https://example.com/p")
+    )
+
+    assert result.success_status is ResultStatus.FAILED
+    assert result.error_type == "archive_generation_failed"
+    assert "capture crashed" in result.error
+    assert result.data["artifacts_created"] == []
+
+
+async def test_unexpected_error_is_returned_to_the_command_caller(
+    archive_service, capture_generator
+):
+    archive_service.generator_factory.create_generators.side_effect = RuntimeError(
+        "factory failed"
+    )
+
+    result = await archive_service.execute(
+        ArchiveCommand(request_id="req-error", url="https://example.com/p")
+    )
+
+    assert result.success_status is ResultStatus.FAILED
+    assert result.error_type == "processing_error"
+    assert "factory failed" in result.error
+
+
+async def test_cancellation_propagates_to_the_command_caller(
+    archive_service, capture_generator
+):
+    capture_generator.generate_archive.side_effect = asyncio.CancelledError()
+
+    with pytest.raises(asyncio.CancelledError):
+        await archive_service.execute(
+            ArchiveCommand(request_id="req-cancel", url="https://example.com/p")
+        )
+
+
+@pytest.mark.parametrize("protection_enabled", [True, False])
+async def test_url_guard_controls_whether_capture_starts(
+    archive_service, capture_generator, protection_enabled
+):
+    archive_service.config.app.ssrf_protection_enabled = protection_enabled
+    archive_service.url_guard.validate.side_effect = ValueError("private address")
+
+    result = await archive_service.execute(
+        ArchiveCommand(request_id="req-guard", url="https://example.com/p")
+    )
+
+    if protection_enabled:
+        assert result.success_status is ResultStatus.FAILED
+        assert result.error_type == "ssrf_blocked"
+        archive_service.url_guard.validate.assert_awaited_once_with(
+            "https://example.com/p"
+        )
+        capture_generator.generate_archive.assert_not_awaited()
+        assert not Path(archive_service.config.app.archive_directory).exists()
+    else:
+        assert result.success_status is ResultStatus.COMPLETE, result.error
+        archive_service.url_guard.validate.assert_not_awaited()
+        capture_generator.generate_archive.assert_awaited_once()

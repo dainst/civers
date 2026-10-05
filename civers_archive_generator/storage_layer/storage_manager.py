@@ -1,80 +1,46 @@
-"""
-Storage Manager - Multi-Backend Coordinator.
+"""Publish archive bundles to configured storage backends."""
 
-Coordinates storage operations across multiple enabled storage backends,
-aggregating results and handling failures gracefully.
-"""
-
+import asyncio
+from dataclasses import replace
 from typing import Dict, Any, List
+
 from configs.models import StorageConfig
 from configs.logging_config import get_logger
 from .storage_strategy import StorageStrategy, StorageResult, MultiStorageResult
 from .strategy_registry import StorageStrategyRegistry
+from domain.artifacts import ArchiveBundle
 
 
 class StorageManager:
-    """
-    Multi-backend storage coordinator.
-    
-    Manages multiple storage backends simultaneously, storing metadata to
-    all enabled backends and aggregating results. Provides graceful error
-    handling and continues even if some backends fail.
-    
-    Attributes:
-        storage_config: Storage configuration from app_config.yaml
-        strategies: Dictionary mapping backend names to strategy instances
-        logger: Logger instance for this manager
-    
-    Example:
-        >>> storage_config = StorageConfig(
-        ...     enabled=["local_file", "civers_rest_api"],
-        ...     backends={
-        ...         "local_file": {"base_path": "output/metadata"},
-        ...         "civers_rest_api": {"upload_url": "http://localhost:8000/api/upload"}
-        ...     }
-        ... )
-        >>> manager = StorageManager(storage_config)
-        >>> result = await manager.store_metadata(
-        ...     data={"test": "data"},
-        ...     request_id="req_123",
-        ...     url="https://example.com",
-        ...     filename="metadata.json"
-        ... )
-        >>> print(result.overall_success)
-        True
-        >>> print(result.get_successful_backends())
-        ['local_file', 'civers_rest_api']
-    """
+    """Build enabled backends, skip invalid ones and publish to them concurrently."""
     
     def __init__(self, storage_config: StorageConfig):
-        """
-        Initialize Storage Manager with configuration.
-        
-        Args:
-            storage_config: Configuration specifying enabled backends and their settings
-        """
+        """Build a strategy instance for every enabled backend."""
         self.storage_config = storage_config
         self.strategies: Dict[str, StorageStrategy] = {}
         self.logger = get_logger(__name__)
         
-        # Initialize all enabled storage strategies
         self._initialize_strategies()
     
     def _initialize_strategies(self) -> None:
-        """
-        Initialize strategy instances for all enabled backends.
-        
-        Reads enabled backends from config, retrieves strategy classes from
-        registry, and creates instances with backend-specific configuration.
-        Logs initialization and continues if some backends fail.
-        """
+        """Build enabled backends; log and skip missing or invalid configuration."""
         enabled = self.storage_config.get_enabled_backends()
-        
+
+        if not enabled:
+            self.logger.info("No storage backend enabled — artifacts stay on local disk only")
+            return
+
         self.logger.info(f"Initializing {len(enabled)} storage backend(s): {', '.join(enabled)}")
         
         for backend_name in enabled:
             try:
-                # Get backend configuration
+                # A shared config tree may name backends only another service implements.
+                if not StorageStrategyRegistry.is_registered(backend_name):
+                    self.logger.info(
+                        f"Backend '{backend_name}' is not implemented by this service. Skipping."
+                    )
+                    continue
+
                 if backend_name not in self.storage_config.backends:
                     self.logger.warning(
                         f"⚠️ Backend '{backend_name}' is enabled but has no configuration. Skipping."
@@ -83,10 +49,8 @@ class StorageManager:
                 
                 backend_config = self.storage_config.backends[backend_name]
                 
-                # Get strategy class from registry
                 strategy_class = StorageStrategyRegistry.get_strategy_class(backend_name)
                 
-                # Create strategy instance
                 strategy = self._create_strategy_instance(
                     strategy_class=strategy_class,
                     config=backend_config,
@@ -105,159 +69,18 @@ class StorageManager:
         strategy_class: type[StorageStrategy],
         config: Dict[str, Any],
     ) -> StorageStrategy:
-        """
-        Create a storage strategy instance by delegating to the strategy's
-        own from_config classmethod. Each strategy owns its construction logic.
-        """
+        """Build a backend using its from_config method."""
         return strategy_class.from_config(config)
     
-    async def store_metadata(
-        self,
-        data: Dict[str, Any],
-        request_id: str,
-        url: str,
-        filename: str
-    ) -> MultiStorageResult:
-        """
-        Store metadata to all enabled backends and aggregate results.
-        
-        Executes storage operations in parallel across all enabled backends.
-        Checks availability before storing. Aggregates individual results
-        into a MultiStorageResult. Continues even if some backends fail.
-        
-        Args:
-            data: Metadata dictionary to store
-            request_id: Request ID for tracking
-            url: Original source URL
-            filename: Filename for the metadata file
-            
-        Returns:
-            MultiStorageResult containing individual results and overall status
-            
-        Example:
-            >>> result = await manager.store_metadata(
-            ...     data={"title": "Test"},
-            ...     request_id="req_001",
-            ...     url="https://example.com",
-            ...     filename="metadata_req_001.json"
-            ... )
-            >>> if result.overall_success:
-            ...     print(f"Stored to: {result.get_successful_backends()}")
-        """
-        results: List[StorageResult] = []
-        backend_names = list(self.strategies.keys())
-        
-        self.logger.info(
-            f"📦 Storing metadata to {len(backend_names)} backend(s): {', '.join(backend_names)}"
-        )
-        
-        # Store to each backend
-        for backend_name, strategy in self.strategies.items():
-            try:
-                # Check if backend is available
-                is_available = await strategy.is_available()
-                
-                if not is_available:
-                    self.logger.warning(
-                        f"⚠️ Backend '{backend_name}' is not available. Skipping."
-                    )
-                    results.append(StorageResult(
-                        success=False,
-                        storage_type=backend_name,
-                        error_message="Backend not available"
-                    ))
-                    continue
-                
-                # Store metadata
-                result = await strategy.store_metadata(
-                    data=data,
-                    request_id=request_id,
-                    url=url,
-                    filename=filename
-                )
-                
-                results.append(result)
-                
-                if result.success:
-                    self.logger.info(
-                        f"✅ Successfully stored to '{backend_name}': {result.storage_location}"
-                    )
-                else:
-                    self.logger.warning(
-                        f"❌ Failed to store to '{backend_name}': {result.error_message}"
-                    )
-                    
-            except Exception as e:
-                # Handle unexpected errors per backend
-                error_msg = f"Unexpected error: {e}"
-                self.logger.error(f"❌ Error storing to '{backend_name}': {error_msg}")
-                results.append(StorageResult(
-                    success=False,
-                    storage_type=backend_name,
-                    error_message=error_msg
-                ))
-        
-        # Aggregate results
-        successful_backends = [r.storage_type for r in results if r.success]
-        failed_backends = [r.storage_type for r in results if not r.success]
-        
-        overall_success = len(successful_backends) > 0
-        
-        # Determine primary location (prefer local_file, then first successful)
-        primary_location = None
-        if overall_success:
-            # Try to get local_file location first
-            for result in results:
-                if result.success and result.storage_type == "local_file":
-                    primary_location = result.storage_location
-                    break
-            
-            # If no local_file, use first successful
-            if primary_location is None:
-                for result in results:
-                    if result.success:
-                        primary_location = result.storage_location
-                        break
-        
-        # Log summary
-        if overall_success:
-            self.logger.info(
-                f"✅ Storage complete: {len(successful_backends)}/{len(results)} backends succeeded. "
-                f"Successful: {', '.join(successful_backends)}"
-            )
-        else:
-            self.logger.error(
-                f"❌ All {len(results)} storage backends failed. "
-                f"Failed: {', '.join(failed_backends)}"
-            )
-        
-        return MultiStorageResult(
-            overall_success=overall_success,
-            results=results,
-            primary_location=primary_location
-        )
-    
     def get_enabled_backends(self) -> List[str]:
-        """
-        Get list of enabled backend names.
-        
-        Returns:
-            List of strategy keys that are currently initialized
-        """
+        """Return the config keys of the backends that were successfully built."""
         return list(self.strategies.keys())
     
     def get_backend_strategy(self, backend_name: str) -> StorageStrategy:
-        """
-        Get strategy instance for a specific backend.
-        
-        Args:
-            backend_name: Name of the backend (e.g., "local_file")
-            
-        Returns:
-            Strategy instance for the backend
-            
+        """Return the strategy registered under a config key.
+
         Raises:
-            KeyError: If backend is not initialized
+            KeyError: No such backend was initialized.
         """
         if backend_name not in self.strategies:
             raise KeyError(
@@ -267,81 +90,44 @@ class StorageManager:
         
         return self.strategies[backend_name]
     
-    async def store_artifacts(
-        self,
-        archive_path: str,
-        request_id: str,
-        url: str
-    ) -> MultiStorageResult:
+    async def publish(self, bundle: ArchiveBundle) -> MultiStorageResult:
+        """Publish the bundle concurrently and collect results under configured backend names.
+
+        Each backend selects its files. Backend errors become failed results.
         """
-        Store archive artifacts to all enabled backends that support it.
-        
-        Uploads all archive files (wacz, html, png, etc.) from an archive
-        directory to backends that support artifact storage. Currently only
-        civers_rest_api supports full artifact upload.
-        
-        Args:
-            archive_path: Path to the archive directory containing artifacts
-            request_id: Request ID for tracking
-            url: Original source URL
-            
-        Returns:
-            MultiStorageResult with results from each backend
-        """
-        results: List[StorageResult] = []
-        
-        self.logger.info(f"📦 Storing artifacts from {archive_path} to {len(self.strategies)} backend(s)")
-        
-        for backend_name, strategy in self.strategies.items():
-            try:
-                # Check if strategy supports artifact storage
-                if hasattr(strategy, 'store_artifacts'):
-                    # Check availability first
-                    is_available = await strategy.is_available()
-                    if not is_available:
-                        self.logger.warning(f"Backend {backend_name} not available, skipping artifacts")
-                        results.append(StorageResult(
-                            success=False,
-                            storage_type=backend_name,
-                            error_message="Backend not available"
-                        ))
-                        continue
-                    
-                    # Upload artifacts
-                    result = await strategy.store_artifacts(
-                        archive_path=archive_path,
-                        request_id=request_id,
-                        url=url
-                    )
-                    results.append(result)
-                    
-                    if result.success:
-                        self.logger.info(f"✅ Artifacts stored to {backend_name}: {result.storage_location}")
-                    else:
-                        self.logger.warning(f"⚠️ Artifact storage failed for {backend_name}: {result.error_message}")
-                else:
-                    self.logger.debug(f"Backend {backend_name} does not support artifact storage, skipping")
-                    
-            except Exception as e:
-                self.logger.error(f"❌ Error storing artifacts to {backend_name}: {e}")
-                results.append(StorageResult(
-                    success=False,
-                    storage_type=backend_name,
-                    error_message=str(e)
-                ))
-        
-        # Calculate overall success (at least one backend succeeded)
-        overall_success = any(r.success for r in results) if results else False
-        
-        # Get primary location from first successful result
-        primary_location = None
-        for r in results:
-            if r.success and r.storage_location:
-                primary_location = r.storage_location
-                break
-        
-        return MultiStorageResult(
-            overall_success=overall_success,
-            results=results,
-            primary_location=primary_location
+        if not self.strategies:
+            self.logger.debug("No storage backend enabled — nothing to publish")
+            return MultiStorageResult(overall_success=False, results=[])
+
+        names = list(self.strategies)
+        self.logger.info(
+            f"📦 Publishing {bundle.snapshot_id} to {len(names)} backend(s): {', '.join(names)}"
         )
+
+        outcomes = await asyncio.gather(
+            *(self.strategies[name].store_artifacts(bundle) for name in names),
+            return_exceptions=True,
+        )
+
+        results = [self._label(name, outcome) for name, outcome in zip(names, outcomes)]
+        return MultiStorageResult(
+            overall_success=any(r.success for r in results),
+            results=results,
+        )
+
+    def _label(self, backend_name: str, outcome) -> StorageResult:
+        """Use the configured backend name in successful and failed results."""
+        if isinstance(outcome, BaseException):
+            self.logger.error(f"❌ Error publishing to '{backend_name}': {outcome}")
+            return StorageResult(
+                success=False,
+                storage_type=backend_name,
+                error_message=f"Unexpected error: {outcome}",
+            )
+
+        if outcome.success:
+            self.logger.info(f"✅ Published to {backend_name}: {outcome.storage_location}")
+        else:
+            self.logger.warning(f"⚠️ Publishing failed for {backend_name}: {outcome.error_message}")
+
+        return replace(outcome, storage_type=backend_name)
